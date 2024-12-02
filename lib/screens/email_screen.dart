@@ -1,44 +1,64 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-
-// Importe as telas de login e registro
+import 'package:vizinhos_app/screens/registration_screen.dart';
 import 'login_email_screen.dart';
-import 'registration_screen.dart';
 
 class EmailScreen extends StatelessWidget {
   final TextEditingController emailController = TextEditingController();
 
-  // Função para verificar o email
   Future<void> checkEmail(BuildContext context, String email) async {
-    final url = Uri.parse('https://rnhvqimff9.execute-api.us-east-2.amazonaws.com/email/$email');
+    final url = Uri.parse('https://7nxpb54n5l.execute-api.us-east-2.amazonaws.com/email/$email');
 
     try {
-      final response = await http.get(url);
+      final response = await http.get(
+        url,
+        headers: {
+          'Accept': 'application/json',
+        },
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data.isNotEmpty) {
-          // Email existe, navegar para a tela de login
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => LoginEmailScreen(email: email)),
-          );
+        if (data['message'] == 'Usuário encontrado') {
+          bool isConfirmed = data['is_confirmed'];
+          List<dynamic> userAttributes = data['user_attributes'];
+          print('Atributos do usuário: $userAttributes');
+
+          if (isConfirmed) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => LoginEmailScreen(email: email)),
+            );
+          } else {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => RegistrationScreen(email: email)),
+            );
+          }
         } else {
-          // Email não existe, navegar para a tela de registro
+          // Se a mensagem for "User does not exist" ou qualquer outro caso de erro,
+          // redireciona para a tela de registro
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => RegistrationScreen(email: email)),
           );
         }
+      } else if (response.statusCode == 400) {
+        // Se o status for 400, redireciona para a tela de registro
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => RegistrationScreen(email: email)),
+        );
       } else {
+        // Se o status não for 200 nem 400, exibe mensagem de erro
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Erro ao verificar o email: ${response.body}")),
+          SnackBar(content: Text("Erro ao verificar o email: ${response.statusCode} - ${response.body}")),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erro de conexão: $e")),
+        SnackBar(content: Text("Erro de conexão: ${e.toString()}")),
       );
     }
   }
