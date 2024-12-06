@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vizinhos_app/screens/home_page.dart';
 
 class LoginEmailScreen extends StatelessWidget {
   final String email;
@@ -19,8 +20,9 @@ class LoginEmailScreen extends StatelessWidget {
       // Se a autenticação for bem-sucedida, navegue para a próxima tela
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Login bem-sucedido!")),
+      
       );
-      // Navigator.push(context, MaterialPageRoute(builder: (context) => HomePage()));
+      Navigator.push(context, MaterialPageRoute(builder: (context) => HomePage()));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Por favor, insira sua senha.")),

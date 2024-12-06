@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:vizinhos_app/screens/homepage.dart';
+import 'package:vizinhos_app/screens/home_page.dart';
 import 'package:vizinhos_app/screens/login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
