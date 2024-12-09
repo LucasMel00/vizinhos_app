@@ -1,32 +1,104 @@
-import 'package:flutter/material.dart';
-import 'package:vizinhos_app/screens/home_page.dart';
+// lib/screens/login_email_screen.dart
 
-class LoginEmailScreen extends StatelessWidget {
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:vizinhos_app/screens/User/home_page_user.dart';
+import 'package:vizinhos_app/services/secure_storage.dart';
+
+class LoginEmailScreen extends StatefulWidget {
   final String email;
 
   LoginEmailScreen({required this.email});
 
+  @override
+  _LoginEmailScreenState createState() => _LoginEmailScreenState();
+}
+
+class _LoginEmailScreenState extends State<LoginEmailScreen> {
   final TextEditingController passwordController = TextEditingController();
+  bool isLoading = false;
+  final SecureStorage _secureStorage = SecureStorage();
 
-  // Função para realizar o login (a ser implementada)
-  void login(BuildContext context) {
-    // Implemente a lógica de autenticação aqui
-    final password = passwordController.text.trim();
+  Future<void> loginUser(BuildContext context) async {
+    final url = Uri.parse('https://7nxpb54n5l.execute-api.us-east-2.amazonaws.com/login');
 
-    if (password.isNotEmpty) {
-      // Exemplo de lógica de autenticação
-      // Você pode fazer uma requisição para a API para validar a senha
+    setState(() {
+      isLoading = true;
+    });
 
-      // Se a autenticação for bem-sucedida, navegue para a próxima tela
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Login bem-sucedido!")),
-      
+    final body = {
+      'email': widget.email,
+      'password': passwordController.text.trim(),
+    };
+
+    final client = http.Client();
+
+    try {
+      print('Enviando dados: ${jsonEncode(body)}');
+
+      final response = await client.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(body),
       );
-      Navigator.push(context, MaterialPageRoute(builder: (context) => HomePage()));
-    } else {
+
+      print('Status Code: ${response.statusCode}');
+      print('Headers: ${response.headers}');
+      print('Body: ${response.body}');
+
+      setState(() {
+        isLoading = false;
+      });
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+
+        // Salva o token usando SecureStorage
+        final String token = responseData['accessToken'];
+        await _secureStorage.setToken(token);
+
+        // Exibe mensagem de sucesso
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Login realizado com sucesso!")),
+        );
+
+        // Navegar para a HomePage
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => HomePage()),
+        );
+      } else {
+        // Exibir mensagem de erro retornada pela API
+        final data = jsonDecode(response.body);
+        String errorMessage = data['error'] ?? 'Erro ao fazer login.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage)),
+        );
+      }
+    } on http.ClientException catch (e) {
+      print('ClientException: $e');
+      setState(() {
+        isLoading = false;
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Por favor, insira sua senha.")),
+        SnackBar(content: Text("Erro de conexão: $e")),
       );
+    } catch (e) {
+      print('Erro inesperado: $e');
+      setState(() {
+        isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erro inesperado: $e")),
+      );
+    } finally {
+      client.close();
     }
   }
 
@@ -37,7 +109,7 @@ class LoginEmailScreen extends StatelessWidget {
         title: Text("Login"),
         backgroundColor: Colors.green,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
@@ -46,14 +118,7 @@ class LoginEmailScreen extends StatelessWidget {
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 24),
-            TextField(
-              enabled: false,
-              controller: TextEditingController(text: email),
-              decoration: InputDecoration(
-                labelText: "Email",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
+            Text("Email: ${widget.email}", style: TextStyle(fontSize: 16)),
             SizedBox(height: 16),
             TextField(
               controller: passwordController,
@@ -64,8 +129,18 @@ class LoginEmailScreen extends StatelessWidget {
               ),
             ),
             SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => login(context),
+            isLoading
+                ? Center(child: CircularProgressIndicator())
+                : ElevatedButton(
+              onPressed: () {
+                if (passwordController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Por favor, insira sua senha.")),
+                  );
+                  return;
+                }
+                loginUser(context);
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 minimumSize: Size(double.infinity, 50),

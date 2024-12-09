@@ -1,4 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:vizinhos_app/screens/User/user_account_page.dart';
+
+void main() {
+  runApp(MaterialApp(
+    home: HomePage(),
+  ));
+}
 
 class HomePage extends StatelessWidget {
   @override
@@ -10,7 +17,11 @@ class HomePage extends StatelessWidget {
         leading: IconButton(
           icon: Icon(Icons.person, color: Colors.black),
           onPressed: () {
-            // Ação ao clicar no ícone do perfil
+            // Ao clicar no ícone de pessoa, navegar para a UserAccountPage
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => UserAccountPage()),
+            );
           },
         ),
         title: Column(
@@ -93,7 +104,6 @@ class HomePage extends StatelessWidget {
           ],
         ),
       ),
-      // Barra de navegação inferior
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: 0,
@@ -106,7 +116,14 @@ class HomePage extends StatelessWidget {
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Conta'),
         ],
         onTap: (index) {
-          // Ação ao clicar nos itens do menu inferior
+          // Ao clicar no item de menu inferior "Conta" (index 3),
+          // também redireciona para UserAccountPage
+          if (index == 3) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => UserAccountPage()),
+            );
+          }
         },
       ),
     );
@@ -128,49 +145,49 @@ class HomePage extends StatelessWidget {
 
   // Widget para os cards de restaurantes
   Widget _buildRestaurantCard({
-  required String name,
-  required String price,
-  required String deliveryTime,
-  required double rating,
-  required String imageUrl,
-}) {
-  return Card(
-    margin: EdgeInsets.only(bottom: 16),
-    child: Row(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.network(
-            imageUrl,
-            height: 80, // Altura máxima da imagem
-            width: 80, // Largura máxima da imagem
-            fit: BoxFit.cover, // Ajusta a imagem ao contêiner sem distorção
+    required String name,
+    required String price,
+    required String deliveryTime,
+    required double rating,
+    required String imageUrl,
+  }) {
+    return Card(
+      margin: EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              imageUrl,
+              height: 80,
+              width: 80,
+              fit: BoxFit.cover,
+            ),
           ),
-        ),
-        SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                name,
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 8),
-              Text('$price • $deliveryTime', style: TextStyle(color: Colors.grey)),
-              SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(Icons.star, color: Colors.amber, size: 16),
-                  SizedBox(width: 4),
-                  Text(rating.toString(), style: TextStyle(color: Colors.grey)),
-                ],
-              ),
-            ],
+          SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 8),
+                Text('$price • $deliveryTime', style: TextStyle(color: Colors.grey)),
+                SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.star, color: Colors.amber, size: 16),
+                    SizedBox(width: 4),
+                    Text(rating.toString(), style: TextStyle(color: Colors.grey)),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 }

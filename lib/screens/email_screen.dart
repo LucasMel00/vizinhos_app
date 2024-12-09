@@ -4,11 +4,21 @@ import 'package:http/http.dart' as http;
 import 'package:vizinhos_app/screens/registration_screen.dart';
 import 'login_email_screen.dart';
 
-class EmailScreen extends StatelessWidget {
+class EmailScreen extends StatefulWidget {
+  @override
+  _EmailScreenState createState() => _EmailScreenState();
+}
+
+class _EmailScreenState extends State<EmailScreen> {
   final TextEditingController emailController = TextEditingController();
+  bool isLoading = false; // Variável para controlar o estado de carregamento
 
   Future<void> checkEmail(BuildContext context, String email) async {
     final url = Uri.parse('https://7nxpb54n5l.execute-api.us-east-2.amazonaws.com/email/$email');
+
+    setState(() {
+      isLoading = true; // Ativa o estado de carregamento
+    });
 
     try {
       final response = await http.get(
@@ -20,38 +30,49 @@ class EmailScreen extends StatelessWidget {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+
         if (data['message'] == 'Usuário encontrado') {
           bool isConfirmed = data['is_confirmed'];
-          List<dynamic> userAttributes = data['user_attributes'];
-          print('Atributos do usuário: $userAttributes');
 
           if (isConfirmed) {
+            // Redirecionar para a tela de login se o email estiver confirmado
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => LoginEmailScreen(email: email)),
             );
           } else {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => RegistrationScreen(email: email)),
+            // Mostrar diálogo pedindo para confirmar o email
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: Text('Confirmação de Email'),
+                content: Text('Por favor, confirme seu email antes de continuar.'),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(); // Fecha o diálogo
+                    },
+                    child: Text('OK'),
+                  ),
+                ],
+              ),
             );
           }
         } else {
-          // Se a mensagem for "User does not exist" ou qualquer outro caso de erro,
-          // redireciona para a tela de registro
+          // Se o usuário não existir, redirecionar para a tela de registro
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => RegistrationScreen(email: email)),
           );
         }
       } else if (response.statusCode == 400) {
-        // Se o status for 400, redireciona para a tela de registro
+        // Se o status for 400, redirecionar para a tela de registro
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => RegistrationScreen(email: email)),
         );
       } else {
-        // Se o status não for 200 nem 400, exibe mensagem de erro
+        // Exibir mensagem de erro para outros códigos de status
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Erro ao verificar o email: ${response.statusCode} - ${response.body}")),
         );
@@ -60,6 +81,10 @@ class EmailScreen extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Erro de conexão: ${e.toString()}")),
       );
+    } finally {
+      setState(() {
+        isLoading = false; // Desativa o estado de carregamento
+      });
     }
   }
 
@@ -94,23 +119,44 @@ class EmailScreen extends StatelessWidget {
               ),
             ),
             SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                final email = emailController.text.trim();
-                if (email.isNotEmpty && email.contains("@")) {
-                  checkEmail(context, email);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Por favor, insira um email válido.")),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                minimumSize: Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: isLoading
+                    ? null // Desativa o botão quando isLoading é true
+                    : () {
+                        final email = emailController.text.trim();
+                        if (email.isNotEmpty && email.contains("@")) {
+                          checkEmail(context, email);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Por favor, insira um email válido.")),
+                          );
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: isLoading
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          ),
+                          SizedBox(width: 10),
+                          Text("Verificando...", style: TextStyle(fontSize: 16)),
+                        ],
+                      )
+                    : Text("Continuar", style: TextStyle(fontSize: 16)),
               ),
-              child: Text("Continuar", style: TextStyle(fontSize: 16)),
             ),
           ],
         ),

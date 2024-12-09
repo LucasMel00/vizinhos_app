@@ -1,6 +1,9 @@
+// lib/screens/splash_screen.dart
+
 import 'package:flutter/material.dart';
-import 'package:vizinhos_app/screens/home_page.dart';
+import 'package:vizinhos_app/screens/User/home_page_user.dart';
 import 'package:vizinhos_app/screens/login_screen.dart';
+import 'package:vizinhos_app/services/secure_storage.dart';
 
 class SplashScreen extends StatefulWidget {
   @override
@@ -8,19 +11,28 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  final SecureStorage _secureStorage = SecureStorage();
+
   @override
   void initState() {
     super.initState();
-    _navigateToLogin();
+    _checkAuthenticationStatus();
   }
 
-  void _navigateToLogin() async {
-    // Aguarda 2 segundos antes de redirecionar
-    await Future.delayed(Duration(seconds: 2));
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => LoginScreen()),
-    );
+  Future<void> _checkAuthenticationStatus() async {
+    await Future.delayed(Duration(seconds: 2)); // Simula um tempo de carregamento
+    final token = await _secureStorage.getToken(); // Leitura assíncrona do token
+    if (token != null && token.isNotEmpty) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomePage()),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => LoginScreen()),
+      );
+    }
   }
 
   @override
