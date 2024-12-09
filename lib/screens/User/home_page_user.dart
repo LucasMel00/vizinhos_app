@@ -1,9 +1,9 @@
-// home_page.dart
+// lib/screens/Home/home_page.dart
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
+import 'package:provider/provider.dart';
 import 'package:vizinhos_app/models/restaurant.dart';
 import 'package:vizinhos_app/screens/User/user_account_page.dart';
 import 'package:vizinhos_app/screens/category/category_page.dart';
@@ -11,7 +11,8 @@ import 'package:vizinhos_app/screens/restaurant/restaurant_detail_page.dart';
 import 'package:vizinhos_app/screens/search/search_page.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart';
 import 'package:vizinhos_app/screens/Offers/offers_page.dart';
-import 'package:vizinhos_app/screens/best/best_page.dart';
+import 'package:vizinhos_app/screens/Best/best_page.dart';
+import 'package:vizinhos_app/services/auth_provider.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -28,8 +29,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<List<Restaurant>> fetchRestaurants() async {
-    final response = await http
-        .get(Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/list'));
+    final response = await http.get(Uri.parse(
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/list')); // Substitua pela URL correta
 
     if (response.statusCode == 200) {
       List<dynamic> jsonResponse = json.decode(response.body);
@@ -43,6 +44,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -299,8 +302,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   // Widget para os ícones das categorias
-  Widget _buildCategoryIcon(
-      BuildContext context, IconData icon, String label, Color color, Widget destination) {
+  Widget _buildCategoryIcon(BuildContext context, IconData icon, String label,
+      Color color, Widget destination) {
     return GestureDetector(
       onTap: () {
         Navigator.push(

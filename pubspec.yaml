@@ -44,6 +44,8 @@ dependencies:
   aws_dynamodb_api: ^2.0.0
   shared_preferences: ^2.3.3
   flutter_secure_storage: ^9.2.2
+  provider: ^6.0.0
+  dart_jsonwebtoken: ^2.1.2
 
 dev_dependencies:
   flutter_test:

@@ -1,9 +1,11 @@
 // lib/screens/splash_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:vizinhos_app/screens/User/home_page_user.dart';
+import 'package:provider/provider.dart';
 import 'package:vizinhos_app/screens/login_screen.dart';
-import 'package:vizinhos_app/services/secure_storage.dart';
+import '../services/auth_provider.dart';
+import 'login_email_screen.dart';
+import 'User/home_page_user.dart';
 
 class SplashScreen extends StatefulWidget {
   @override
@@ -11,23 +13,24 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  final SecureStorage _secureStorage = SecureStorage();
-
   @override
   void initState() {
     super.initState();
-    _checkAuthenticationStatus();
+    checkAuthentication();
   }
 
-  Future<void> _checkAuthenticationStatus() async {
-    await Future.delayed(Duration(seconds: 2)); // Simula um tempo de carregamento
-    final token = await _secureStorage.getToken(); // Leitura assíncrona do token
-    if (token != null && token.isNotEmpty) {
+  Future<void> checkAuthentication() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await authProvider.loadTokens();
+
+    if (authProvider.isAuthenticated) {
+      // Navega para a HomePage se estiver autenticado
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => HomePage()),
       );
     } else {
+      // Navega para a tela de login se não estiver autenticado
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => LoginScreen()),
@@ -38,13 +41,9 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.green,
+      // Você pode personalizar esta tela como desejar
       body: Center(
-        child: Icon(
-          Icons.directions_walk,
-          size: 100,
-          color: Colors.black,
-        ),
+        child: CircularProgressIndicator(),
       ),
     );
   }

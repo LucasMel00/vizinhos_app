@@ -29,15 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: Colors.white,
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
-          child: CircleAvatar(
-            backgroundColor: Colors.grey[200],
-            child: IconButton(
-              icon: Icon(Icons.arrow_back, color: Colors.black),
-              onPressed: () {
-                Navigator.pop(context);
-              },
-            ),
-          ),
+          
         ),
       ),
       body: Padding(

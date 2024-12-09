@@ -1,14 +1,23 @@
 // lib/main.dart
 
 import 'package:flutter/material.dart';
-import 'package:vizinhos_app/screens/splash_screen.dart';
+import 'package:provider/provider.dart';
+import 'services/auth_provider.dart';
+import 'screens/splash_screen.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(MyApp());
+void main() {
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+      ],
+      child: MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
+  // Este widget é a raiz da aplicação.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -16,7 +25,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.green,
       ),
-      home: SplashScreen(),
+      home: SplashScreen(), // Tela inicial que decide para onde navegar
     );
   }
 }
