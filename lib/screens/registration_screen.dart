@@ -55,7 +55,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return;
     }
 
-    final url = Uri.parse('https://7nxpb54n5l.execute-api.us-east-2.amazonaws.com/register');
+    final url = Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/register');
 
     setState(() {
       isLoading = true;
@@ -70,7 +70,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     final body = {
       'email': widget.email,
       'password': passwordController.text.trim(),
-      'full_name': fullNameController.text.trim(),
+      'name': fullNameController.text.trim(),
       'cpf': cpfNumeros,
       'phone_number': phoneNumber,
       'address': addressController.text.trim(),
@@ -238,6 +238,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(
           'Registro de Usuário',

@@ -21,7 +21,7 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
   final SecureStorage _secureStorage = SecureStorage();
 
   Future<void> loginUser(BuildContext context) async {
-    final url = Uri.parse('https://7nxpb54n5l.execute-api.us-east-2.amazonaws.com/login');
+    final url = Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/login');
 
     setState(() {
       isLoading = true;

@@ -14,7 +14,7 @@ class _EmailScreenState extends State<EmailScreen> {
   bool isLoading = false; // Variável para controlar o estado de carregamento
 
   Future<void> checkEmail(BuildContext context, String email) async {
-    final url = Uri.parse('https://7nxpb54n5l.execute-api.us-east-2.amazonaws.com/email/$email');
+    final url = Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/email/$email');
 
     setState(() {
       isLoading = true; // Ativa o estado de carregamento
