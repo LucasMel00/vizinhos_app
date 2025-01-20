@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-import 'package:vizinhos_app/models/restaurant.dart';
+import 'package:vizinhos_app/screens/models/restaurant.dart';
 import 'package:vizinhos_app/screens/restaurant/restaurant_detail_page.dart';
 
 class OffersPage extends StatefulWidget {
@@ -22,15 +22,15 @@ class _OffersPageState extends State<OffersPage> {
   }
 
   Future<List<Restaurant>> fetchOffers() async {
-    final response = await http
-        .get(Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/list'));
+    final response = await http.get(Uri.parse(
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/list'));
 
     if (response.statusCode == 200) {
       List<dynamic> jsonResponse = json.decode(response.body);
       List<Restaurant> allRestaurants = jsonResponse
           .map((restaurant) => Restaurant.fromJson(restaurant))
           .toList();
-      
+
       // Filtrar restaurantes que contêm "Ofertas" em suas categorias
       return allRestaurants
           .where((restaurant) => restaurant.categories.contains('Ofertas'))
@@ -135,7 +135,8 @@ class _OffersPageState extends State<OffersPage> {
                           TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     SizedBox(height: 8),
-                    Text('${restaurant.menu.isNotEmpty ? 'R\$ ${restaurant.menu[0].price.toStringAsFixed(2)}' : 'R\$ 0.00'} • 25-35 min',
+                    Text(
+                        '${restaurant.menu.isNotEmpty ? 'R\$ ${restaurant.menu[0].price.toStringAsFixed(2)}' : 'R\$ 0.00'} • 25-35 min',
                         style: TextStyle(color: Colors.grey)),
                     SizedBox(height: 4),
                     Row(

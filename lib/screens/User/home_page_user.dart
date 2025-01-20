@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
-import 'package:vizinhos_app/models/restaurant.dart';
 import 'package:vizinhos_app/screens/User/user_account_page.dart';
+import 'package:vizinhos_app/screens/models/restaurant.dart';
+import 'package:vizinhos_app/screens/Offers/offers_page.dart';
+import 'package:vizinhos_app/screens/best/best_page.dart';
 import 'package:vizinhos_app/screens/category/category_page.dart';
+import 'package:vizinhos_app/screens/orders/orders_page.dart';
 import 'package:vizinhos_app/screens/restaurant/restaurant_detail_page.dart';
 import 'package:vizinhos_app/screens/search/search_page.dart';
-import 'package:vizinhos_app/screens/orders/orders_page.dart';
-import 'package:vizinhos_app/screens/Offers/offers_page.dart';
-import 'package:vizinhos_app/screens/Best/best_page.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 
 class HomePage extends StatefulWidget {
@@ -111,10 +111,12 @@ class _HomePageState extends State<HomePage> {
             List<Restaurant> restaurantes = snapshot.data!;
 
             // Filtrar restaurantes por categoria
-            List<Restaurant> melhoresRestaurantes =
-                restaurantes.where((r) => r.categories.contains('Melhores')).toList();
-            List<Restaurant> ofertasRestaurantes =
-                restaurantes.where((r) => r.categories.contains('Ofertas')).toList();
+            List<Restaurant> melhoresRestaurantes = restaurantes
+                .where((r) => r.categories.contains('Melhores'))
+                .toList();
+            List<Restaurant> ofertasRestaurantes = restaurantes
+                .where((r) => r.categories.contains('Ofertas'))
+                .toList();
 
             return SingleChildScrollView(
               child: Column(
@@ -159,18 +161,16 @@ class _HomePageState extends State<HomePage> {
                             'Ofertas',
                             Colors.red,
                             OffersPage()), // Navega para OffersPage
-                        _buildCategoryIcon(
-                            context,
-                            Icons.star,
-                            'Melhores',
-                            Colors.orange,
-                            BestPage()), // Navega para BestPage
+                        _buildCategoryIcon(context, Icons.star, 'Melhores',
+                            Colors.orange, BestPage()), // Navega para BestPage
                         _buildCategoryIcon(
                             context,
                             Icons.card_giftcard,
                             'Cupons',
                             Colors.pink,
-                            CategoryPage(categoryName: 'Cupons')), // Mantém navegação para CategoryPage
+                            CategoryPage(
+                                categoryName:
+                                    'Cupons')), // Mantém navegação para CategoryPage
                       ],
                     ),
                   ),
@@ -203,7 +203,8 @@ class _HomePageState extends State<HomePage> {
                             },
                           )
                         : Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
                             child: Text(
                               'Nenhum restaurante na categoria "Melhores".',
                               style: TextStyle(color: Colors.grey),
@@ -239,7 +240,8 @@ class _HomePageState extends State<HomePage> {
                             },
                           )
                         : Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
                             child: Text(
                               'Nenhum restaurante na categoria "Ofertas".',
                               style: TextStyle(color: Colors.grey),

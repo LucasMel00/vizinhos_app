@@ -1,7 +1,7 @@
 // restaurant_detail_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:vizinhos_app/models/restaurant.dart';
+import 'package:vizinhos_app/screens/models/restaurant.dart';
 
 class RestaurantDetailPage extends StatelessWidget {
   final Restaurant restaurant;
@@ -37,8 +37,8 @@ class RestaurantDetailPage extends StatelessWidget {
                   alignment: Alignment.center,
                   child: CircularProgressIndicator(
                     value: loadingProgress.expectedTotalBytes != null
-                        ? loadingProgress.cumulativeBytesLoaded / 
-                          (loadingProgress.expectedTotalBytes ?? 1)
+                        ? loadingProgress.cumulativeBytesLoaded /
+                            (loadingProgress.expectedTotalBytes ?? 1)
                         : null,
                   ),
                 );
@@ -51,8 +51,7 @@ class RestaurantDetailPage extends StatelessWidget {
                 children: [
                   Text(
                     restaurant.name,
-                    style:
-                        TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 8),
                   Row(
@@ -68,8 +67,7 @@ class RestaurantDetailPage extends StatelessWidget {
                   SizedBox(height: 16),
                   Text(
                     'Endereço:',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   Text(
                     restaurant.address,
@@ -78,8 +76,7 @@ class RestaurantDetailPage extends StatelessWidget {
                   SizedBox(height: 16),
                   Text(
                     'Menu:',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   ...restaurant.menu.map((item) => ListTile(
                         title: Text(item.name),

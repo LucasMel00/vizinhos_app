@@ -3,8 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
-import 'package:vizinhos_app/models/restaurant.dart';
+import 'package:vizinhos_app/screens/models/restaurant.dart';
 import 'package:vizinhos_app/screens/restaurant/restaurant_detail_page.dart';
 
 class BestPage extends StatefulWidget {
@@ -22,15 +21,15 @@ class _BestPageState extends State<BestPage> {
   }
 
   Future<List<Restaurant>> fetchBest() async {
-    final response = await http
-        .get(Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/list'));
+    final response = await http.get(Uri.parse(
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/list'));
 
     if (response.statusCode == 200) {
       List<dynamic> jsonResponse = json.decode(response.body);
       List<Restaurant> allRestaurants = jsonResponse
           .map((restaurant) => Restaurant.fromJson(restaurant))
           .toList();
-      
+
       // Filtrar restaurantes que contêm "Melhores" em suas categorias
       return allRestaurants
           .where((restaurant) => restaurant.categories.contains('Melhores'))
@@ -135,7 +134,8 @@ class _BestPageState extends State<BestPage> {
                           TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     SizedBox(height: 8),
-                    Text('${restaurant.menu.isNotEmpty ? 'R\$ ${restaurant.menu[0].price.toStringAsFixed(2)}' : 'R\$ 0.00'} • 25-35 min',
+                    Text(
+                        '${restaurant.menu.isNotEmpty ? 'R\$ ${restaurant.menu[0].price.toStringAsFixed(2)}' : 'R\$ 0.00'} • 25-35 min',
                         style: TextStyle(color: Colors.grey)),
                     SizedBox(height: 4),
                     Row(

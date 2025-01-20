@@ -23,7 +23,8 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
 
   Future<void> loginUser(BuildContext context) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final url = Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/login');
+    final url = Uri.parse(
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/login');
 
     setState(() {
       isLoading = true;
@@ -63,7 +64,6 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
             responseData.containsKey('idToken') &&
             responseData.containsKey('refreshToken') &&
             responseData.containsKey('expiresIn')) {
-
           // Salva os tokens usando AuthProvider
           await authProvider.login(
             accessToken: responseData['accessToken'],
@@ -130,7 +130,8 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
               obscureText: true,
               decoration: InputDecoration(
                 labelText: "Senha",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
             SizedBox(height: 24),
@@ -146,7 +147,8 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
                     onPressed: () {
                       if (passwordController.text.trim().isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("Por favor, insira sua senha.")),
+                          SnackBar(
+                              content: Text("Por favor, insira sua senha.")),
                         );
                         return;
                       }

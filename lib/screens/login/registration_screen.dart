@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
-import 'package:vizinhos_app/screens/login_email_screen.dart';
+import 'package:vizinhos_app/screens/login/login_email_screen.dart';
 
 class RegistrationScreen extends StatefulWidget {
   final String email;
@@ -55,7 +55,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return;
     }
 
-    final url = Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/register');
+    //url para ir ao registrar o usuário
+    final url = Uri.parse(
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/register');
 
     setState(() {
       isLoading = true;
@@ -64,7 +66,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     // Remover formatação de CPF, CEP e telefone
     String cpfNumeros = cpf.replaceAll(RegExp(r'[^0-9]'), '');
     String cep = cepController.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
-    String phoneNumber = phoneNumberController.text.trim().replaceAll(RegExp(r'[^0-9+]'), '');
+    String phoneNumber =
+        phoneNumberController.text.trim().replaceAll(RegExp(r'[^0-9+]'), '');
 
     // Dados a serem enviados para a API
     final body = {
@@ -101,7 +104,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         // Navega para a tela de login
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => LoginEmailScreen(email: widget.email)),
+          MaterialPageRoute(
+              builder: (context) => LoginEmailScreen(email: widget.email)),
         );
       } else {
         // Registro falhou
@@ -133,7 +137,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
 
     try {
-      final response = await http.get(Uri.parse('https://viacep.com.br/ws/$cep/json/'));
+      final response =
+          await http.get(Uri.parse('https://viacep.com.br/ws/$cep/json/'));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data.containsKey('erro')) {
@@ -164,7 +169,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     if (_currentStep == 0) {
       if (fullNameController.text.isEmpty || cpfController.text.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Por favor, preencha todas as informações pessoais.')),
+          SnackBar(
+              content:
+                  Text('Por favor, preencha todas as informações pessoais.')),
         );
         return;
       }
@@ -177,9 +184,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         return;
       }
     } else if (_currentStep == 2) {
-      if (passwordController.text.isEmpty || phoneNumberController.text.isEmpty) {
+      if (passwordController.text.isEmpty ||
+          phoneNumberController.text.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Por favor, preencha todos os campos de contato.')),
+          SnackBar(
+              content: Text('Por favor, preencha todos os campos de contato.')),
         );
         return;
       }

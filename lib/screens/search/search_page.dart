@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-import 'package:vizinhos_app/models/restaurant.dart';
+import 'package:vizinhos_app/screens/models/restaurant.dart';
 import 'package:vizinhos_app/screens/restaurant/restaurant_detail_page.dart';
 
 class SearchPage extends StatefulWidget {
@@ -33,8 +33,8 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Future<List<Restaurant>> fetchRestaurants() async {
-    final response = await http
-        .get(Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/list'));
+    final response = await http.get(Uri.parse(
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/list'));
 
     if (response.statusCode == 200) {
       List<dynamic> jsonResponse = json.decode(response.body);
@@ -102,7 +102,8 @@ class _SearchPageState extends State<SearchPage> {
                         ? ListView.builder(
                             itemCount: _filteredRestaurants.length,
                             itemBuilder: (context, index) {
-                              Restaurant restaurante = _filteredRestaurants[index];
+                              Restaurant restaurante =
+                                  _filteredRestaurants[index];
                               return _buildRestaurantCard(restaurante);
                             },
                           )
@@ -117,92 +118,92 @@ class _SearchPageState extends State<SearchPage> {
 
   // Widget para os cards de restaurantes
   Widget _buildRestaurantCard(Restaurant restaurant) {
-  return GestureDetector(
-    onTap: () {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) => RestaurantDetailPage(
-                  restaurant: restaurant,
-                )),
-      );
-    },
-    child: Card(
-      color: Colors.white,
-      margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Container(
-        width: 160,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Imagem do Restaurante
-            ClipRRect(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-              child: Image.network(
-                restaurant.imageUrl,
-                height: 100,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    height: 100,
-                    color: Colors.grey[200],
-                    child: Icon(Icons.image, color: Colors.grey),
-                  );
-                },
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
-                    height: 100,
-                    alignment: Alignment.center,
-                    child: CircularProgressIndicator(
-                      value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded /
-                              (loadingProgress.expectedTotalBytes ?? 1)
-                          : null,
-                    ),
-                  );
-                },
-              ),
-            ),
-            // Informações do Restaurante
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    restaurant.name,
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    restaurant.address,
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(Icons.star, color: Colors.amber, size: 14),
-                      SizedBox(width: 4),
-                      Text(
-                        restaurant.rating.toString(),
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (context) => RestaurantDetailPage(
+                    restaurant: restaurant,
+                  )),
+        );
+      },
+      child: Card(
+        color: Colors.white,
+        margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Container(
+          width: 160,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Imagem do Restaurante
+              ClipRRect(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+                child: Image.network(
+                  restaurant.imageUrl,
+                  height: 100,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 100,
+                      color: Colors.grey[200],
+                      child: Icon(Icons.image, color: Colors.grey),
+                    );
+                  },
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      height: 100,
+                      alignment: Alignment.center,
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                (loadingProgress.expectedTotalBytes ?? 1)
+                            : null,
                       ),
-                    ],
-                  ),
-                ],
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+              // Informações do Restaurante
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      restaurant.name,
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      restaurant.address,
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.star, color: Colors.amber, size: 14),
+                        SizedBox(width: 4),
+                        Text(
+                          restaurant.rating.toString(),
+                          style: TextStyle(color: Colors.grey, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }

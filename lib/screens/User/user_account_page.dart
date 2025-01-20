@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:vizinhos_app/screens/login/home_screen.dart';
 import '../../services/auth_provider.dart';
-import '../login_screen.dart';
 
 class UserAccountPage extends StatelessWidget {
   const UserAccountPage({Key? key}) : super(key: key);
@@ -76,7 +76,8 @@ class UserAccountPage extends StatelessWidget {
                     children: [
                       Text(
                         name,
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       SizedBox(height: 4),
                       Text(

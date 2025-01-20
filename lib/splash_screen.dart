@@ -2,10 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:vizinhos_app/screens/login_screen.dart';
+import 'package:vizinhos_app/screens/login/home_screen.dart';
+import 'package:vizinhos_app/screens/user/home_page_user.dart';
 import '../services/auth_provider.dart';
-import 'login_email_screen.dart';
-import 'User/home_page_user.dart';
 
 class SplashScreen extends StatefulWidget {
   @override
@@ -41,7 +40,6 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Você pode personalizar esta tela como desejar
       body: Center(
         child: CircularProgressIndicator(),
       ),

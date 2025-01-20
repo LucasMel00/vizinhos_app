@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl_phone_number_input/intl_phone_number_input.dart';
 import 'package:vizinhos_app/widgets/login_option_button.dart';
 import 'email_screen.dart';
-import 'widgets/login_option_button.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -29,7 +28,6 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: Colors.white,
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
-          
         ),
       ),
       body: Padding(
@@ -124,7 +122,8 @@ class _LoginScreenState extends State<LoginScreen> {
             SizedBox(height: 16),
             LoginOptionButton(
               text: "Continue com Google",
-              iconWidget: Icon(Icons.g_mobiledata, color: Colors.black, size: 40),
+              iconWidget:
+                  Icon(Icons.g_mobiledata, color: Colors.black, size: 40),
             ),
             SizedBox(height: 16),
             LoginOptionButton(
