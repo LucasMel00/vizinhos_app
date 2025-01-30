@@ -1,8 +1,9 @@
 // lib/main.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:vizinhos_app/splash_screen.dart';
-import 'services/auth_provider.dart';
+import 'package:vizinhos_app/services/auth_provider.dart';
+import 'package:vizinhos_app/screens/splash/splash_screen.dart';
 
 void main() {
   runApp(
@@ -10,21 +11,25 @@ void main() {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
       ],
-      child: MyApp(),
+      child: const MyApp(),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
-  // Este widget é a raiz da aplicação.
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Vizinhos App',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primarySwatch: Colors.green,
+        primaryColor: Colors.green,
+        scaffoldBackgroundColor: Colors.white,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: SplashScreen(), // Tela inicial que decide para onde navegar
+      home: const SplashScreen(), // Tela inicial agora é o Splash
     );
   }
 }

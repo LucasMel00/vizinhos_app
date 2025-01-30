@@ -12,131 +12,153 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController controller = TextEditingController();
   String initialCountry = 'BR';
   PhoneNumber number = PhoneNumber(isoCode: 'BR');
-  bool isValidPhoneNumber = true;
+  bool isValidPhoneNumber = false;
+  bool isLoading = false;
 
   bool validateBrazilPhoneNumber(String phoneNumber) {
     final regex = RegExp(r'^\+55\d{2}\d{8,9}$');
     return regex.hasMatch(phoneNumber);
   }
 
+  void _handleContinue() async {
+    if (!isValidPhoneNumber) return;
+
+    setState(() {
+      isLoading = true;
+    });
+
+    // Simulação de uma requisição assíncrona
+    await Future.delayed(Duration(seconds: 2));
+
+    setState(() {
+      isLoading = false;
+    });
+
+    print('Número aceito: ${controller.text}');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.topCenter,
+            colors: [Colors.green, Colors.white.withOpacity(0.1)],
+          ),
         ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              "Coloque seu Número Celular",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 24),
-            InternationalPhoneNumberInput(
-              onInputChanged: (PhoneNumber number) {
-                final formattedNumber = number.phoneNumber ?? '';
-                final isValid = validateBrazilPhoneNumber(formattedNumber);
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(height: 40),
+              Text(
+                "Coloque seu Número Celular",
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 24),
+              InternationalPhoneNumberInput(
+                onInputChanged: (PhoneNumber number) {
+                  final formattedNumber = number.phoneNumber ?? '';
+                  final isValid = validateBrazilPhoneNumber(formattedNumber);
 
-                setState(() {
-                  isValidPhoneNumber = isValid;
-                });
-
-                print('Número de Telefone: $formattedNumber');
-                print('Número válido: $isValid');
-              },
-              selectorConfig: SelectorConfig(
-                selectorType: PhoneInputSelectorType.BOTTOM_SHEET,
-              ),
-              ignoreBlank: false,
-              autoValidateMode: AutovalidateMode.onUserInteraction,
-              initialValue: number,
-              textFieldController: controller,
-              formatInput: true,
-              keyboardType:
-                  TextInputType.numberWithOptions(signed: true, decimal: true),
-              inputDecoration: InputDecoration(
-                hintText: 'Número Celular',
-                errorText: isValidPhoneNumber ? null : 'Número inválido',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  setState(() {
+                    isValidPhoneNumber = isValid;
+                  });
+                },
+                selectorConfig: SelectorConfig(
+                  selectorType: PhoneInputSelectorType.BOTTOM_SHEET,
                 ),
-              ),
-              selectorTextStyle: TextStyle(color: Colors.black),
-            ),
-            SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: isValidPhoneNumber
-                  ? () {
-                      print('Número aceito: ${controller.text}');
-                    }
-                  : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                minimumSize: Size(double.infinity, 60),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(
-                "Continue",
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
-            ),
-            SizedBox(height: 32),
-            Row(
-              children: [
-                Expanded(
-                  child: Divider(
-                    thickness: 1,
-                    color: Colors.grey[400],
+                ignoreBlank: false,
+                autoValidateMode: AutovalidateMode.onUserInteraction,
+                initialValue: number,
+                textFieldController: controller,
+                formatInput: true,
+                keyboardType: TextInputType.numberWithOptions(
+                    signed: true, decimal: true),
+                inputDecoration: InputDecoration(
+                  hintText: 'Número Celular',
+                  errorText: isValidPhoneNumber ? null : 'Número inválido',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
                   ),
+                  filled: true,
+                  fillColor: Colors.white,
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: Text(
-                    "Ou",
-                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                selectorTextStyle: TextStyle(color: Colors.black),
+              ),
+              SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 60,
+                child: ElevatedButton(
+                  onPressed:
+                      isValidPhoneNumber && !isLoading ? _handleContinue : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
+                  child: isLoading
+                      ? CircularProgressIndicator(color: Colors.white)
+                      : Text(
+                          "Continue",
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        ),
                 ),
-                Expanded(
-                  child: Divider(
-                    thickness: 1,
-                    color: Colors.grey[400],
+              ),
+              SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: Divider(
+                      thickness: 1,
+                      color: Colors.grey[400],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            SizedBox(height: 16),
-            LoginOptionButton(
-              text: "Continue com Apple",
-              iconWidget: Icon(Icons.apple, color: Colors.black, size: 30),
-            ),
-            SizedBox(height: 16),
-            LoginOptionButton(
-              text: "Continue com Google",
-              iconWidget:
-                  Icon(Icons.g_mobiledata, color: Colors.black, size: 40),
-            ),
-            SizedBox(height: 16),
-            LoginOptionButton(
-              text: "Continue com Email",
-              iconWidget: Icon(Icons.email, color: Colors.black, size: 30),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => EmailScreen()),
-                );
-              },
-            ),
-          ],
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Text(
+                      "Ou",
+                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                    ),
+                  ),
+                  Expanded(
+                    child: Divider(
+                      thickness: 1,
+                      color: Colors.grey[400],
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 16),
+              LoginOptionButton(
+                text: "Continue com Apple",
+                iconWidget: Icon(Icons.apple, color: Colors.black, size: 30),
+              ),
+              SizedBox(height: 16),
+              LoginOptionButton(
+                text: "Continue com Google",
+                iconWidget:
+                    Icon(Icons.g_mobiledata, color: Colors.black, size: 40),
+              ),
+              SizedBox(height: 16),
+              LoginOptionButton(
+                text: "Continue com Email",
+                iconWidget: Icon(Icons.email, color: Colors.black, size: 30),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => EmailScreen()),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

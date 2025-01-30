@@ -1,5 +1,3 @@
-// lib/screens/Home/home_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -21,16 +19,52 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   late Future<List<Restaurant>> futureRestaurants;
+  Map<String, dynamic>? userInfo; // Para armazenar as informações do usuário
 
   @override
   void initState() {
     super.initState();
     futureRestaurants = fetchRestaurants();
+    fetchUserInfo(); // Chama a função para buscar as informações do usuário
+  }
+
+  Future<void> fetchUserInfo() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final accessToken = authProvider.accessToken; // Obtém o access token
+
+    if (accessToken == null) {
+      print("Access token não disponível");
+      return;
+    }
+
+    final url = Uri.parse(
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/capture'); // Substitua pelo endpoint da sua API
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization':
+              'Bearer $accessToken', // Passa o access token no cabeçalho
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          userInfo = data['user']; // Armazena as informações do usuário
+        });
+      } else {
+        print("Erro ao buscar informações do usuário: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Erro na requisição: $e");
+    }
   }
 
   Future<List<Restaurant>> fetchRestaurants() async {
     final response = await http.get(Uri.parse(
-        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/list')); // Substitua pela URL correta
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/list'));
 
     if (response.statusCode == 200) {
       List<dynamic> jsonResponse = json.decode(response.body);
@@ -54,11 +88,17 @@ class _HomePageState extends State<HomePage> {
         leading: IconButton(
           icon: Icon(Icons.person, color: Colors.black),
           onPressed: () {
-            // Navegar para a UserAccountPage
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => UserAccountPage()),
-            );
+            if (userInfo != null) {
+              // Navegar para a UserAccountPage com as informações do usuário
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => UserAccountPage(userInfo: userInfo),
+                ),
+              );
+            } else {
+              print("Informações do usuário não disponíveis");
+            }
           },
         ),
         title: Column(
@@ -89,7 +129,6 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.keyboard_arrow_down, color: Colors.black),
             onPressed: () {
               // Ação para alterar o local
-              // Você pode implementar uma página de seleção de localização
             },
           ),
         ],
@@ -98,19 +137,13 @@ class _HomePageState extends State<HomePage> {
         future: futureRestaurants,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            // Exibir indicador de carregamento enquanto os dados estão sendo buscados
             return Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            // Exibir mensagem de erro se a requisição falhar
             return Center(child: Text('Erro: ${snapshot.error}'));
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            // Exibir mensagem se não houver dados
             return Center(child: Text('Nenhum restaurante encontrado.'));
           } else {
-            // Dados foram carregados com sucesso, exibir a lista de restaurantes
             List<Restaurant> restaurantes = snapshot.data!;
-
-            // Filtrar restaurantes por categoria
             List<Restaurant> melhoresRestaurantes = restaurantes
                 .where((r) => r.categories.contains('Melhores'))
                 .toList();
@@ -122,7 +155,6 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Barra de busca
                   Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: GestureDetector(
@@ -148,36 +180,25 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                   ),
-
-                  // Categorias
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _buildCategoryIcon(
-                            context,
-                            Icons.local_fire_department,
-                            'Ofertas',
-                            Colors.red,
-                            OffersPage()), // Navega para OffersPage
+                        _buildCategoryIcon(context, Icons.local_fire_department,
+                            'Ofertas', Colors.red, OffersPage()),
                         _buildCategoryIcon(context, Icons.star, 'Melhores',
-                            Colors.orange, BestPage()), // Navega para BestPage
+                            Colors.orange, BestPage()),
                         _buildCategoryIcon(
                             context,
                             Icons.card_giftcard,
                             'Cupons',
                             Colors.pink,
-                            CategoryPage(
-                                categoryName:
-                                    'Cupons')), // Mantém navegação para CategoryPage
+                            CategoryPage(categoryName: 'Cupons')),
                       ],
                     ),
                   ),
-
                   SizedBox(height: 16),
-
-                  // Seção "Melhores Restaurantes"
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: Text(
@@ -211,10 +232,7 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                   ),
-
                   SizedBox(height: 16),
-
-                  // Seção "Ofertas"
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: Text(
@@ -248,14 +266,6 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                   ),
-
-                  SizedBox(height: 16),
-
-                  // Seção "Cupons" (Opcional)
-                  // Caso deseje adicionar, siga o mesmo padrão acima.
-
-                  // Lista Geral de Restaurantes (Opcional)
-                  // Se desejar manter uma lista geral abaixo das seções, adicione aqui.
                 ],
               ),
             );
@@ -265,7 +275,7 @@ class _HomePageState extends State<HomePage> {
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.white,
         type: BottomNavigationBarType.fixed,
-        currentIndex: 0, // Defina o índice atual conforme a navegação
+        currentIndex: 0,
         selectedItemColor: Colors.green,
         unselectedItemColor: Colors.grey,
         items: [
@@ -277,7 +287,6 @@ class _HomePageState extends State<HomePage> {
         onTap: (index) {
           switch (index) {
             case 0:
-              // Já está na Home, você pode implementar uma ação de recarregar ou nada
               break;
             case 1:
               Navigator.push(
@@ -303,7 +312,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Widget para os ícones das categorias
   Widget _buildCategoryIcon(BuildContext context, IconData icon, String label,
       Color color, Widget destination) {
     return GestureDetector(
@@ -328,7 +336,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Widget para os cards de restaurantes
   Widget _buildRestaurantCard({
     required BuildContext context,
     required Restaurant restaurant,
@@ -339,7 +346,7 @@ class _HomePageState extends State<HomePage> {
           context,
           MaterialPageRoute(
             builder: (context) => RestaurantDetailPage(
-              restaurant: restaurant, // Passe o objeto completo
+              restaurant: restaurant,
             ),
           ),
         );
@@ -352,7 +359,6 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Imagem do Restaurante
               ClipRRect(
                 borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
                 child: Image.network(
@@ -382,7 +388,6 @@ class _HomePageState extends State<HomePage> {
                   },
                 ),
               ),
-              // Informações do Restaurante
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Column(

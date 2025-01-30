@@ -1,5 +1,3 @@
-// lib/screens/login_email_screen.dart
-
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -37,8 +35,6 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
     };
 
     try {
-      print('Enviando dados para o servidor: ${jsonEncode(body)}');
-
       final response = await http.post(
         url,
         headers: {
@@ -48,10 +44,6 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
         body: jsonEncode(body),
       );
 
-      print('Status Code: ${response.statusCode}');
-      print('Headers: ${response.headers}');
-      print('Response Body: ${response.body}');
-
       setState(() {
         isLoading = false;
       });
@@ -59,12 +51,10 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
 
-        // Verifica se todos os tokens estão presentes
         if (responseData.containsKey('accessToken') &&
             responseData.containsKey('idToken') &&
             responseData.containsKey('refreshToken') &&
             responseData.containsKey('expiresIn')) {
-          // Salva os tokens usando AuthProvider
           await authProvider.login(
             accessToken: responseData['accessToken'],
             idToken: responseData['idToken'],
@@ -72,12 +62,10 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
             expiresIn: responseData['expiresIn'],
           );
 
-          // Exibe mensagem de sucesso
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Login realizado com sucesso!")),
           );
 
-          // Navegar para a HomePage
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => HomePage()),
@@ -86,19 +74,15 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
           setState(() {
             errorMessage = 'Resposta do servidor incompleta.';
           });
-          print('Erro no login: Resposta incompleta.');
         }
       } else {
-        // Exibir mensagem de erro retornada pela API
         final data = jsonDecode(response.body);
         String apiErrorMessage = data['error'] ?? 'Erro ao fazer login.';
         setState(() {
           errorMessage = apiErrorMessage;
         });
-        print('Erro no login: $apiErrorMessage');
       }
     } catch (e) {
-      print('Erro inesperado: $e');
       setState(() {
         isLoading = false;
         errorMessage = "Erro inesperado: $e";
@@ -113,56 +97,76 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
         title: Text("Login"),
         backgroundColor: Colors.green,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Text(
-              "Bem-vindo de volta!",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 24),
-            if (widget.email.isNotEmpty)
-              Text("Email: ${widget.email}", style: TextStyle(fontSize: 16)),
-            if (widget.email.isNotEmpty) SizedBox(height: 16),
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: "Senha",
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-            SizedBox(height: 24),
-            if (errorMessage != null)
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.white, Colors.green[50]!],
+          ),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              SizedBox(height: 40),
               Text(
-                errorMessage!,
-                style: TextStyle(color: Colors.red),
+                "Bem-vindo de volta!",
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
-            SizedBox(height: 16),
-            isLoading
-                ? Center(child: CircularProgressIndicator())
-                : ElevatedButton(
-                    onPressed: () {
-                      if (passwordController.text.trim().isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                              content: Text("Por favor, insira sua senha.")),
-                        );
-                        return;
-                      }
-                      loginUser(context);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      minimumSize: Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                    ),
-                    child: Text("Entrar", style: TextStyle(fontSize: 16)),
+              SizedBox(height: 15),
+              if (widget.email.isNotEmpty)
+                Text(widget.email, style: TextStyle(fontSize: 16)),
+              if (widget.email.isNotEmpty) SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: "Senha",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
                   ),
-          ],
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+              ),
+              SizedBox(height: 24),
+              if (errorMessage != null)
+                Text(
+                  errorMessage!,
+                  style: TextStyle(color: Colors.red),
+                ),
+              SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: isLoading
+                      ? null
+                      : () {
+                          if (passwordController.text.trim().isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content:
+                                      Text("Por favor, insira sua senha.")),
+                            );
+                            return;
+                          }
+                          loginUser(context);
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: isLoading
+                      ? CircularProgressIndicator(color: Colors.white)
+                      : Text("Entrar", style: TextStyle(fontSize: 16)),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
