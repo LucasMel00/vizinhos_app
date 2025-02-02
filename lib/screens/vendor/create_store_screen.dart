@@ -21,12 +21,14 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
   final List<String> _selectedCategories = [];
   bool _isLoading = false;
 
-  // Lista de categorias disponíveis (ajuste conforme necessário)
   final List<String> _availableCategories = [
-    'eletrônicos',
-    'informática',
-    'roupas',
-    'alimentos'
+    'Pratos Caseiros',
+    'Massas & Risotos',
+    'Sopas & Caldos',
+    'Salgados & Pães',
+    'Doces & Sobremesas',
+    'Bebidas Artesanais',
+    'Saladas & Veganos'
   ];
 
   @override
@@ -37,7 +39,6 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Se widget.userId estiver vazio, tenta obter do AuthProvider (campo "sub")
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final String effectiveUserId = widget.userId.isNotEmpty
         ? widget.userId
@@ -46,6 +47,12 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Criar Loja'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.help_outline),
+            onPressed: _showHelpDialog,
+          )
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -53,63 +60,11 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
           key: _formKey,
           child: ListView(
             children: [
-              TextFormField(
-                controller: _storeNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nome da Loja',
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Por favor, insira o nome da loja';
-                  }
-                  return null;
-                },
-              ),
+              _buildStoreNameField(),
               const SizedBox(height: 20),
-              const Text(
-                'Categorias:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8.0,
-                children: _availableCategories.map((category) {
-                  final bool isSelected =
-                      _selectedCategories.contains(category);
-                  return FilterChip(
-                    label: Text(category),
-                    selected: isSelected,
-                    onSelected: (bool selected) {
-                      setState(() {
-                        if (selected) {
-                          _selectedCategories.add(category);
-                        } else {
-                          _selectedCategories.remove(category);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
+              _buildCategorySection(),
               const SizedBox(height: 30),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed:
-                      _isLoading ? null : () => _submitForm(effectiveUserId),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text('Criar Loja'),
-                ),
-              ),
+              _buildSubmitButton(effectiveUserId),
             ],
           ),
         ),
@@ -117,13 +72,153 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
     );
   }
 
-  void _submitForm(String effectiveUserId) async {
-    // Validação do formulário e verificação se ao menos uma categoria foi selecionada
-    if (!_formKey.currentState!.validate() || _selectedCategories.isEmpty) {
+  Widget _buildStoreNameField() {
+    return TextFormField(
+      controller: _storeNameController,
+      decoration: InputDecoration(
+        labelText: 'Nome da Loja',
+        prefixIcon: Icon(Icons.store),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Por favor, insira o nome da loja';
+        }
+        if (value.trim().length < 4) {
+          return 'O nome deve ter pelo menos 4 caracteres';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildCategorySection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Selecione as Categorias:',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: Theme.of(context).primaryColor,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8.0,
+          runSpacing: 8.0,
+          children: _availableCategories.map((category) {
+            final isSelected = _selectedCategories.contains(category);
+            return ChoiceChip(
+              label: Text(category),
+              selected: isSelected,
+              onSelected: (selected) =>
+                  _handleCategorySelection(selected, category),
+              selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
+              labelStyle: TextStyle(
+                color: isSelected
+                    ? Theme.of(context).primaryColor
+                    : Colors.grey[700],
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+              avatar: isSelected
+                  ? Icon(Icons.check,
+                      size: 18, color: Theme.of(context).primaryColor)
+                  : null,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: BorderSide(
+                  color: isSelected
+                      ? Theme.of(context).primaryColor
+                      : Colors.grey[300]!,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Selecione pelo menos 1 categoria',
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSubmitButton(String effectiveUserId) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _isLoading ? null : () => _submitForm(effectiveUserId),
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        icon: _isLoading ? SizedBox.shrink() : Icon(Icons.storefront_outlined),
+        label: _isLoading
+            ? const CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              )
+            : const Text(
+                'Criar Loja',
+                style: TextStyle(fontSize: 16),
+              ),
+      ),
+    );
+  }
+
+  void _handleCategorySelection(bool selected, String category) {
+    setState(() {
+      if (selected) {
+        _selectedCategories.add(category);
+      } else {
+        _selectedCategories.remove(category);
+      }
+    });
+  }
+
+  void _showHelpDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Como Funciona?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('1. Escolha um nome claro para sua loja\n'
+                '2. Selecione as categorias que melhor representam seus produtos\n'
+                '3. Você poderá editar essas informações depois\n'
+                '4. Após a criação, sua loja estará visível para a comunidade'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Entendi'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _submitForm(String effectiveUserId) async {
+    if (!_formKey.currentState!.validate()) return;
+
+    if (_selectedCategories.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-              'Preencha todos os campos e selecione pelo menos uma categoria'),
+          content: Text('Selecione pelo menos uma categoria'),
+          backgroundColor: Colors.orange,
         ),
       );
       return;
@@ -132,21 +227,17 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
     if (effectiveUserId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('ID do usuário não informado'),
+          content: Text('Erro de autenticação'),
+          backgroundColor: Colors.red,
         ),
       );
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      // Obtém o token atualizado do AuthProvider (mesmo que não seja enviado no payload)
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
-      // Cria a instância do serviço, passando a URL do Lambda e o AuthProvider
       final sellerService = SellerService(
         apiUrl:
             'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/createVizinho',
@@ -159,18 +250,59 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
         categories: _selectedCategories,
       );
 
-      // Se a criação ocorrer com sucesso, retorna para a tela anterior
+      // Atualiza os dados do usuário globalmente
+      await authProvider.refreshUserData();
+
+      // Mostra feedback visual antes de navegar
+      await _showSuccessAnimation();
+
+      // Fecha a tela e força atualização
       Navigator.of(context).pop(true);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao criar loja: $e')),
+        SnackBar(
+          content: Text('Erro: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
       );
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _showSuccessAnimation() async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 60),
+            const SizedBox(height: 20),
+            Text(
+              'Loja criada com sucesso!',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 15),
+            Text(
+              'Sua loja já está disponível para a comunidade',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Continuar'),
+          ),
+        ],
+      ),
+    );
   }
 }

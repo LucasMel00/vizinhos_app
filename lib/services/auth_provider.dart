@@ -58,7 +58,6 @@ class AuthProvider with ChangeNotifier {
       if (_idToken != null) {
         print('🔓 Decodificando ID Token...');
         _userInfo = _decodeIdToken(_idToken!);
-        // Verifica se o campo custom:is_seller está definido como "true"
         _isSeller =
             _userInfo['custom:is_seller']?.toString().toLowerCase() == 'true';
         print('👤 Informações do usuário:');
@@ -136,10 +135,8 @@ class AuthProvider with ChangeNotifier {
     print('🔄 Atualizando status de vendedor para: $status');
     try {
       _isSeller = status;
-      // Atualiza o campo no _userInfo; se o token fosse gerado com esse valor, pode ser necessário reemitir um novo token
       _userInfo = {..._userInfo, 'custom:is_seller': status.toString()};
 
-      // Se você deseja atualizar o token armazenado (caso o payload mude), faça-o aqui.
       if (_idToken != null) {
         await _secureStorage.setIdToken(_idToken!);
       }
@@ -165,8 +162,15 @@ class AuthProvider with ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final newSellerStatus =
-            data['IsSeller']?.toString().toLowerCase() == 'true';
+        final sellerValue = data['IsSeller'];
+        bool newSellerStatus;
+        if (sellerValue is bool) {
+          newSellerStatus = sellerValue;
+        } else if (sellerValue is String) {
+          newSellerStatus = sellerValue.toLowerCase() == 'true';
+        } else {
+          newSellerStatus = false;
+        }
 
         print('📊 Resposta da API - É vendedor? $newSellerStatus');
 
@@ -227,16 +231,97 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future refreshAuthToken() async {
+  Future<void> refreshAuthToken() async {
     print('🔄 Tentativa de refresh do token...');
     try {
-      // Implementar lógica de refresh aqui (por exemplo, usando o refreshToken para obter um novo accessToken)
-      print('✅ Token atualizado com sucesso');
-      notifyListeners();
+      final response = await http.post(
+        Uri.parse('https://seu-domínio/refresh-token'),
+        body: {'refresh_token': _refreshToken},
+      );
+
+      if (response.statusCode == 200) {
+        final newTokens = json.decode(response.body);
+        await login(
+          accessToken: newTokens['access_token'],
+          idToken: newTokens['id_token'],
+          refreshToken: newTokens['refresh_token'],
+          expiresIn: newTokens['expires_in'],
+        );
+        print('✅ Token atualizado com sucesso');
+      } else {
+        throw Exception('Failed to refresh token');
+      }
     } catch (e, stack) {
       print('‼️ ERRO ao atualizar token: $e');
       print('Stack trace: $stack');
       await logout();
     }
+  }
+
+  Future<void> refreshUserData() async {
+    print('🔄 Forçando atualização completa dos dados do usuário');
+    try {
+      // 1. Recarrega tokens do armazenamento local
+      await loadAuthData();
+
+      // 2. Verifica se o token ainda é válido
+      if (_isTokenExpired && _refreshToken != null) {
+        print('⚠️ Token expirado, tentando renovar...');
+        await refreshAuthToken();
+      }
+
+      // 3. Atualiza dados do usuário na API
+      final response = await http.get(
+        Uri.parse(
+            'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/user'),
+        headers: {'Authorization': 'Bearer $_accessToken'},
+      );
+
+      if (response.statusCode == 200) {
+        final newData = json.decode(response.body);
+        print('📦 Novos dados recebidos: $newData');
+
+        // 4. Atualiza o status de vendedor de forma segura
+        final sellerValue = newData['IsSeller'];
+        if (sellerValue is bool) {
+          _isSeller = sellerValue;
+        } else if (sellerValue is String) {
+          _isSeller = sellerValue.toLowerCase() == 'true';
+        } else {
+          _isSeller = false;
+        }
+
+        // 5. Atualiza ID Token se necessário
+        if (newData.containsKey('IdToken')) {
+          _idToken = newData['IdToken'];
+          await _secureStorage.setIdToken(_idToken!);
+          _userInfo = _decodeIdToken(_idToken!);
+        }
+
+        // 6. Merge dos novos dados com os existentes
+        _userInfo = {..._userInfo, ...newData};
+
+        print('✅ Dados atualizados com sucesso');
+        notifyListeners();
+      } else {
+        print('‼️ Falha na atualização: ${response.statusCode}');
+        throw Exception('Failed to refresh user data');
+      }
+    } catch (e, stack) {
+      print('‼️ ERRO crítico na atualização: $e');
+      print('Stack trace: $stack');
+      await logout();
+      rethrow;
+    }
+  }
+
+  void debugAuthState() {
+    print('\n=== DEBUG AUTH STATE ===');
+    print('Usuário logado: ${isLoggedIn ? "✅" : "❌"}');
+    print('Tipo de usuário: ${_isSeller ? "Vendedor" : "Cliente"}');
+    print('ID do usuário: ${_userInfo['sub'] ?? "N/A"}');
+    print('Expira em: $_expiresIn segundos');
+    print('Tokens válidos: ${!_isTokenExpired ? "✅" : "❌"}');
+    print('========================\n');
   }
 }

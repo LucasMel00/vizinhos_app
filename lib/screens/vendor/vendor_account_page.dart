@@ -9,8 +9,8 @@ class VendorAccountPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final sellerProfile = userInfo['sellerProfile'] ?? {};
     final categorias = List<String>.from(sellerProfile['categorias'] ?? []);
-    final primaryColor = Color(0xFF2ECC71); // Verde mais vibrante
-    final accentColor = Color(0xFF27AE60); // Verde mais escuro para detalhes
+    final primaryColor = Color(0xFF2ECC71);
+    final accentColor = Color(0xFF27AE60);
 
     return Scaffold(
       appBar: AppBar(
@@ -19,9 +19,28 @@ class VendorAccountPage extends StatelessWidget {
         backgroundColor: primaryColor,
         elevation: 5,
         iconTheme: IconThemeData(color: Colors.white),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.shopping_bag),
+            onPressed: () => _navigateToProducts(context),
+          ),
+        ],
       ),
       drawer: _buildDrawer(context, primaryColor, accentColor, categorias),
       body: _buildBody(context, sellerProfile, primaryColor, accentColor),
+    );
+  }
+
+  void _navigateToProducts(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProductsPage(),
+      ),
     );
   }
 
@@ -51,12 +70,25 @@ class VendorAccountPage extends StatelessWidget {
               ),
             ),
           ),
-          ListTile(
-            leading: Icon(Icons.dashboard, color: accentColor),
-            title: Text('Dashboard',
-                style: TextStyle(color: Colors.grey[800], fontSize: 16)),
+          _drawerItem(
+            icon: Icons.dashboard,
+            label: 'Dashboard',
             onTap: () {},
+            accentColor: accentColor,
           ),
+          _drawerItem(
+            icon: Icons.shopping_bag,
+            label: 'Produtos',
+            onTap: () => _navigateToProducts(context),
+            accentColor: accentColor,
+          ),
+          _drawerItem(
+            icon: Icons.receipt,
+            label: 'Pedidos',
+            onTap: () {},
+            accentColor: accentColor,
+          ),
+          Divider(),
           Container(
             margin: EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
@@ -72,9 +104,28 @@ class VendorAccountPage extends StatelessWidget {
                   style: TextStyle(color: Colors.grey[600])),
             ),
           ),
-          // ... outros itens do drawer
+          _drawerItem(
+            icon: Icons.settings,
+            label: 'Configurações',
+            onTap: () {},
+            accentColor: accentColor,
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _drawerItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required Color accentColor,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: accentColor),
+      title:
+          Text(label, style: TextStyle(color: Colors.grey[800], fontSize: 16)),
+      onTap: onTap,
     );
   }
 
@@ -85,89 +136,150 @@ class VendorAccountPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: primaryColor.withOpacity(0.3)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.storefront, color: accentColor, size: 30),
-                SizedBox(width: 15),
-                Text('Informações da Loja',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: accentColor, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-          SizedBox(height: 25),
-          _buildInfoCard(
-            context: context,
+          _sectionHeader('Informações da Loja', Icons.storefront, accentColor),
+          SizedBox(height: 20),
+          _infoCard(
             title: 'Nome da Loja',
             value: sellerProfile['nomeLoja'] ?? '',
-            primaryColor: primaryColor,
             accentColor: accentColor,
+            onEdit: () {},
           ),
-          _buildInfoCard(
-            context: context,
+          _infoCard(
             title: 'Categorias',
             value: (sellerProfile['categorias'] as List?)?.join(', ') ?? '',
-            primaryColor: primaryColor,
             accentColor: accentColor,
+            onEdit: () {},
           ),
-          // ... outros cards
+          SizedBox(height: 30),
+          _sectionHeader('Ações Rápidas', Icons.flash_on, accentColor),
+          SizedBox(height: 15),
+          _actionButtons(primaryColor, context),
         ],
       ),
     );
   }
 
-  Widget _buildInfoCard({
-    required BuildContext context,
+  Widget _sectionHeader(String title, IconData icon, Color color) {
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 28),
+        SizedBox(width: 10),
+        Text(title,
+            style: TextStyle(
+                fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+      ],
+    );
+  }
+
+  Widget _infoCard({
     required String title,
     required String value,
-    required Color primaryColor,
     required Color accentColor,
+    required VoidCallback onEdit,
   }) {
     return Card(
-      elevation: 3,
-      margin: EdgeInsets.symmetric(vertical: 8),
+      margin: EdgeInsets.only(bottom: 15),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: primaryColor.withOpacity(0.2), width: 1),
+        side: BorderSide(color: accentColor.withOpacity(0.2)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title,
-                style: TextStyle(
-                    color: accentColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(title,
+                    style: TextStyle(
+                        color: accentColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16)),
+                IconButton(
+                  icon: Icon(Icons.edit, size: 20, color: accentColor),
+                  onPressed: onEdit,
+                ),
+              ],
+            ),
             SizedBox(height: 8),
             Text(value,
                 style: TextStyle(color: Colors.grey[800], fontSize: 15)),
-            SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                icon: Icon(Icons.edit, color: accentColor, size: 18),
-                label: Text('Editar', style: TextStyle(color: accentColor)),
-                onPressed: () {},
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  backgroundColor: accentColor.withOpacity(0.1),
-                ),
-              ),
-            )
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _actionButtons(Color primaryColor, BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _actionButton(
+            label: 'Adicionar Produto',
+            icon: Icons.add,
+            color: primaryColor,
+            onPressed: () => _navigateToAddProduct(context),
+          ),
+        ),
+        SizedBox(width: 10),
+        Expanded(
+          child: _actionButton(
+            label: 'Gerenciar Estoque',
+            icon: Icons.inventory,
+            color: primaryColor,
+            onPressed: () {},
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _actionButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return ElevatedButton.icon(
+      icon: Icon(icon, color: Colors.white),
+      label: Text(label,
+          style: TextStyle(
+              color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        padding: EdgeInsets.symmetric(vertical: 15),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  void _navigateToAddProduct(BuildContext context) {
+    // Implementar navegação para adicionar produto
+  }
+}
+
+class ProductsPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Meus Produtos'),
+      ),
+      body: ListView.builder(
+        itemCount: 10,
+        itemBuilder: (context, index) => ListTile(
+          leading: Icon(Icons.shopping_bag),
+          title: Text('Produto ${index + 1}'),
+          subtitle: Text('R\$ 99,99'),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        child: Icon(Icons.add),
+        onPressed: () {},
       ),
     );
   }
