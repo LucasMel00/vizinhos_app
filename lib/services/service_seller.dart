@@ -1,58 +1,66 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart';
+import 'package:vizinhos_app/services/auth_provider.dart';
 
 class SellerService {
   final String apiUrl;
-  final String authToken;
+  final AuthProvider authProvider;
 
-  SellerService({required this.apiUrl, required this.authToken});
+  SellerService({
+    required this.apiUrl,
+    required this.authProvider,
+  });
 
-  Future<Map<String, dynamic>> createSellerProfile({
+  /// Cria o perfil de vendedor enviando os campos:
+  /// - userId
+  /// - nomeLoja
+  /// - categorias
+  Future<void> createSellerProfile({
     required String userId,
     required String storeName,
     required List<String> categories,
   }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$apiUrl/seller'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $authToken',
-        },
-        body: json.encode({
-          'userId': userId,
-          'nomeLoja': storeName,
-          'categorias': categories,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else {
-        throw Exception('Falha ao criar perfil de vendedor: ${response.body}');
-      }
-    } catch (e) {
-      throw Exception('Erro na conexão: $e');
+    final authToken = authProvider.accessToken;
+    if (authToken == null) {
+      throw Exception('Usuário não autenticado');
     }
-  }
 
-  Future<Map<String, dynamic>> getSellerProfile(String userId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$apiUrl/user/$userId'),
-        headers: {
-          'Authorization': 'Bearer $authToken',
-        },
-      );
+    final url = Uri.parse(apiUrl);
 
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else {
-        throw Exception('Falha ao obter perfil: ${response.body}');
-      }
-    } catch (e) {
-      throw Exception('Erro na conexão: $e');
+    // Cria o payload conforme o modelo desejado
+    final body = jsonEncode({
+      'userId': userId,
+      'nomeLoja': storeName,
+      'categorias': categories,
+    });
+
+    // Log para ver como a requisição está sendo gerada
+    print("----- REQUISIÇÃO SENDO GERADA -----");
+    print("URL: $url");
+    print(
+        "Headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }");
+    print("Body: $body");
+    print("----- FIM DA REQUISIÇÃO -----");
+
+    // Envia a requisição HTTP POST
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: body,
+    );
+
+    // Log completo da resposta
+    print("----- RESPOSTA RECEBIDA -----");
+    print("Status Code: ${response.statusCode}");
+    print("Body da resposta: ${response.body}");
+    print("----- FIM DA RESPOSTA -----");
+
+    if (response.statusCode != 200) {
+      throw Exception(
+          'Erro ao criar perfil de vendedor: ${response.body}, status code: ${response.statusCode}');
     }
   }
 }
