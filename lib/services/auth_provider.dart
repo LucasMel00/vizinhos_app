@@ -1,9 +1,6 @@
-// lib/services/auth_provider.dart
-
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'secure_storage.dart';
 
 class AuthProvider with ChangeNotifier {
   String? _accessToken;
@@ -13,6 +10,8 @@ class AuthProvider with ChangeNotifier {
   bool _isSeller = false;
   bool _isLoading = true;
 
+  final SecureStorage _secureStorage = SecureStorage();
+
   // Getters
   String? get accessToken => _accessToken;
   String? get idToken => _idToken;
@@ -20,102 +19,127 @@ class AuthProvider with ChangeNotifier {
   int? get expiresIn => _expiresIn;
   bool get isSeller => _isSeller;
   bool get isLoading => _isLoading;
-  bool get isLoggedIn => _accessToken != null;
+  bool get isLoggedIn => _accessToken != null && !isTokenExpired;
 
   AuthProvider() {
-    _loadAuthData();
+    loadAuthData();
   }
 
-  Future<void> _loadAuthData() async {
-    final prefs = await SharedPreferences.getInstance();
+  // Carrega os tokens do SecureStorage ao iniciar
+  Future<void> loadAuthData() async {
+    try {
+      print('🔍 Carregando tokens do SecureStorage...');
 
-    _accessToken = prefs.getString('accessToken');
-    _idToken = prefs.getString('idToken');
-    _refreshToken = prefs.getString('refreshToken');
-    _expiresIn = prefs.getInt('expiresIn');
-    _isSeller = prefs.getBool('isSeller') ?? false;
+      _accessToken = await _secureStorage.getAccessToken();
+      _idToken = await _secureStorage.getIdToken();
+      _refreshToken = await _secureStorage.getRefreshToken();
+      _expiresIn = await _secureStorage.getExpiresIn();
 
-    _isLoading = false;
-    notifyListeners();
+      print('✅ Tokens carregados:');
+      print(' - Access Token: ${_accessToken != null ? "✔️" : "❌"}');
+      print(' - ID Token: ${_idToken != null ? "✔️" : "❌"}');
+      print(' - Refresh Token: ${_refreshToken != null ? "✔️" : "❌"}');
+      print(' - Expires In: $_expiresIn');
+
+      if (_idToken != null) {
+        final userInfo = _decodeIdToken(_idToken!);
+        _isSeller =
+            userInfo['custom:is_seller']?.toString().toLowerCase() == 'true';
+        print('👤 Informações do usuário decodificadas: $userInfo');
+      }
+    } catch (e) {
+      print('❌ Erro ao carregar tokens: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
+  // Realiza o login e salva os tokens
   Future<void> login({
     required String accessToken,
     required String idToken,
     required String refreshToken,
     required int expiresIn,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    await prefs.setString('accessToken', accessToken);
-    await prefs.setString('idToken', idToken);
-    await prefs.setString('refreshToken', refreshToken);
-    await prefs.setInt('expiresIn', expiresIn);
-
-    // Decodificar o token para obter informações do usuário
-    final userInfo = _decodeIdToken(idToken);
-    _isSeller =
-        userInfo['is_seller'] == true || userInfo['is_seller'] == 'true';
-    await prefs.setBool('isSeller', _isSeller);
-
-    _accessToken = accessToken;
-    _idToken = idToken;
-    _refreshToken = refreshToken;
-    _expiresIn = expiresIn;
-
-    notifyListeners();
-  }
-
-  Map<String, dynamic> _decodeIdToken(String idToken) {
     try {
-      final parts = idToken.split('.');
-      if (parts.length != 3) {
-        throw Exception('Invalid token');
-      }
+      print('🔐 Salvando tokens no SecureStorage...');
 
-      final payload = base64Url.normalize(parts[1]);
-      final decoded = utf8.decode(base64Url.decode(payload));
-      return json.decode(decoded) as Map<String, dynamic>;
+      await _secureStorage.setAccessToken(accessToken);
+      await _secureStorage.setIdToken(idToken);
+      await _secureStorage.setRefreshToken(refreshToken);
+      await _secureStorage.setExpiresIn(expiresIn);
+
+      print('✅ Tokens salvos com sucesso!');
+
+      final userInfo = _decodeIdToken(idToken);
+      _isSeller =
+          userInfo['custom:is_seller']?.toString().toLowerCase() == 'true';
+
+      _accessToken = accessToken;
+      _idToken = idToken;
+      _refreshToken = refreshToken;
+      _expiresIn = expiresIn;
+
+      notifyListeners();
     } catch (e) {
-      print('Error decoding ID token: $e');
-      return {};
+      print('❌ Erro durante o login: $e');
+      rethrow;
     }
   }
 
+  // Realiza o logout e remove os tokens
   Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    await prefs.remove('accessToken');
-    await prefs.remove('idToken');
-    await prefs.remove('refreshToken');
-    await prefs.remove('expiresIn');
-    await prefs.remove('isSeller');
-
+    print('🚪 Realizando logout...');
+    await _secureStorage.deleteTokens();
     _accessToken = null;
     _idToken = null;
     _refreshToken = null;
     _expiresIn = null;
     _isSeller = false;
-
     notifyListeners();
   }
 
+  // Decodifica o ID Token para extrair informações do usuário
+  Map<String, dynamic> _decodeIdToken(String idToken) {
+    try {
+      final parts = idToken.split('.');
+      if (parts.length != 3) throw Exception('Formato de token inválido');
+
+      final payload = base64Url.normalize(parts[1]);
+      final decoded = utf8.decode(base64Url.decode(payload));
+      return json.decode(decoded);
+    } catch (e) {
+      print('❌ Erro ao decodificar ID Token: $e');
+      return {};
+    }
+  }
+
+  // Verifica se o token expirou
+  bool get isTokenExpired {
+    if (_expiresIn == null || _idToken == null) return true;
+
+    try {
+      final issuedAt = _decodeIdToken(_idToken!)['iat'] ?? 0;
+      final expirationTime = issuedAt + _expiresIn!;
+      final currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      return currentTime > expirationTime;
+    } catch (e) {
+      print('❌ Erro ao verificar expiração do token: $e');
+      return true;
+    }
+  }
+
+  // Obtém o ID do usuário a partir do ID Token
   Future<String?> getUserId() async {
     if (_idToken == null) return null;
     final userInfo = _decodeIdToken(_idToken!);
     return userInfo['sub'];
   }
 
+  // Obtém as informações do usuário a partir do ID Token
   Future<Map<String, dynamic>> getUserInfo() async {
     if (_idToken == null) return {};
     return _decodeIdToken(_idToken!);
-  }
-
-  // Verifica se o token está expirado
-  bool get isTokenExpired {
-    if (_expiresIn == null) return true;
-    final issuedAt = _decodeIdToken(_idToken!)['iat'] ?? 0;
-    final expirationTime = issuedAt + _expiresIn!;
-    return DateTime.now().millisecondsSinceEpoch ~/ 1000 > expirationTime;
   }
 }

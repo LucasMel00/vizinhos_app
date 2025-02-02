@@ -86,14 +86,21 @@ class UserAccountPage extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        name,
+                        userInfo?['Name'] ?? 'Nome não disponível',
                         style: TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       SizedBox(height: 4),
                       Text(
-                        email,
+                        userInfo?['Email'] ?? 'Email não disponível',
                         style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        userInfo?['Address'] != null
+                            ? '${userInfo!['Address']['Street']}, ${userInfo!['Address']['CEP']}'
+                            : 'Endereço não cadastrado',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -104,7 +111,6 @@ class UserAccountPage extends StatelessWidget {
 
           Divider(),
 
-          // Opções da Conta
           if (isSeller) // Exibe o botão "Vendedor" apenas se o usuário for um vendedor
             _buildListTile(
               icon: Icons.personal_injury_sharp,
@@ -112,7 +118,10 @@ class UserAccountPage extends StatelessWidget {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => VendorAccountPage()),
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        VendorAccountPage(userInfo: userInfo ?? {}),
+                  ),
                 );
               },
             ),

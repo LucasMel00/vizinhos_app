@@ -30,35 +30,67 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> fetchUserInfo() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final accessToken = authProvider.accessToken; // Obtém o access token
 
-    if (accessToken == null) {
-      print("Access token não disponível");
+    // Verifica se o usuário está autenticado
+    if (!authProvider.isLoggedIn) {
+      print("❌ Usuário não autenticado");
       return;
     }
 
+    // Verifica se o token está disponível
+    final accessToken = authProvider.accessToken;
+    if (accessToken == null) {
+      print("❌ Access Token não disponível");
+      return;
+    }
+
+    // URL da API
     final url = Uri.parse(
-        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/capture'); // Substitua pelo endpoint da sua API
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/user');
 
     try {
+      print(
+          "🔑 Token usado: ${accessToken.substring(0, 1071)}..."); // Log parcial do token
+
       final response = await http.get(
         url,
         headers: {
-          'Authorization':
-              'Bearer $accessToken', // Passa o access token no cabeçalho
+          'Authorization': 'Bearer $accessToken',
         },
       );
+
+      print("🔄 Resposta da API: ${response.statusCode}");
+      print(
+          "📄 Corpo da resposta: ${response.body}"); // Log completo da resposta
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         setState(() {
-          userInfo = data['user']; // Armazena as informações do usuário
+          userInfo = data;
         });
       } else {
-        print("Erro ao buscar informações do usuário: ${response.statusCode}");
+        final errorBody = json.decode(response.body);
+        print("❌ Erro ${response.statusCode}: ${errorBody['error']}");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Erro ao carregar dados: ${errorBody['error']}')),
+        );
       }
+    } on http.ClientException catch (e) {
+      print("❌ Erro de rede: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro de rede: $e')),
+      );
+    } on FormatException catch (e) {
+      print("❌ Erro ao decodificar JSON: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao processar dados')),
+      );
     } catch (e) {
-      print("Erro na requisição: $e");
+      print("❌ Erro inesperado: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro inesperado: $e')),
+      );
     }
   }
 
@@ -89,15 +121,12 @@ class _HomePageState extends State<HomePage> {
           icon: Icon(Icons.person, color: Colors.black),
           onPressed: () {
             if (userInfo != null) {
-              // Navegar para a UserAccountPage com as informações do usuário
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => UserAccountPage(userInfo: userInfo),
                 ),
               );
-            } else {
-              print("Informações do usuário não disponíveis");
             }
           },
         ),
@@ -115,10 +144,14 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Icon(Icons.location_on, size: 16, color: Colors.green),
                 SizedBox(width: 4),
-                Text(
-                  'Instituto Federal de S...',
-                  style: TextStyle(color: Colors.black, fontSize: 14),
-                  overflow: TextOverflow.ellipsis,
+                Flexible(
+                  child: Text(
+                    userInfo?['Address'] != null
+                        ? '${userInfo!['Address']['Street']}'
+                        : 'Carregando endereço...',
+                    style: TextStyle(color: Colors.black, fontSize: 14),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -303,7 +336,8 @@ class _HomePageState extends State<HomePage> {
             case 3:
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => UserAccountPage()),
+                MaterialPageRoute(
+                    builder: (context) => UserAccountPage(userInfo: userInfo)),
               );
               break;
           }
