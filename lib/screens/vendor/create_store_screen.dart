@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vizinhos_app/services/service_seller.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
+import 'package:vizinhos_app/services/secure_storage.dart';
 
 class CreateStoreScreen extends StatefulWidget {
   final String userId;
@@ -238,25 +239,31 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      // Utilize o endpoint correto para criação da loja
       final sellerService = SellerService(
         apiUrl:
             'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/createVizinho',
         authProvider: authProvider,
       );
 
+      // Supondo que createSellerProfile retorne os dados da nova loja
       await sellerService.createSellerProfile(
         userId: effectiveUserId,
         storeName: _storeNameController.text.trim(),
         categories: _selectedCategories,
       );
 
-      // Atualiza os dados do usuário globalmente
-      await authProvider.refreshUserData();
+      // Atualiza o AuthProvider e o SecureStorage com os dados da loja
+      final newStoreInfo = {
+        'storeName': _storeNameController.text.trim(),
+        'categories': _selectedCategories,
+      };
+      authProvider.storeInfo = newStoreInfo;
+      await SecureStorage().setStoreInfo(newStoreInfo);
+      authProvider.notifyListeners();
 
-      // Mostra feedback visual antes de navegar
       await _showSuccessAnimation();
 
-      // Fecha a tela e força atualização
       Navigator.of(context).pop(true);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

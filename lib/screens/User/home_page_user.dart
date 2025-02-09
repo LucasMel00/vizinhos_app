@@ -11,6 +11,7 @@ import 'package:vizinhos_app/screens/orders/orders_page.dart';
 import 'package:vizinhos_app/screens/restaurant/restaurant_detail_page.dart';
 import 'package:vizinhos_app/screens/search/search_page.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
+import 'package:vizinhos_app/services/debug_storage_screen.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -25,7 +26,11 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     futureRestaurants = fetchRestaurants();
-    fetchUserInfo(); // Chama a função para buscar as informações do usuário
+    fetchUserInfo().then((_) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      authProvider
+          .checkSellerStore(context); // Redireciona se não houver dados da loja
+    });
   }
 
   Future<void> fetchUserInfo() async {
@@ -49,8 +54,7 @@ class _HomePageState extends State<HomePage> {
         'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/user');
 
     try {
-      print(
-          "🔑 Token usado: ${accessToken.substring(0, 1071)}..."); // Log parcial do token
+      print("🔑 Token usado: ${accessToken.substring(0, 1071)}...");
 
       final response = await http.get(
         url,
@@ -159,9 +163,14 @@ class _HomePageState extends State<HomePage> {
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.keyboard_arrow_down, color: Colors.black),
+            icon: Icon(Icons.settings, color: Colors.black),
             onPressed: () {
-              // Ação para alterar o local
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => DebugStorageScreen(),
+                ),
+              );
             },
           ),
         ],
