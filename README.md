@@ -29,7 +29,7 @@
 ## 🛠️ Tecnologias  
 
 - **Flutter** (Multiplataforma: Android e iOS)  
-- **Firebase** (Autenticação, Banco de Dados, Notificações)  
+- **AWS** (Autenticação, Banco de Dados, Notificações)  
 - **Google Maps API** (Integração de mapas)  
 - **Provider** (Gerenciamento de estado)  
 - **HTTP** (Integração com APIs RESTful)  
