@@ -1,5 +1,3 @@
-// screens/Best/best_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -50,13 +48,10 @@ class _BestPageState extends State<BestPage> {
         future: futureBest,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            // Indicador de carregamento
             return Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            // Mensagem de erro
             return Center(child: Text('Erro: ${snapshot.error}'));
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            // Mensagem se não houver dados
             return Center(child: Text('Nenhum melhor restaurante encontrado.'));
           } else {
             List<Restaurant> best = snapshot.data!;
@@ -79,9 +74,10 @@ class _BestPageState extends State<BestPage> {
         Navigator.push(
           context,
           MaterialPageRoute(
-              builder: (context) => RestaurantDetailPage(
-                    restaurant: restaurant,
-                  )),
+            builder: (context) => RestaurantDetailPage(
+              restaurant: restaurant,
+            ),
+          ),
         );
       },
       child: Card(
@@ -91,34 +87,22 @@ class _BestPageState extends State<BestPage> {
             // Imagem do restaurante
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                restaurant.imageUrl,
-                height: 80,
-                width: 80,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    height: 80,
-                    width: 80,
-                    color: Colors.grey[200],
-                    child: Icon(Icons.image, color: Colors.grey),
-                  );
-                },
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
-                    height: 80,
-                    width: 80,
-                    alignment: Alignment.center,
-                    child: CircularProgressIndicator(
-                      value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded /
-                              (loadingProgress.expectedTotalBytes ?? 1)
-                          : null,
-                    ),
-                  );
-                },
-              ),
+              child:
+                  restaurant.imageUrl != null && restaurant.imageUrl!.isNotEmpty
+                      ? Image.network(
+                          restaurant.imageUrl!,
+                          height: 80,
+                          width: 80,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return _buildDefaultImage();
+                          },
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return _buildImageLoader();
+                          },
+                        )
+                      : _buildDefaultImage(),
             ),
             SizedBox(width: 16),
             // Informações do restaurante
@@ -135,8 +119,11 @@ class _BestPageState extends State<BestPage> {
                     ),
                     SizedBox(height: 8),
                     Text(
-                        '${restaurant.menu.isNotEmpty ? 'R\$ ${restaurant.menu[0].price.toStringAsFixed(2)}' : 'R\$ 0.00'} • 25-35 min',
-                        style: TextStyle(color: Colors.grey)),
+                      restaurant.menu.isNotEmpty
+                          ? 'R\$ ${restaurant.menu[0].price.toStringAsFixed(2)} • 25-35 min'
+                          : 'R\$ 0.00 • 25-35 min',
+                      style: TextStyle(color: Colors.grey),
+                    ),
                     SizedBox(height: 4),
                     Row(
                       children: [
@@ -155,6 +142,26 @@ class _BestPageState extends State<BestPage> {
           ],
         ),
       ),
+    );
+  }
+
+  // Widget para exibir a imagem padrão
+  Widget _buildDefaultImage() {
+    return Container(
+      height: 80,
+      width: 80,
+      color: Colors.grey[200],
+      child: Icon(Icons.image, color: Colors.grey),
+    );
+  }
+
+  // Widget para exibir o indicador de carregamento
+  Widget _buildImageLoader() {
+    return Container(
+      height: 80,
+      width: 80,
+      alignment: Alignment.center,
+      child: CircularProgressIndicator(),
     );
   }
 }

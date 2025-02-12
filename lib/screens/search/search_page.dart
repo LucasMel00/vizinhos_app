@@ -138,33 +138,23 @@ class _SearchPageState extends State<SearchPage> {
             children: [
               // Imagem do Restaurante
               ClipRRect(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-                child: Image.network(
-                  restaurant.imageUrl,
-                  height: 100,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      height: 100,
-                      color: Colors.grey[200],
-                      child: Icon(Icons.image, color: Colors.grey),
-                    );
-                  },
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      height: 100,
-                      alignment: Alignment.center,
-                      child: CircularProgressIndicator(
-                        value: loadingProgress.expectedTotalBytes != null
-                            ? loadingProgress.cumulativeBytesLoaded /
-                                (loadingProgress.expectedTotalBytes ?? 1)
-                            : null,
-                      ),
-                    );
-                  },
-                ),
+                borderRadius: BorderRadius.circular(8),
+                child: restaurant.imageUrl != null &&
+                        restaurant.imageUrl!.isNotEmpty
+                    ? Image.network(
+                        restaurant.imageUrl!,
+                        height: 80,
+                        width: 80,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return _buildDefaultImage();
+                        },
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return _buildImageLoader();
+                        },
+                      )
+                    : _buildDefaultImage(),
               ),
               // Informações do Restaurante
               Padding(
@@ -206,4 +196,24 @@ class _SearchPageState extends State<SearchPage> {
       ),
     );
   }
+}
+
+// Widget para exibir a imagem padrão
+Widget _buildDefaultImage() {
+  return Container(
+    height: 80,
+    width: 80,
+    color: Colors.grey[200],
+    child: Icon(Icons.image, color: Colors.grey),
+  );
+}
+
+// Widget para exibir o indicador de carregamento
+Widget _buildImageLoader() {
+  return Container(
+    height: 80,
+    width: 80,
+    alignment: Alignment.center,
+    child: CircularProgressIndicator(),
+  );
 }

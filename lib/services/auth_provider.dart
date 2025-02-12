@@ -14,6 +14,8 @@ class AuthProvider with ChangeNotifier {
   bool _isLoading = true;
   Map<String, dynamic> _userInfo = {};
   Map<String, dynamic>? _storeInfo;
+  Map<String, dynamic>? get storeInfo => _storeInfo;
+
   final SecureStorage _secureStorage = SecureStorage();
 
   // Getters
@@ -25,13 +27,6 @@ class AuthProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isLoggedIn => _accessToken != null && !_isTokenExpired;
   Map<String, dynamic> get userInfo => _userInfo;
-  Map<String, dynamic>? get storeInfo => _storeInfo;
-
-  // Setter para storeInfo (para atualizar de forma reativa)
-  set storeInfo(Map<String, dynamic>? info) {
-    _storeInfo = info;
-    notifyListeners();
-  }
 
   AuthProvider() {
     print('🔄 AuthProvider inicializado');
@@ -41,10 +36,9 @@ class AuthProvider with ChangeNotifier {
   Future<void> _initAuth() async {
     print('🔍 Iniciando carga de dados de autenticação...');
     await loadAuthData();
-    if (isLoggedIn && _isSeller) {
+    if (isLoggedIn) {
       print('🔐 Usuário já autenticado. Verificando status de vendedor...');
       await _checkSellerStatus();
-      await _loadStoreInfo();
     }
   }
 
@@ -86,54 +80,6 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<void> _loadStoreInfo() async {
-    try {
-      final response = await http.get(
-        Uri.parse(
-            'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/seller-profile'),
-        headers: {'Authorization': 'Bearer $_accessToken'},
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['sellerProfile'] != null) {
-          _storeInfo = data['sellerProfile'];
-          await _secureStorage.setStoreInfo(_storeInfo!);
-        }
-      } else if (response.statusCode == 404) {
-        await _secureStorage.deleteStoreInfo();
-        _storeInfo = null;
-      }
-    } catch (e) {
-      print('Erro ao carregar dados da loja: $e');
-    }
-  }
-
-  Future<void> syncSellerProfile() async {
-    try {
-      final response = await http.get(
-        Uri.parse(
-            'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/seller-profile'),
-        headers: {'Authorization': 'Bearer $_accessToken'},
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final sellerProfile = data['sellerProfile'];
-        await _secureStorage.setStoreInfo(sellerProfile);
-        _storeInfo = sellerProfile;
-        notifyListeners();
-      } else if (response.statusCode == 404) {
-        await _secureStorage.deleteStoreInfo();
-        _storeInfo = null;
-        notifyListeners();
-      }
-    } catch (e) {
-      print('Erro na sincronização do perfil: $e');
-      await _secureStorage.deleteStoreInfo();
-    }
-  }
-
   Future<void> login({
     required String accessToken,
     required String idToken,
@@ -161,10 +107,6 @@ class AuthProvider with ChangeNotifier {
       print('🔄 Verificando status de vendedor na API...');
       await _checkSellerStatus();
 
-      if (_isSeller) {
-        await _loadStoreInfo();
-      }
-
       print('🎉 Login realizado com sucesso!');
       notifyListeners();
     } catch (e, stack) {
@@ -179,18 +121,71 @@ class AuthProvider with ChangeNotifier {
     print('🚪 Iniciando logout...');
     try {
       await _secureStorage.deleteTokens();
-      await _secureStorage.deleteStoreInfo();
       _accessToken = null;
       _idToken = null;
       _refreshToken = null;
       _expiresIn = null;
       _isSeller = false;
       _userInfo = {};
-      _storeInfo = null;
       print('✅ Logout realizado com sucesso');
       notifyListeners();
     } catch (e, stack) {
       print('‼️ ERRO durante logout: $e');
+      print('Stack trace: $stack');
+    }
+  }
+
+  Future<void> fetchUserDataFromAPI() async {
+    if (_accessToken == null) return;
+
+    try {
+      final response = await http.get(
+        Uri.parse(
+            'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/user'),
+        headers: {'Authorization': 'Bearer $_accessToken'},
+      );
+
+      if (response.statusCode == 200) {
+        final newData = json.decode(response.body);
+        print('📦 Novos dados recebidos: $newData');
+
+        // Atualiza o status de vendedor
+        final sellerValue = newData['IsSeller'];
+        if (sellerValue is bool) {
+          _isSeller = sellerValue;
+        } else if (sellerValue is String) {
+          _isSeller = sellerValue.toLowerCase() == 'true';
+        } else {
+          _isSeller = false;
+        }
+
+        // Se houver sellerProfile, armazene no Secure Storage e na variável local
+        if (newData.containsKey('sellerProfile') &&
+            newData['sellerProfile'] != null) {
+          _storeInfo = newData['sellerProfile'];
+          await _secureStorage.setStoreInfo(_storeInfo!);
+        } else {
+          // Se não houver sellerProfile, pode limpar o que estiver salvo
+          await _secureStorage.deleteStoreInfo();
+          _storeInfo = null;
+        }
+
+        // Atualiza outras informações do usuário (caso deseje armazená-las)
+        _userInfo = {..._userInfo, ...newData};
+
+        // Se desejar, também atualize o ID Token caso ele venha na resposta
+        if (newData.containsKey('IdToken')) {
+          _idToken = newData['IdToken'];
+          await _secureStorage.setIdToken(_idToken!);
+          _userInfo = _decodeIdToken(_idToken!);
+        }
+
+        notifyListeners();
+      } else {
+        print('‼️ Falha na requisição: ${response.statusCode}');
+      }
+    } catch (e, stack) {
+      print('‼️ Erro ao buscar dados do usuário: $e');
       print('Stack trace: $stack');
     }
   }
@@ -210,6 +205,31 @@ class AuthProvider with ChangeNotifier {
     } catch (e, stack) {
       print('‼️ ERRO ao atualizar status de vendedor: $e');
       print('Stack trace: $stack');
+    }
+  }
+
+  Future<void> checkSellerStore(BuildContext context) async {
+    if (!_isSeller) return;
+
+    // Verifica primeiro se já temos _storeInfo carregado em memória
+    if (_storeInfo != null) return;
+
+    // Se não, busca no Secure Storage
+    final storeInfo = await _secureStorage.getStoreInfo();
+
+    if (storeInfo == null) {
+      // Se não houver loja, redireciona para a tela de criação
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CreateStoreScreen(
+            userId: _userInfo['sub'] ?? '',
+          ),
+        ),
+      );
+    } else {
+      _storeInfo = storeInfo;
+      notifyListeners();
     }
   }
 
@@ -325,7 +345,16 @@ class AuthProvider with ChangeNotifier {
   Future<void> refreshUserData() async {
     print('🔄 Forçando atualização completa dos dados do usuário');
     try {
-      // 1. Atualiza os dados do usuário na API
+      // 1. Recarrega tokens do armazenamento local
+      await loadAuthData();
+
+      // 2. Verifica se o token ainda é válido
+      if (_isTokenExpired && _refreshToken != null) {
+        print('⚠️ Token expirado, tentando renovar...');
+        await refreshAuthToken();
+      }
+
+      // 3. Atualiza dados do usuário na API
       final response = await http.get(
         Uri.parse(
             'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/user'),
@@ -336,7 +365,7 @@ class AuthProvider with ChangeNotifier {
         final newData = json.decode(response.body);
         print('📦 Novos dados recebidos: $newData');
 
-        // 2. Atualiza o status de vendedor
+        // 4. Atualiza o status de vendedor
         final sellerValue = newData['IsSeller'];
         if (sellerValue is bool) {
           _isSeller = sellerValue;
@@ -346,29 +375,22 @@ class AuthProvider with ChangeNotifier {
           _isSeller = false;
         }
 
-        // 3. Se o token expirou, tenta renová-lo
-        if (_isTokenExpired && _refreshToken != null) {
-          print('⚠️ Token expirado, tentando renovar...');
-          await refreshAuthToken();
+        // 5. Se houver sellerProfile, salva-o
+        if (newData.containsKey('sellerProfile') &&
+            newData['sellerProfile'] != null) {
+          _storeInfo = newData['sellerProfile'];
+          await _secureStorage.setStoreInfo(_storeInfo!);
         }
 
-        // 4. Recarrega tokens do armazenamento local
-        await loadAuthData();
-
-        // 5. Atualiza o ID Token se necessário
+        // 6. Atualiza ID Token se necessário
         if (newData.containsKey('IdToken')) {
           _idToken = newData['IdToken'];
           await _secureStorage.setIdToken(_idToken!);
           _userInfo = _decodeIdToken(_idToken!);
         }
 
-        // 6. Faz merge dos novos dados com os existentes
+        // 7. Merge dos novos dados com os existentes
         _userInfo = {..._userInfo, ...newData};
-
-        // 7. Se o usuário for vendedor, chama _loadStoreInfo para forçar a atualização
-        if (_isSeller) {
-          await _loadStoreInfo();
-        }
 
         print('✅ Dados atualizados com sucesso');
         notifyListeners();
@@ -381,29 +403,6 @@ class AuthProvider with ChangeNotifier {
       print('Stack trace: $stack');
       await logout();
       rethrow;
-    }
-  }
-
-  Future<void> checkSellerStore(BuildContext context) async {
-    if (!_isSeller) return;
-
-    // Buscar a loja armazenada no SecureStorage
-    final storeInfo = await SecureStorage().getStoreInfo();
-
-    if (storeInfo == null) {
-      // Se a loja não existir, redireciona para a tela de criação
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => CreateStoreScreen(
-            userId: _userInfo['sub'] ?? '',
-          ),
-        ),
-      );
-    } else {
-      // Se a loja existir, atualiza o AuthProvider
-      _storeInfo = storeInfo;
-      notifyListeners();
     }
   }
 

@@ -2,93 +2,79 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SecureStorage {
-  final FlutterSecureStorage _storage = FlutterSecureStorage();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  // Tokens de autenticação
+  // Keys for storing data
+  static const String _accessTokenKey = 'access_token';
+  static const String _idTokenKey = 'id_token';
+  static const String _refreshTokenKey = 'refresh_token';
+  static const String _expiresInKey = 'expires_in';
+  static const String _storeInfoKey = 'store_info';
+
+  // Methods for tokens
+
   Future<void> setAccessToken(String token) async {
-    await _storage.write(key: 'access_token', value: token);
+    await _storage.write(key: _accessTokenKey, value: token);
   }
 
   Future<String?> getAccessToken() async {
-    return await _storage.read(key: 'access_token');
+    return await _storage.read(key: _accessTokenKey);
   }
 
   Future<void> setIdToken(String token) async {
-    await _storage.write(key: 'id_token', value: token);
+    await _storage.write(key: _idTokenKey, value: token);
   }
 
   Future<String?> getIdToken() async {
-    return await _storage.read(key: 'id_token');
+    return await _storage.read(key: _idTokenKey);
   }
 
   Future<void> setRefreshToken(String token) async {
-    await _storage.write(key: 'refresh_token', value: token);
+    await _storage.write(key: _refreshTokenKey, value: token);
   }
 
   Future<String?> getRefreshToken() async {
-    return await _storage.read(key: 'refresh_token');
+    return await _storage.read(key: _refreshTokenKey);
   }
 
-  Future<void> setExpiresIn(int expiresIn) async {
-    await _storage.write(key: 'expires_in', value: expiresIn.toString());
+  Future<void> setExpiresIn(int seconds) async {
+    await _storage.write(key: _expiresInKey, value: seconds.toString());
   }
 
   Future<int?> getExpiresIn() async {
-    final value = await _storage.read(key: 'expires_in');
-    return value != null ? int.parse(value) : null;
+    final value = await _storage.read(key: _expiresInKey);
+    return value != null ? int.tryParse(value) : null;
   }
 
   Future<void> deleteTokens() async {
-    await _storage.delete(key: 'access_token');
-    await _storage.delete(key: 'id_token');
-    await _storage.delete(key: 'refresh_token');
-    await _storage.delete(key: 'expires_in');
+    await _storage.delete(key: _accessTokenKey);
+    await _storage.delete(key: _idTokenKey);
+    await _storage.delete(key: _refreshTokenKey);
+    await _storage.delete(key: _expiresInKey);
   }
 
-  // Métodos para os dados da loja
+  // Methods for store information
+
+  /// Stores the seller’s store information as a JSON string.
   Future<void> setStoreInfo(Map<String, dynamic> storeInfo) async {
-    await _storage.write(key: 'store_info', value: json.encode(storeInfo));
+    await _storage.write(key: _storeInfoKey, value: json.encode(storeInfo));
   }
 
   Future<Map<String, dynamic>?> getStoreInfo() async {
-    try {
-      final value = await _storage.read(key: 'store_info');
-      if (value == null) return null;
-
-      final decoded = json.decode(value);
-      if (decoded is! Map ||
-          decoded['storeName'] == null ||
-          decoded['categories'] == null) {
-        await _storage.delete(key: 'store_info');
-        return null;
-      }
-
-      return Map<String, dynamic>.from(decoded);
-    } catch (e) {
-      await _storage.delete(key: 'store_info');
-      return null;
+    final storeInfoJson = await _storage.read(key: _storeInfoKey);
+    if (storeInfoJson != null) {
+      return Map<String, dynamic>.from(json.decode(storeInfoJson));
     }
+    return null;
   }
 
+  /// Deletes the stored seller’s store information.
   Future<void> deleteStoreInfo() async {
-    await _storage.delete(key: 'store_info');
+    await _storage.delete(key: _storeInfoKey);
   }
 
-  // Novo método: Retorna todos os tokens armazenados
-  Future<Map<String, String?>> getAllTokens() async {
-    return {
-      'access_token': await getAccessToken(),
-      'id_token': await getIdToken(),
-      'refresh_token': await getRefreshToken(),
-      'expires_in': (await getExpiresIn())?.toString(),
-    };
-  }
-
-  // Novo método: Retorna todos os dados armazenados
-  Future<Map<String, dynamic>?> getAllData() async {
-    return {
-      'tokens': await getAllTokens(),
-      'store_info': await getStoreInfo(),
-    };
+  /// Retorna todos os valores armazenados no Secure Storage.
+  Future<Map<String, String>> readAllValues() async {
+    return await _storage.readAll();
   }
 }

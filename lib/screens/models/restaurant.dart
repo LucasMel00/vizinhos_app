@@ -13,11 +13,13 @@ class MenuItem {
 
   factory MenuItem.fromJson(Map<String, dynamic> json) {
     return MenuItem(
-      name: json['name'],
-      itemId: json['itemId'],
-      price: (json['price'] as num).toDouble(),
+      name: json['name'] ?? 'Item sem nome', // Trata nome nulo
+      itemId: json['itemId'] ?? '', // Trata itemId nulo
+      price: (json['price'] as num?)?.toDouble() ?? 0.0, // Trata preço nulo
     );
   }
+
+  get description => null;
 }
 
 class Restaurant {
@@ -25,33 +27,34 @@ class Restaurant {
   final String name;
   final String address;
   final List<String> categories;
-  final String imageUrl;
   final double rating;
-  final List<MenuItem> menu;
+  final String? imageUrl; // Campo opcional
+  final List<MenuItem> menu; // Lista de itens do menu
 
   Restaurant({
     required this.restaurantId,
     required this.name,
     required this.address,
     required this.categories,
-    required this.imageUrl,
     required this.rating,
-    required this.menu,
+    this.imageUrl, // Pode ser nulo
+    required this.menu, // Lista de itens do menu
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
-    var menuList = json['menu'] as List;
-    List<MenuItem> menuItems =
-        menuList.map((item) => MenuItem.fromJson(item)).toList();
-
     return Restaurant(
-      restaurantId: json['restaurantId'],
-      name: json['name'],
-      address: json['address'],
-      categories: List<String>.from(json['categories']),
-      imageUrl: json['imageUrl'],
-      rating: (json['rating'] as num).toDouble(),
-      menu: menuItems,
+      restaurantId: json['restaurantId'] ?? '', // Trata restaurantId nulo
+      name: json['name'] ?? 'Nome não disponível', // Trata nome nulo
+      address:
+          json['address'] ?? 'Endereço não disponível', // Trata endereço nulo
+      categories:
+          List<String>.from(json['categories'] ?? []), // Trata categorias nulas
+      rating: (json['rating'] as num?)?.toDouble() ?? 0.0, // Trata rating nulo
+      imageUrl: json['imageUrl'], // Permite nulo
+      menu: (json['menu'] as List<dynamic>?)
+              ?.map((item) => MenuItem.fromJson(item))
+              .toList() ??
+          [], // Inicializa o menu como uma lista vazia se for nulo
     );
   }
 }

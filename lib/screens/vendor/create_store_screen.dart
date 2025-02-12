@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
+import 'dart:io';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:vizinhos_app/services/service_seller.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
-import 'package:vizinhos_app/services/secure_storage.dart';
 
 class CreateStoreScreen extends StatefulWidget {
   final String userId;
@@ -19,8 +22,17 @@ class CreateStoreScreen extends StatefulWidget {
 class _CreateStoreScreenState extends State<CreateStoreScreen> {
   final _formKey = GlobalKey<FormState>();
   final _storeNameController = TextEditingController();
+  final _cepController = TextEditingController();
+  final _streetController = TextEditingController();
+  final _neighborhoodController = TextEditingController();
+  final _numberController = TextEditingController();
+  final _complementController = TextEditingController();
+  final _descriptionController = TextEditingController();
   final List<String> _selectedCategories = [];
   bool _isLoading = false;
+  File? _selectedImage;
+  String? _imageBase64;
+  String? _imageType;
 
   final List<String> _availableCategories = [
     'Pratos Caseiros',
@@ -32,10 +44,54 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
     'Saladas & Veganos'
   ];
 
+  // Variável para evitar múltiplas chamadas seguidas para o mesmo CEP
+  String? _lastSearchedCep;
+
+  @override
+  void initState() {
+    super.initState();
+    _cepController.addListener(_onCepChanged);
+  }
+
   @override
   void dispose() {
     _storeNameController.dispose();
+    _cepController.dispose();
+    _streetController.dispose();
+    _neighborhoodController.dispose();
+    _numberController.dispose();
+    _complementController.dispose();
+    _descriptionController.dispose();
     super.dispose();
+  }
+
+  void _onCepChanged() {
+    final cep = _cepController.text.replaceAll(RegExp(r'\D'), '');
+    if (cep.length == 8 && cep != _lastSearchedCep) {
+      _lastSearchedCep = cep;
+      _fetchAddress(cep);
+    }
+  }
+
+  Future<void> _fetchAddress(String cep) async {
+    final url = "https://viacep.com.br/ws/$cep/json/";
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data.containsKey('erro')) {
+          // CEP não encontrado; opcionalmente exiba uma mensagem
+          return;
+        }
+        setState(() {
+          _streetController.text = data['logradouro'] ?? "";
+          _neighborhoodController.text = data['bairro'] ?? "";
+        });
+      }
+    } catch (e) {
+      // Em caso de erro, pode exibir uma mensagem ou ignorar
+      print("Erro ao buscar endereço: $e");
+    }
   }
 
   @override
@@ -61,7 +117,13 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
           key: _formKey,
           child: ListView(
             children: [
+              _buildImagePicker(),
+              const SizedBox(height: 20),
               _buildStoreNameField(),
+              const SizedBox(height: 20),
+              _buildDescriptionField(),
+              const SizedBox(height: 20),
+              _buildAddressSection(),
               const SizedBox(height: 20),
               _buildCategorySection(),
               const SizedBox(height: 30),
@@ -71,6 +133,78 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildImagePicker() {
+    return Column(
+      children: [
+        CircleAvatar(
+          radius: 60,
+          backgroundColor: Colors.grey[200],
+          backgroundImage:
+              _selectedImage != null ? FileImage(_selectedImage!) : null,
+          child: _selectedImage == null
+              ? Icon(Icons.camera_alt, size: 40, color: Colors.grey[600])
+              : null,
+        ),
+        const SizedBox(height: 10),
+        TextButton.icon(
+          icon: Icon(Icons.photo_library),
+          label: Text('Selecionar da Galeria (opcional)'),
+          onPressed: _pickImage,
+        ),
+        if (_selectedImage != null)
+          TextButton(
+            child: Text('Remover imagem', style: TextStyle(color: Colors.red)),
+            onPressed: () => setState(() {
+              _selectedImage = null;
+              _imageBase64 = null;
+              _imageType = null;
+            }),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        PlatformFile file = result.files.first;
+        final bytes = file.bytes!;
+        final base64Image = base64Encode(bytes);
+
+        setState(() {
+          _selectedImage = File(file.path!);
+          _imageBase64 = base64Image;
+          _imageType = _getMimeType(file.extension!);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  String _getMimeType(String extension) {
+    switch (extension.toLowerCase()) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      default:
+        return 'image/jpeg';
+    }
   }
 
   Widget _buildStoreNameField() {
@@ -92,6 +226,113 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
         }
         return null;
       },
+    );
+  }
+
+  Widget _buildDescriptionField() {
+    return TextFormField(
+      controller: _descriptionController,
+      maxLines: 3,
+      decoration: InputDecoration(
+        labelText: 'Descrição Curta',
+        alignLabelWithHint: true,
+        border: OutlineInputBorder(),
+        hintText: 'Descreva sua loja em poucas palavras...',
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) return 'Informe uma descrição';
+        if (value.length > 150) return 'Máximo de 150 caracteres';
+        return null;
+      },
+    );
+  }
+
+  Widget _buildAddressSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Endereço da Loja:',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: Theme.of(context).primaryColor,
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Campo para CEP – ao preencher, os dados serão buscados automaticamente
+        TextFormField(
+          controller: _cepController,
+          decoration: InputDecoration(
+            labelText: 'CEP',
+            prefixIcon: Icon(Icons.location_on),
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.number,
+          validator: (value) {
+            if (value == null || value.isEmpty) return 'Informe o CEP';
+            if (!RegExp(r'^\d{5}-?\d{3}$').hasMatch(value))
+              return 'CEP inválido';
+            return null;
+          },
+        ),
+        const SizedBox(height: 10),
+        // Campos preenchidos automaticamente (mas o usuário pode editar, se necessário)
+        TextFormField(
+          controller: _streetController,
+          decoration: InputDecoration(
+            labelText: 'Rua',
+            border: OutlineInputBorder(),
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) return 'Informe a rua';
+            return null;
+          },
+        ),
+        const SizedBox(height: 10),
+        TextFormField(
+          controller: _neighborhoodController,
+          decoration: InputDecoration(
+            labelText: 'Bairro',
+            border: OutlineInputBorder(),
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) return 'Informe o bairro';
+            return null;
+          },
+        ),
+        const SizedBox(height: 10),
+        // Campos para Número e Complemento – preenchidos manualmente
+        Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: TextFormField(
+                controller: _numberController,
+                decoration: InputDecoration(
+                  labelText: 'Número',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Informe o número';
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                controller: _complementController,
+                decoration: InputDecoration(
+                  labelText: 'Complemento (opcional)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -197,9 +438,10 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('1. Escolha um nome claro para sua loja\n'
-                '2. Selecione as categorias que melhor representam seus produtos\n'
-                '3. Você poderá editar essas informações depois\n'
-                '4. Após a criação, sua loja estará visível para a comunidade'),
+                '2. Informe o CEP e os campos de endereço serão preenchidos automaticamente\n'
+                '3. Selecione as categorias que melhor representam seus produtos\n'
+                '4. Informe o número e o complemento (se necessário)\n'
+                '5. Após a criação, sua loja estará visível para a comunidade'),
           ],
         ),
         actions: [
@@ -239,31 +481,35 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      // Utilize o endpoint correto para criação da loja
       final sellerService = SellerService(
         apiUrl:
             'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/createVizinho',
         authProvider: authProvider,
       );
 
-      // Supondo que createSellerProfile retorne os dados da nova loja
       await sellerService.createSellerProfile(
         userId: effectiveUserId,
         storeName: _storeNameController.text.trim(),
         categories: _selectedCategories,
+        description: _descriptionController.text.trim(),
+        address: {
+          'CEP': _cepController.text.trim(),
+          'rua': _streetController.text.trim(),
+          'bairro': _neighborhoodController.text.trim(),
+          'numero': _numberController.text.trim(),
+          'complemento': _complementController.text.trim(),
+        },
+        fotoPerfil: _imageBase64,
+        fotoPerfilType: _imageType,
       );
 
-      // Atualiza o AuthProvider e o SecureStorage com os dados da loja
-      final newStoreInfo = {
-        'storeName': _storeNameController.text.trim(),
-        'categories': _selectedCategories,
-      };
-      authProvider.storeInfo = newStoreInfo;
-      await SecureStorage().setStoreInfo(newStoreInfo);
-      authProvider.notifyListeners();
+      // Atualiza os dados do usuário
+      await authProvider.refreshUserData();
 
+      // Exibe uma animação de sucesso
       await _showSuccessAnimation();
 
+      // Fecha a tela e retorna true para indicar sucesso
       Navigator.of(context).pop(true);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

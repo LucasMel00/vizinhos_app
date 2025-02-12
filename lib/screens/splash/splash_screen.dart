@@ -37,12 +37,19 @@ class _SplashScreenState extends State<SplashScreen>
   Future<void> _checkAuthStatus() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    // Aguarda o carregamento inicial dos dados de autenticação
+    // Aguarda o carregamento inicial dos dados de autenticação (tokens, etc.)
     while (authProvider.isLoading) {
       await Future.delayed(const Duration(milliseconds: 100));
     }
 
-    // Navega para a tela apropriada após o splash
+    // Se o usuário estiver logado, busca os dados completos do usuário na API
+    if (authProvider.isLoggedIn) {
+      await authProvider.fetchUserDataFromAPI();
+      // Nesse momento, o AuthProvider deve ter salvo as informações (ex.: sellerProfile)
+      // no Secure Storage e na variável local (_storeInfo)
+    }
+
+    // Após a inicialização, navega para a tela apropriada
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
@@ -68,7 +75,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.green, // Cor de fundo do seu branding
+      backgroundColor: Colors.green,
       body: Center(
         child: ScaleTransition(
           scale: _animation,
@@ -77,23 +84,11 @@ class _SplashScreenState extends State<SplashScreen>
             children: [
               // Logo do aplicativo
               Image.asset(
-                'assets/logo.png', // Altere para o caminho da sua imagem
-                width: 150,
-                height: 150,
+                "assets/images/default_restaurant_image.jpg",
+                width: 450,
+                height: 450,
               ),
               const SizedBox(height: 20),
-              // Texto animado
-              FadeTransition(
-                opacity: _animation,
-                child: const Text(
-                  'Vizinhos App',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
             ],
           ),
         ),

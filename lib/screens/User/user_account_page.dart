@@ -1,41 +1,19 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:vizinhos_app/screens/User/home_page_user.dart';
 import 'package:vizinhos_app/screens/login/home_screen.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart';
 import 'package:vizinhos_app/screens/search/search_page.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_account_page.dart';
 import 'package:vizinhos_app/screens/vendor/create_store_screen.dart';
-import '../../services/auth_provider.dart';
-import '../../services/secure_storage.dart';
+import 'package:vizinhos_app/services/auth_provider.dart';
 
-class UserAccountPage extends StatefulWidget {
+class UserAccountPage extends StatelessWidget {
   final Map<String, dynamic>? userInfo;
 
   const UserAccountPage({Key? key, this.userInfo}) : super(key: key);
 
-  @override
-  _UserAccountPageState createState() => _UserAccountPageState();
-}
-
-class _UserAccountPageState extends State<UserAccountPage> {
-  bool _isSeller = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSellerStatus();
-  }
-
-  /// Carrega o status de vendedor do SecureStorage
-  Future<void> _loadSellerStatus() async {
-    final storeInfo = await SecureStorage().getStoreInfo();
-    setState(() {
-      _isSeller = storeInfo != null; // Se houver dados da loja, é vendedor
-    });
-  }
-
-  /// Função para decodificar o ID Token (JWT)
   Map<String, dynamic> decodeIdToken(String idToken) {
     final parts = idToken.split('.');
     if (parts.length != 3) {
@@ -50,8 +28,6 @@ class _UserAccountPageState extends State<UserAccountPage> {
   /// Função para realizar o logout e redirecionar para a tela de login
   Future<void> _logout(BuildContext context) async {
     await Provider.of<AuthProvider>(context, listen: false).logout();
-    await SecureStorage()
-        .deleteStoreInfo(); // Remove os dados da loja ao deslogar
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => LoginScreen()),
@@ -64,31 +40,10 @@ class _UserAccountPageState extends State<UserAccountPage> {
     final authProvider = Provider.of<AuthProvider>(context);
     final Map<String, dynamic>? providerUserInfo = authProvider.userInfo;
     final Map<String, dynamic>? effectiveUserInfo =
-        widget.userInfo ?? providerUserInfo;
+        userInfo ?? providerUserInfo;
+    final sellerProfile = authProvider.storeInfo;
 
-    // Decodifica o token para extrair informações extras, se disponível.
-    Map<String, dynamic> tokenData = {};
-    if (authProvider.idToken != null) {
-      try {
-        tokenData = decodeIdToken(authProvider.idToken!);
-      } catch (e) {
-        debugPrint('Erro ao decodificar o ID Token: $e');
-      }
-    }
-
-    // Extraímos as informações para exibição:
-    final String displayName = effectiveUserInfo?['Name'] ??
-        tokenData['name'] ??
-        'Nome não disponível';
-    final String displayEmail = effectiveUserInfo?['Email'] ??
-        tokenData['email'] ??
-        'Email não disponível';
-    String displayAddress = 'Endereço não cadastrado';
-    if (effectiveUserInfo?['Address'] != null &&
-        effectiveUserInfo!['Address'] is Map<String, dynamic>) {
-      final address = effectiveUserInfo['Address'];
-      displayAddress = '${address['Street'] ?? ''}, ${address['CEP'] ?? ''}';
-    }
+    final bool isSeller = authProvider.isSeller;
 
     return Scaffold(
       appBar: AppBar(
@@ -99,7 +54,7 @@ class _UserAccountPageState extends State<UserAccountPage> {
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
-        leading: BackButton(color: Colors.black),
+        leading: const BackButton(color: Colors.black),
       ),
       backgroundColor: Colors.white,
       body: ListView(
@@ -111,7 +66,8 @@ class _UserAccountPageState extends State<UserAccountPage> {
                 CircleAvatar(
                   radius: 35,
                   backgroundColor: Colors.grey[300],
-                  child: Icon(Icons.person, size: 35, color: Colors.white),
+                  child:
+                      const Icon(Icons.person, size: 35, color: Colors.white),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -119,19 +75,14 @@ class _UserAccountPageState extends State<UserAccountPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        displayName,
+                        effectiveUserInfo?['Name'] ?? 'Nome não disponível',
                         style: const TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        displayEmail,
+                        effectiveUserInfo?['Email'] ?? 'Email não disponível',
                         style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        displayAddress,
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -141,52 +92,34 @@ class _UserAccountPageState extends State<UserAccountPage> {
           ),
           const Divider(),
 
-          // Exibe o painel do vendedor se for vendedor
-          // Exibe o painel do vendedor se for vendedor
-          // Exibe o painel do vendedor se for vendedor
-          if (_isSeller)
+          // Aba de painel do vendedor, exibida apenas se o usuário for vendedor
+          if (isSeller)
             _buildListTile(
-              icon: Icons.store,
-              title: 'Painel do Vendedor',
+              icon: Icons.store_mall_directory,
+              title: 'Loja',
               onTap: () {
-                if (effectiveUserInfo != null) {
-                  // Convertendo o Map<dynamic, dynamic> para Map<String, dynamic>
+                if (sellerProfile != null) {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => VendorAccountPage(
-                        userInfo: Map<String, dynamic>.from(effectiveUserInfo!),
-                      ),
+                      builder: (context) =>
+                          VendorAccountPage(userInfo: effectiveUserInfo ?? {}),
                     ),
                   );
                 } else {
-                  // Se effectiveUserInfo for nulo, vai para a tela de criação de loja
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => CreateStoreScreen(
-                        userId:
-                            '', // Passa um id vazio ou de acordo com a lógica
+                        userId: effectiveUserInfo?['sub'] ?? '',
                       ),
                     ),
-                  );
+                  ).then((shouldRefresh) {
+                    if (shouldRefresh == true) {
+                      authProvider.refreshUserData();
+                    }
+                  });
                 }
-              },
-            )
-          else
-            _buildListTile(
-              icon: Icons.store_mall_directory,
-              title: 'Criar Loja',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CreateStoreScreen(
-                      userId: effectiveUserInfo?['sub'] ??
-                          '', // Passa o userId, se disponível
-                    ),
-                  ),
-                );
               },
             ),
 
@@ -241,10 +174,39 @@ class _UserAccountPageState extends State<UserAccountPage> {
           ),
         ],
       ),
+      bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: Colors.white,
+        type: BottomNavigationBarType.fixed,
+        currentIndex: 3,
+        selectedItemColor: Colors.green,
+        unselectedItemColor: Colors.grey,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Procurar'),
+          BottomNavigationBarItem(icon: Icon(Icons.list), label: 'Pedidos'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Conta'),
+        ],
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              Navigator.push(
+                  context, MaterialPageRoute(builder: (context) => HomePage()));
+            case 1:
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (context) => SearchPage()));
+              break;
+            case 2:
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (context) => OrdersPage()));
+              break;
+            case 3:
+              break;
+          }
+        },
+      ),
     );
   }
 
-  /// Método auxiliar para criar um ListTile
   ListTile _buildListTile({
     required IconData icon,
     required String title,
