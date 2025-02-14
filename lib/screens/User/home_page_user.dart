@@ -54,9 +54,7 @@ class _HomePageState extends State<HomePage> {
     if (!authProvider.isLoggedIn) return;
     final accessToken = authProvider.accessToken;
     if (accessToken == null) return;
-
     final url = Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/user');
-
     try {
       final response = await http.get(url, headers: {'Authorization': 'Bearer $accessToken'});
       if (response.statusCode == 200) {
@@ -64,47 +62,23 @@ class _HomePageState extends State<HomePage> {
         setState(() {
           userInfo = data;
         });
-        // Acesse o endereço salvo; ajuste a chave conforme sua estrutura de dados.
-        String? street = userInfo?['Address'] != null
-            ? userInfo!['Address']['Street']
-            : null;
-        print("Endereço recuperado: $street");
+        String? street = userInfo?['Address'] != null ? userInfo!['Address']['Street'] : null;
         if (street != null && street.isNotEmpty) {
-          try {
-            List<Location> locations = await locationFromAddress(street);
-            if (locations.isNotEmpty) {
-              setState(() {
-                currentLat = locations.first.latitude;
-                currentLon = locations.first.longitude;
-              });
-              print("Coordenadas obtidas: $currentLat, $currentLon");
-            } else {
-              print("Nenhuma localização encontrada para: $street");
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("Nenhuma localização encontrada para: $street")),
-              );
-            }
-          } catch (geocodeError) {
-            print("Erro na geocodificação do endereço: $geocodeError");
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text("Erro na geocodificação: $geocodeError")),
-            );
+          List<Location> locations = await locationFromAddress(street);
+          if (locations.isNotEmpty) {
+            setState(() {
+              currentLat = locations.first.latitude;
+              currentLon = locations.first.longitude;
+            });
           }
-        } else {
-          print("Endereço do usuário não encontrado ou vazio.");
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Endereço do usuário não disponível.")),
-          );
         }
       } else {
         final errorBody = json.decode(response.body);
-        print("Erro ao carregar dados: ${errorBody['error']}");
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erro ao carregar dados: ${errorBody['error']}')),
         );
       }
     } catch (e) {
-      print("Erro: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro: $e')),
       );
@@ -161,7 +135,7 @@ class _HomePageState extends State<HomePage> {
               backgroundColor: Colors.green,
               flexibleSpace: FlexibleSpaceBar(
                 background: Container(
-                  color: Colors.green, // Fundo sólido verde
+                  color: Colors.green, // Fundo sólido verde, sem gradiente
                   child: Padding(
                     padding: const EdgeInsets.only(top: 50, left: 16),
                     child: Row(
