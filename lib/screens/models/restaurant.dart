@@ -13,9 +13,9 @@ class MenuItem {
 
   factory MenuItem.fromJson(Map<String, dynamic> json) {
     return MenuItem(
-      name: json['name'] ?? 'Item sem nome', // Trata nome nulo
-      itemId: json['itemId'] ?? '', // Trata itemId nulo
-      price: (json['price'] as num?)?.toDouble() ?? 0.0, // Trata preço nulo
+      name: json['name'] ?? 'Item sem nome',
+      itemId: json['itemId'] ?? '',
+      price: (json['price'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -28,8 +28,11 @@ class Restaurant {
   final String address;
   final List<String> categories;
   final double rating;
-  final String? imageUrl; // Campo opcional
-  final List<MenuItem> menu; // Lista de itens do menu
+  final String? imageUrl;
+  final List<MenuItem> menu;
+  final double? distance;
+  final double? x; // latitude (ou use 'latitude')
+  final double? y; // longitude (ou use 'longitude')
 
   Restaurant({
     required this.restaurantId,
@@ -37,24 +40,30 @@ class Restaurant {
     required this.address,
     required this.categories,
     required this.rating,
-    this.imageUrl, // Pode ser nulo
-    required this.menu, // Lista de itens do menu
+    this.imageUrl,
+    required this.menu,
+    this.distance,
+    this.x,
+    this.y,
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
     return Restaurant(
-      restaurantId: json['restaurantId'] ?? '', // Trata restaurantId nulo
-      name: json['name'] ?? 'Nome não disponível', // Trata nome nulo
-      address:
-          json['address'] ?? 'Endereço não disponível', // Trata endereço nulo
-      categories:
-          List<String>.from(json['categories'] ?? []), // Trata categorias nulas
-      rating: (json['rating'] as num?)?.toDouble() ?? 0.0, // Trata rating nulo
-      imageUrl: json['imageUrl'], // Permite nulo
+      restaurantId: json['restaurantId'] ?? '',
+      name: json['name'] ?? 'Nome não disponível',
+      address: json['address'] ?? 'Endereço não disponível',
+      categories: List<String>.from(json['categories'] ?? []),
+      rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
+      imageUrl: json['imageUrl'],
       menu: (json['menu'] as List<dynamic>?)
               ?.map((item) => MenuItem.fromJson(item))
               .toList() ??
-          [], // Inicializa o menu como uma lista vazia se for nulo
+          [],
+      distance: json['distance'] != null
+          ? double.tryParse(json['distance'].toString())
+          : null,
+      x: json['x'] != null ? double.tryParse(json['x'].toString()) : null,
+      y: json['y'] != null ? double.tryParse(json['y'].toString()) : null,
     );
   }
 }

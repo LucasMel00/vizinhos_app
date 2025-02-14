@@ -8,9 +8,11 @@ import 'package:vizinhos_app/screens/Offers/offers_page.dart';
 import 'package:vizinhos_app/screens/best/best_page.dart';
 import 'package:vizinhos_app/screens/category/category_page.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart';
+import 'package:vizinhos_app/screens/restaurant/restaurantMapScreen.dart';
 import 'package:vizinhos_app/screens/restaurant/restaurant_detail_page.dart';
 import 'package:vizinhos_app/screens/search/search_page.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
+import 'package:geocoding/geocoding.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -18,17 +20,28 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  late Future<List<Restaurant>> futureRestaurants;
+  // Inicializa com um Future que retorna uma lista vazia para evitar LateInitializationError.
+  late Future<List<Restaurant>> futureRestaurants = Future.value([]);
   Map<String, dynamic>? userInfo;
+
+  // Coordenadas obtidas a partir do endereço do usuário
+  double? currentLat;
+  double? currentLon;
+
+  int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    futureRestaurants = fetchRestaurants();
-    fetchUserInfo();
+    futureRestaurants = Future.value([]);
+    // Busca informações do usuário e converte o endereço para coordenadas.
+    fetchUserInfo().then((_) {
+      setState(() {
+        futureRestaurants = fetchRestaurants();
+      });
+    });
   }
 
-  // Função que realiza o refresh dos dados do usuário e da lista de restaurantes
   Future<void> _refresh() async {
     await fetchUserInfo();
     setState(() {
@@ -38,270 +51,270 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> fetchUserInfo() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
-    if (!authProvider.isLoggedIn) {
-      print("❌ Usuário não autenticado");
-      return;
-    }
-
+    if (!authProvider.isLoggedIn) return;
     final accessToken = authProvider.accessToken;
-    if (accessToken == null) {
-      print("❌ Access Token não disponível");
-      return;
-    }
-    final url = Uri.parse(
-        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/user');
+    if (accessToken == null) return;
+
+    final url = Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/user');
 
     try {
-      print(
-          "🔑 Token usado: ${accessToken.substring(0, 1071)}..."); // Log parcial do token
-
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $accessToken',
-        },
-      );
-
-      print("🔄 Resposta da API: ${response.statusCode}");
-      print("📄 Corpo da resposta: ${response.body}");
-
+      final response = await http.get(url, headers: {'Authorization': 'Bearer $accessToken'});
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         setState(() {
           userInfo = data;
         });
+        // Acesse o endereço salvo; ajuste a chave conforme sua estrutura de dados.
+        String? street = userInfo?['Address'] != null
+            ? userInfo!['Address']['Street']
+            : null;
+        print("Endereço recuperado: $street");
+        if (street != null && street.isNotEmpty) {
+          try {
+            List<Location> locations = await locationFromAddress(street);
+            if (locations.isNotEmpty) {
+              setState(() {
+                currentLat = locations.first.latitude;
+                currentLon = locations.first.longitude;
+              });
+              print("Coordenadas obtidas: $currentLat, $currentLon");
+            } else {
+              print("Nenhuma localização encontrada para: $street");
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("Nenhuma localização encontrada para: $street")),
+              );
+            }
+          } catch (geocodeError) {
+            print("Erro na geocodificação do endereço: $geocodeError");
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("Erro na geocodificação: $geocodeError")),
+            );
+          }
+        } else {
+          print("Endereço do usuário não encontrado ou vazio.");
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Endereço do usuário não disponível.")),
+          );
+        }
       } else {
         final errorBody = json.decode(response.body);
-        print("❌ Erro ${response.statusCode}: ${errorBody['error']}");
+        print("Erro ao carregar dados: ${errorBody['error']}");
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Erro ao carregar dados: ${errorBody['error']}')),
+          SnackBar(content: Text('Erro ao carregar dados: ${errorBody['error']}')),
         );
       }
-    } on http.ClientException catch (e) {
-      print("❌ Erro de rede: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro de rede: $e')),
-      );
-    } on FormatException catch (e) {
-      print("❌ Erro ao decodificar JSON: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao processar dados')),
-      );
     } catch (e) {
-      print("❌ Erro inesperado: $e");
+      print("Erro: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro inesperado: $e')),
+        SnackBar(content: Text('Erro: $e')),
       );
     }
   }
 
   Future<List<Restaurant>> fetchRestaurants() async {
-    final response = await http.get(Uri.parse(
-        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/list'));
-
+    if (currentLat == null || currentLon == null) {
+      throw Exception('Coordenadas do usuário não disponíveis.');
+    }
+    final url = Uri.parse(
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/list?x=$currentLat&y=$currentLon');
+    final response = await http.get(url);
     if (response.statusCode == 200) {
-      List<dynamic> jsonResponse = json.decode(response.body);
-      return jsonResponse
-          .map((restaurant) => Restaurant.fromJson(restaurant))
-          .toList();
+      final jsonResponse = json.decode(response.body);
+      List<dynamic> restaurantsJson = jsonResponse['restaurants'];
+      return restaurantsJson.map((json) => Restaurant.fromJson(json)).toList();
     } else {
       throw Exception('Falha ao carregar restaurantes');
     }
   }
 
+  void _onNavItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    switch (index) {
+      case 0:
+        // Já estamos na HomePage.
+        break;
+      case 1:
+        Navigator.push(context, MaterialPageRoute(builder: (_) => SearchPage()));
+        break;
+      case 2:
+        Navigator.push(context, MaterialPageRoute(builder: (_) => OrdersPage()));
+        break;
+      case 3:
+        Navigator.push(context, MaterialPageRoute(builder: (_) => UserAccountPage(userInfo: userInfo)));
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
-
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.person, color: Colors.black),
-          onPressed: () {
-            if (userInfo != null) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => UserAccountPage(userInfo: userInfo),
-                ),
-              );
-            }
-          },
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Endereço de Entrega',
-              style: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18),
-            ),
-            Row(
-              children: [
-                Icon(Icons.location_on, size: 16, color: Colors.green),
-                SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    userInfo?['Address'] != null
-                        ? '${userInfo!['Address']['Street']}'
-                        : 'Carregando endereço...',
-                    style: TextStyle(color: Colors.black, fontSize: 14),
-                    overflow: TextOverflow.ellipsis,
+      // O design usa o verde como cor principal.
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+            SliverAppBar(
+              pinned: true,
+              expandedHeight: 80,
+              backgroundColor: Colors.green,
+              flexibleSpace: FlexibleSpaceBar(
+                background: Container(
+                  color: Colors.green, // Fundo sólido verde
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 50, left: 16),
+                    child: Row(
+                      children: [
+                        Icon(Icons.location_on, size: 20, color: Colors.white),
+                        SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            userInfo?['Address'] != null
+                                ? '${userInfo!['Address']['Street']}'
+                                : 'Carregando endereço...',
+                            style: TextStyle(color: Colors.white, fontSize: 14),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.map, color: Colors.white),
+                          onPressed: () {
+                            if (currentLat != null && currentLon != null) {
+                              futureRestaurants.then((restaurants) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => RestaurantMapScreen(
+                                      userLatitude: currentLat!,
+                                      userLongitude: currentLon!,
+                                      restaurants: restaurants,
+                                    ),
+                                  ),
+                                );
+                              });
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text("Localização não disponível.")),
+                              );
+                            }
+                          },
+                        ),
+                      ],
+                    ),
                   ),
+                ),
+              ),
+              actions: [
+                IconButton(
+                  icon: Icon(Icons.keyboard_arrow_down, color: Colors.white),
+                  onPressed: () {},
                 ),
               ],
             ),
           ],
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.keyboard_arrow_down, color: Colors.black),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      // Envolvemos o FutureBuilder com um RefreshIndicator para permitir o pull-to-refresh
-      body: RefreshIndicator(
-        onRefresh: _refresh,
-        // Utilizamos um FutureBuilder que, em cada estado, retorna um widget scrollável (ListView ou SingleChildScrollView)
-        child: FutureBuilder<List<Restaurant>>(
-          future: futureRestaurants,
-          builder: (context, snapshot) {
-            // Caso os dados estejam sendo carregados, exibimos um indicador de progresso
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return ListView(
-                physics: AlwaysScrollableScrollPhysics(),
-                children: [
-                  Container(
-                    height: MediaQuery.of(context).size.height - kToolbarHeight,
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                ],
-              );
-            } else if (snapshot.hasError) {
-              // Em caso de erro, exibimos uma mensagem
-              return ListView(
-                physics: AlwaysScrollableScrollPhysics(),
-                children: [
-                  Container(
-                    height: MediaQuery.of(context).size.height - kToolbarHeight,
-                    child: Center(child: Text('Erro: ${snapshot.error}')),
-                  ),
-                ],
-              );
-            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              // Caso não haja restaurantes, exibimos uma mensagem informando
-              return ListView(
-                physics: AlwaysScrollableScrollPhysics(),
-                children: [
-                  Container(
-                    height: MediaQuery.of(context).size.height - kToolbarHeight,
-                    child:
-                        Center(child: Text('Nenhum restaurante encontrado.')),
-                  ),
-                ],
-              );
-            } else {
-              List<Restaurant> restaurantes = snapshot.data!;
-              return SingleChildScrollView(
-                physics: AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          body: FutureBuilder<List<Restaurant>>(
+            future: futureRestaurants,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return ListView(
+                  physics: AlwaysScrollableScrollPhysics(),
                   children: [
-                    // Barra de busca
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => SearchPage()),
-                          );
-                        },
-                        child: AbsorbPointer(
-                          child: TextField(
-                            decoration: InputDecoration(
-                              hintText: 'Search here..',
-                              prefixIcon:
-                                  Icon(Icons.search, color: Colors.grey),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey[200],
+                    Container(
+                      height: MediaQuery.of(context).size.height - kToolbarHeight,
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  ],
+                );
+              } else if (snapshot.hasError) {
+                return ListView(
+                  physics: AlwaysScrollableScrollPhysics(),
+                  children: [
+                    Container(
+                      height: MediaQuery.of(context).size.height - kToolbarHeight,
+                      child: Center(child: Text('Erro: ${snapshot.error}')),
+                    ),
+                  ],
+                );
+              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return ListView(
+                  physics: AlwaysScrollableScrollPhysics(),
+                  children: [
+                    Container(
+                      height: MediaQuery.of(context).size.height - kToolbarHeight,
+                      child: Center(child: Text('Nenhum restaurante encontrado.')),
+                    ),
+                  ],
+                );
+              } else {
+                List<Restaurant> restaurantes = snapshot.data!;
+                return SingleChildScrollView(
+                  physics: AlwaysScrollableScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Barra de busca estilizada
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: GestureDetector(
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SearchPage())),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.search, color: Colors.grey[600]),
+                                SizedBox(width: 8),
+                                Text("Buscar restaurantes...", style: TextStyle(color: Colors.grey[600])),
+                              ],
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    // Ícones de categorias
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _buildCategoryIcon(
-                              context,
-                              Icons.local_fire_department,
-                              'Ofertas',
-                              Colors.red,
-                              OffersPage()),
-                          _buildCategoryIcon(context, Icons.star, 'Melhores',
-                              Colors.orange, BestPage()),
-                          _buildCategoryIcon(
-                              context,
-                              Icons.card_giftcard,
-                              'Cupons',
-                              Colors.pink,
-                              CategoryPage(categoryName: 'Cupons')),
-                        ],
+                      // Categorias
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 40.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildCategoryIcon(context, Icons.local_fire_department, 'Ofertas', Colors.red, OffersPage()),
+                            _buildCategoryIcon(context, Icons.star, 'Melhores', Colors.orange, BestPage()),
+                            _buildCategoryIcon(context, Icons.card_giftcard, 'Cupons', Colors.pink, CategoryPage(categoryName: 'Cupons')),
+                          ],
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 16),
-                    // Título da seção
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Text(
-                        'Todos os Restaurantes',
-                        style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black),
+                      SizedBox(height: 16),
+                      // Título da seção
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Text('Restaurantes Próximos',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
                       ),
-                    ),
-                    SizedBox(height: 8),
-                    // Lista de restaurantes
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: NeverScrollableScrollPhysics(),
-                      itemCount: restaurantes.length,
-                      itemBuilder: (context, index) {
-                        return _buildRestaurantCard(
-                          context: context,
-                          restaurant: restaurantes[index],
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              );
-            }
-          },
+                      SizedBox(height: 8),
+                      // Lista de restaurantes
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: NeverScrollableScrollPhysics(),
+                        itemCount: restaurantes.length,
+                        itemBuilder: (context, index) {
+                          return _buildRestaurantCard(context: context, restaurant: restaurantes[index]);
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              }
+            },
+          ),
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
+        currentIndex: _selectedIndex,
+        onTap: _onNavItemTapped,
         type: BottomNavigationBarType.fixed,
-        currentIndex: 0,
         selectedItemColor: Colors.green,
         unselectedItemColor: Colors.grey,
         items: [
@@ -310,56 +323,19 @@ class _HomePageState extends State<HomePage> {
           BottomNavigationBarItem(icon: Icon(Icons.list), label: 'Pedidos'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Conta'),
         ],
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              // Navega para a tela inicial, removendo as demais da pilha
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => HomePage()),
-                (route) => false,
-              );
-            case 1:
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => SearchPage()),
-              );
-              break;
-            case 2:
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => OrdersPage()),
-              );
-              break;
-            case 3:
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => UserAccountPage(userInfo: userInfo)),
-              );
-              break;
-          }
-        },
       ),
     );
   }
 
-  Widget _buildCategoryIcon(BuildContext context, IconData icon, String label,
-      Color color, Widget destination) {
+  Widget _buildCategoryIcon(BuildContext context, IconData icon, String label, Color color, Widget destination) {
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => destination,
-          ),
-        );
-      },
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => destination)),
       child: Column(
         children: [
           CircleAvatar(
+            radius: 24,
             backgroundColor: color.withOpacity(0.2),
-            child: Icon(icon, color: color),
+            child: Icon(icon, size: 28, color: color),
           ),
           SizedBox(height: 8),
           Text(label, style: TextStyle(fontSize: 12, color: Colors.black)),
@@ -368,40 +344,28 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildRestaurantCard({
-    required BuildContext context,
-    required Restaurant restaurant,
-  }) {
+  Widget _buildRestaurantCard({required BuildContext context, required Restaurant restaurant}) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => RestaurantDetailPage(
-              restaurant: restaurant,
-            ),
-          ),
-        );
+        Navigator.push(context, MaterialPageRoute(builder: (context) => RestaurantDetailPage(restaurant: restaurant)));
       },
       child: Card(
-        color: Colors.white,
         margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 4,
         child: Container(
-          width: double.infinity,
+          padding: EdgeInsets.all(12),
           child: Row(
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: restaurant.imageUrl != null &&
-                        restaurant.imageUrl!.isNotEmpty
+                borderRadius: BorderRadius.circular(12),
+                child: restaurant.imageUrl != null && restaurant.imageUrl!.isNotEmpty
                     ? Image.network(
                         restaurant.imageUrl!,
                         height: 80,
                         width: 80,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return _buildDefaultImage();
-                        },
+                        errorBuilder: (context, error, stackTrace) => _buildDefaultImage(),
                         loadingBuilder: (context, child, loadingProgress) {
                           if (loadingProgress == null) return child;
                           return _buildImageLoader();
@@ -410,40 +374,40 @@ class _HomePageState extends State<HomePage> {
                     : _buildDefaultImage(),
               ),
               SizedBox(width: 16),
-              // Informações do restaurante
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        restaurant.name,
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(restaurant.name,
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        restaurant.address,
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                        overflow: TextOverflow.ellipsis),
+                    SizedBox(height: 4),
+                    Text(restaurant.address,
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                         maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                        overflow: TextOverflow.ellipsis),
+                    SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.star, color: Colors.amber, size: 14),
+                        SizedBox(width: 4),
+                        Text(restaurant.rating.toString(),
+                            style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                      ],
+                    ),
+                    if (restaurant.distance != null) ...[
                       SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(Icons.star, color: Colors.amber, size: 14),
+                          Icon(Icons.location_on, color: Colors.blue, size: 14),
                           SizedBox(width: 4),
-                          Text(
-                            restaurant.rating.toString(),
-                            style: TextStyle(color: Colors.grey, fontSize: 12),
-                          ),
+                          Text('${restaurant.distance!.toStringAsFixed(0)} m',
+                              style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                         ],
                       ),
-                    ],
-                  ),
+                    ]
+                  ],
                 ),
               ),
             ],
@@ -452,22 +416,22 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-}
 
-Widget _buildDefaultImage() {
-  return Image.asset(
-    'assets/images/default_restaurant_image.jpg',
-    height: 80,
-    width: 80,
-    fit: BoxFit.cover,
-  );
-}
+  Widget _buildDefaultImage() {
+    return Image.asset(
+      'assets/images/default_restaurant_image.jpg',
+      height: 80,
+      width: 80,
+      fit: BoxFit.cover,
+    );
+  }
 
-Widget _buildImageLoader() {
-  return Container(
-    height: 80,
-    width: 80,
-    alignment: Alignment.center,
-    child: CircularProgressIndicator(),
-  );
+  Widget _buildImageLoader() {
+    return Container(
+      height: 80,
+      width: 80,
+      alignment: Alignment.center,
+      child: CircularProgressIndicator(),
+    );
+  }
 }

@@ -16,15 +16,15 @@ class SellerService {
   /// - nomeLoja
   /// - categorias
   /// - descricaoCurta
-  /// - endereco (CEP, rua, bairro, número, complemento)
   /// - fotoPerfil (opcional, em base64)
   /// - fotoPerfilType (opcional, ex: image/jpeg)
+
+
   Future<void> createSellerProfile({
     required String userId,
     required String storeName,
     required List<String> categories,
     required String description,
-    required Map<String, String> address,
     String? fotoPerfil,
     String? fotoPerfilType,
   }) async {
@@ -35,31 +35,22 @@ class SellerService {
 
     final url = Uri.parse(apiUrl);
 
-    // Cria o payload conforme o modelo esperado pela API
+    // O endereço não é enviado, pois o Lambda usará o endereço cadastrado na conta do usuário.
     final body = jsonEncode({
       'userId': userId,
       'nomeLoja': storeName,
       'categorias': categories,
       'descricaoCurta': description,
-      'endereco': {
-        'CEP': address['CEP'],
-        'rua': address['rua'],
-        'bairro': address['bairro'],
-        'numero': address['numero'],
-        'complemento': address['complemento'],
-      },
       if (fotoPerfil != null) 'fotoPerfil': fotoPerfil,
       if (fotoPerfilType != null) 'fotoPerfilType': fotoPerfilType,
     });
 
     print("----- REQUISIÇÃO SENDO GERADA -----");
     print("URL: $url");
-    print(
-        "Headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': 'Bearer $authToken' }");
+    print("Headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': 'Bearer $authToken' }");
     print("Body: $body");
     print("----- FIM DA REQUISIÇÃO -----");
 
-    // Envia a requisição HTTP POST
     final response = await http.post(
       url,
       headers: {

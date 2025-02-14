@@ -10,7 +10,7 @@ class UserService {
   Future<Map<String, dynamic>> getUserInfo() async {
     try {
       final response = await http.get(
-        Uri.parse('$apiUrl/user-info'), // Endpoint da API
+        Uri.parse('$apiUrl/user'), // Endpoint da API
         headers: {
           'Authorization': 'Bearer $authToken',
         },
