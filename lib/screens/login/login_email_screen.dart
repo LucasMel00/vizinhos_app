@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -8,165 +9,248 @@ import 'package:vizinhos_app/services/auth_provider.dart';
 class LoginEmailScreen extends StatefulWidget {
   final String email;
 
-  LoginEmailScreen({required this.email});
+  const LoginEmailScreen({required this.email});
 
   @override
   _LoginEmailScreenState createState() => _LoginEmailScreenState();
 }
 
 class _LoginEmailScreenState extends State<LoginEmailScreen> {
-  final TextEditingController passwordController = TextEditingController();
-  bool isLoading = false;
-  String? errorMessage;
+  final TextEditingController _passwordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  bool _isLoading = false;
+  bool _obscurePassword = true;
+  String? _errorMessage;
 
-  Future<void> loginUser(BuildContext context) async {
+  Future<void> _loginUser(BuildContext context) async {
+    if (!_formKey.currentState!.validate()) return;
+
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final url = Uri.parse(
-        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/login');
+    final url = Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/login');
 
     setState(() {
-      isLoading = true;
-      errorMessage = null;
+      _isLoading = true;
+      _errorMessage = null;
     });
-
-    final body = {
-      'email': widget.email,
-      'password': passwordController.text.trim(),
-    };
 
     try {
       final response = await http.post(
         url,
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          'Accept': 'application/json'
         },
-        body: jsonEncode(body),
-      );
+        body: jsonEncode({
+          'email': widget.email,
+          'password': _passwordController.text.trim(),
+        }),
+      ).timeout(const Duration(seconds: 15));
 
-      setState(() {
-        isLoading = false;
-      });
+      final responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
+        await authProvider.login(
+          accessToken: responseData['accessToken'],
+          idToken: responseData['idToken'],
+          refreshToken: responseData['refreshToken'],
+          expiresIn: responseData['expiresIn'],
+        );
 
-        if (responseData.containsKey('accessToken') &&
-            responseData.containsKey('idToken') &&
-            responseData.containsKey('refreshToken') &&
-            responseData.containsKey('expiresIn')) {
-          await authProvider.login(
-            accessToken: responseData['accessToken'],
-            idToken: responseData['idToken'],
-            refreshToken: responseData['refreshToken'],
-            expiresIn: responseData['expiresIn'],
-          );
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Login realizado com sucesso!")),
-          );
-
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => HomePage()),
-          );
-        } else {
-          setState(() {
-            errorMessage = 'Resposta do servidor incompleta.';
-          });
-        }
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => HomePage()),
+        );
       } else {
-        final data = jsonDecode(response.body);
-        String apiErrorMessage = data['error'] ?? 'Erro ao fazer login.';
         setState(() {
-          errorMessage = apiErrorMessage;
+          _errorMessage = responseData['error'] ?? 'Erro ao fazer login';
         });
       }
+    } on http.ClientException {
+      setState(() => _errorMessage = 'Erro de conexão');
+    } on TimeoutException {
+      setState(() => _errorMessage = 'Tempo esgotado');
     } catch (e) {
-      setState(() {
-        isLoading = false;
-        errorMessage = "Erro inesperado: $e";
-      });
+      setState(() => _errorMessage = 'Erro inesperado');
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text("Login"),
-        backgroundColor: Colors.green,
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.white, Colors.green[50]!],
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        backgroundColor: Colors.white, // Fundo branco
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_rounded, color: Colors.green[800]),
+            onPressed: () => Navigator.pop(context),
           ),
         ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              SizedBox(height: 40),
-              Text(
-                "Bem-vindo de volta!",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 15),
-              if (widget.email.isNotEmpty)
-                Text(widget.email, style: TextStyle(fontSize: 16)),
-              if (widget.email.isNotEmpty) SizedBox(height: 16),
-              TextField(
-                controller: passwordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: "Senha",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
+        body: Container(
+          color: Colors.white,
+          child: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(),
+                    SizedBox(height: 40),
+                    _buildPasswordField(),
+                    if (_errorMessage != null) ...[
+                      SizedBox(height: 16),
+                      _buildError(),
+                    ],
+                    SizedBox(height: 24),
+                    _buildLoginButton(),
+                    _buildForgotPassword(),
+                  ],
                 ),
               ),
-              SizedBox(height: 24),
-              if (errorMessage != null)
-                Text(
-                  errorMessage!,
-                  style: TextStyle(color: Colors.red),
-                ),
-              SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: isLoading
-                      ? null
-                      : () {
-                          if (passwordController.text.trim().isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content:
-                                      Text("Por favor, insira sua senha.")),
-                            );
-                            return;
-                          }
-                          loginUser(context);
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: isLoading
-                      ? CircularProgressIndicator(color: Colors.white)
-                      : Text("Entrar", style: TextStyle(fontSize: 16)),
-                ),
-              ),
-            ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.person, size: 60, color: Colors.green[800]),
+        SizedBox(height: 24),
+        Text(
+          'Bem-vindo Vizinhos!',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Colors.green[900],
+          ),
+        ),
+        SizedBox(height: 8),
+        Text(
+          'Faça login para continuar',
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.green[800]!.withOpacity(0.8),
+          ),
+        ),
+        SizedBox(height: 16),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.green[50],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            widget.email,
+            style: TextStyle(
+              color: Colors.green[800],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPasswordField() {
+    return TextFormField(
+      controller: _passwordController,
+      obscureText: _obscurePassword,
+      decoration: InputDecoration(
+        labelText: 'Senha',
+        prefixIcon: Icon(Icons.lock_outline_rounded, color: Colors.green[800]),
+        suffixIcon: IconButton(
+          icon: Icon(
+            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+            color: Colors.green[800]!.withOpacity(0.6),
+          ),
+          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        filled: true,
+        fillColor: const Color.fromARGB(112, 162, 184, 147),
+        contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) return 'Digite sua senha';
+        return null;
+      },
+    );
+  }
+
+  Widget _buildError() {
+    return Container(
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red[50],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline_rounded, color: Colors.red[800]),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _errorMessage!,
+              style: TextStyle(color: Colors.red[800]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoginButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : () => _loginUser(context),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green[800],
+          foregroundColor: Colors.white,
+          padding: EdgeInsets.symmetric(vertical: 18),
+          elevation: 2,
+          shadowColor: Colors.green[200],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: _isLoading
+            ? SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : Text('Entrar', style: TextStyle(fontSize: 16)),
+      ),
+    );
+  }
+
+  Widget _buildForgotPassword() {
+    return TextButton(
+      onPressed: () {
+        // Implementar recuperação de senha
+      },
+      child: Text(
+        'Esqueceu a senha?',
+        style: TextStyle(
+          color: Colors.green[800],
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

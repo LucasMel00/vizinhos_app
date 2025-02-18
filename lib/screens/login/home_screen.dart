@@ -46,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.topCenter,
-            colors: [Colors.green, Colors.white.withOpacity(0.1)],
+            colors: [const Color.fromARGB(255, 255, 255, 255), Colors.white.withOpacity(0.1)],
           ),
         ),
         child: Padding(

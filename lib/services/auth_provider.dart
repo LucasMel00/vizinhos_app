@@ -69,6 +69,15 @@ class AuthProvider with ChangeNotifier {
         print(' - E-mail: ${_userInfo['email']}');
         print(' - Vendedor: $_isSeller');
       }
+
+      // Tente recuperar os dados da loja armazenados e mescle com _userInfo_
+      _storeInfo = await _secureStorage.getStoreInfo();
+      if (_storeInfo != null) {
+        _userInfo['sellerProfile'] = _storeInfo;
+        print('✅ sellerProfile carregado do SecureStorage');
+      } else {
+        print('⚠️ sellerProfile não encontrado no SecureStorage');
+      }
     } catch (e, stack) {
       print('‼️ ERRO ao carregar dados de autenticação: $e');
       print('Stack trace: $stack');
@@ -127,6 +136,7 @@ class AuthProvider with ChangeNotifier {
       _expiresIn = null;
       _isSeller = false;
       _userInfo = {};
+      _storeInfo = null;
       print('✅ Logout realizado com sucesso');
       notifyListeners();
     } catch (e, stack) {
@@ -140,8 +150,7 @@ class AuthProvider with ChangeNotifier {
 
     try {
       final response = await http.get(
-        Uri.parse(
-            'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/user'),
+        Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/user'),
         headers: {'Authorization': 'Bearer $_accessToken'},
       );
 
@@ -159,21 +168,20 @@ class AuthProvider with ChangeNotifier {
           _isSeller = false;
         }
 
-        // Se houver sellerProfile, armazene no Secure Storage e na variável local
+        // Atualiza o sellerProfile (storeInfo)
         if (newData.containsKey('sellerProfile') &&
             newData['sellerProfile'] != null) {
           _storeInfo = newData['sellerProfile'];
           await _secureStorage.setStoreInfo(_storeInfo!);
         } else {
-          // Se não houver sellerProfile, pode limpar o que estiver salvo
           await _secureStorage.deleteStoreInfo();
           _storeInfo = null;
         }
 
-        // Atualiza outras informações do usuário (caso deseje armazená-las)
+        // Atualiza outras informações do usuário
         _userInfo = {..._userInfo, ...newData};
 
-        // Se desejar, também atualize o ID Token caso ele venha na resposta
+        // Se a API retornar um novo ID Token, atualiza-o
         if (newData.containsKey('IdToken')) {
           _idToken = newData['IdToken'];
           await _secureStorage.setIdToken(_idToken!);
@@ -239,8 +247,7 @@ class AuthProvider with ChangeNotifier {
     print('🔍 Verificando status de vendedor na API...');
     try {
       final response = await http.get(
-        Uri.parse(
-            'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/user'),
+        Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/user'),
         headers: {'Authorization': 'Bearer $_accessToken'},
       );
 
@@ -258,11 +265,24 @@ class AuthProvider with ChangeNotifier {
 
         print('📊 Resposta da API - É vendedor? $newSellerStatus');
 
+        // Atualiza o status de vendedor se houver diferença
         if (newSellerStatus != _isSeller) {
           print('🔄 Atualizando status local de vendedor');
           _isSeller = newSellerStatus;
-          notifyListeners();
         }
+
+        // Atualiza também os dados da loja, se disponíveis
+        if (data.containsKey('sellerProfile') && data['sellerProfile'] != null) {
+          _storeInfo = data['sellerProfile'];
+          await _secureStorage.setStoreInfo(_storeInfo!);
+          print('✅ Dados da loja atualizados');
+        } else {
+          await _secureStorage.deleteStoreInfo();
+          _storeInfo = null;
+          print('⚠️ Dados da loja não encontrados');
+        }
+
+        notifyListeners();
       } else {
         print('⚠️ Falha ao verificar status: ${response.statusCode}');
       }
@@ -343,68 +363,30 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> refreshUserData() async {
-    print('🔄 Forçando atualização completa dos dados do usuário');
-    try {
-      // 1. Recarrega tokens do armazenamento local
-      await loadAuthData();
+  if (_accessToken == null) return;
 
-      // 2. Verifica se o token ainda é válido
-      if (_isTokenExpired && _refreshToken != null) {
-        print('⚠️ Token expirado, tentando renovar...');
-        await refreshAuthToken();
-      }
+  try {
+    final response = await http.get(
+      Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/seller-profile'),
+      headers: {
+        'Authorization': 'Bearer $_accessToken',
+      },
+    );
 
-      // 3. Atualiza dados do usuário na API
-      final response = await http.get(
-        Uri.parse(
-            'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/user'),
-        headers: {'Authorization': 'Bearer $_accessToken'},
-      );
-
-      if (response.statusCode == 200) {
-        final newData = json.decode(response.body);
-        print('📦 Novos dados recebidos: $newData');
-
-        // 4. Atualiza o status de vendedor
-        final sellerValue = newData['IsSeller'];
-        if (sellerValue is bool) {
-          _isSeller = sellerValue;
-        } else if (sellerValue is String) {
-          _isSeller = sellerValue.toLowerCase() == 'true';
-        } else {
-          _isSeller = false;
-        }
-
-        // 5. Se houver sellerProfile, salva-o
-        if (newData.containsKey('sellerProfile') &&
-            newData['sellerProfile'] != null) {
-          _storeInfo = newData['sellerProfile'];
-          await _secureStorage.setStoreInfo(_storeInfo!);
-        }
-
-        // 6. Atualiza ID Token se necessário
-        if (newData.containsKey('IdToken')) {
-          _idToken = newData['IdToken'];
-          await _secureStorage.setIdToken(_idToken!);
-          _userInfo = _decodeIdToken(_idToken!);
-        }
-
-        // 7. Merge dos novos dados com os existentes
-        _userInfo = {..._userInfo, ...newData};
-
-        print('✅ Dados atualizados com sucesso');
-        notifyListeners();
-      } else {
-        print('‼️ Falha na atualização: ${response.statusCode}');
-        throw Exception('Failed to refresh user data');
-      }
-    } catch (e, stack) {
-      print('‼️ ERRO crítico na atualização: $e');
-      print('Stack trace: $stack');
-      await logout();
-      rethrow;
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      _userInfo = data;
+      // Considera que o usuário é vendedor se houver o campo sellerProfile e ele não for nulo
+      _isSeller = data.containsKey('sellerProfile') && data['sellerProfile'] != null;
+      notifyListeners();
+    } else {
+      print('Erro ao atualizar perfil do vendedor: ${response.statusCode}');
     }
+  } catch (e) {
+    print('Erro ao buscar perfil do vendedor: $e');
   }
+}
+
 
   void debugAuthState() {
     print('\n=== DEBUG AUTH STATE ===');

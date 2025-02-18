@@ -34,8 +34,6 @@ class RestaurantDetailPage extends StatelessWidget {
                   // Avaliação do restaurante
                   _buildRating(),
                   SizedBox(height: 16),
-                  // Endereço do restaurante
-                  _buildAddress(),
                   SizedBox(height: 16),
                   // Menu do restaurante com enumeração e itens expansíveis
                   _buildMenu(),
@@ -95,22 +93,6 @@ class RestaurantDetailPage extends StatelessWidget {
   }
 
   /// Exibe o endereço do restaurante com destaque para o título
-  Widget _buildAddress() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Endereço:',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        SizedBox(height: 4),
-        Text(
-          restaurant.address,
-          style: TextStyle(fontSize: 16),
-        ),
-      ],
-    );
-  }
 
   /// Exibe o menu do restaurante utilizando ExpansionTiles para cada item
   Widget _buildMenu() {

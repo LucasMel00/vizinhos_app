@@ -7,25 +7,41 @@ class VendorAccountPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sellerProfile = userInfo['sellerProfile'] ?? {};
-    final categorias = List<String>.from(sellerProfile['categorias'] ?? []);
-    final primaryColor = Color(0xFF2ECC71);
-    final accentColor = Color(0xFF27AE60);
+    // Faz o cast para Map<String, dynamic> caso sellerProfile exista
+    final sellerProfileRaw = userInfo['sellerProfile'];
+    final sellerProfile = sellerProfileRaw is Map
+        ? (sellerProfileRaw as Map).cast<String, dynamic>()
+        : <String, dynamic>{};
+
+    // Tenta obter o nome da loja utilizando as chaves 'storeName', 'nomeLoja' ou 'name'
+    final storeName = sellerProfile['storeName'] ??
+        sellerProfile['nomeLoja'] ??
+        sellerProfile['name'] ??
+        'Painel do Vendedor';
+
+    // Recupera as categorias utilizando 'categories' ou 'categorias'
+    final categorias = List<String>.from(
+      sellerProfile['categories'] ?? sellerProfile['categorias'] ?? [],
+    );
+    final primaryColor = const Color(0xFF2ECC71);
+    final accentColor = const Color(0xFF27AE60);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(sellerProfile['nomeLoja'] ?? 'Painel do Vendedor',
-            style: TextStyle(color: Colors.white)),
+        title: Text(
+          storeName,
+          style: const TextStyle(color: Colors.white),
+        ),
         backgroundColor: primaryColor,
         elevation: 5,
-        iconTheme: IconThemeData(color: Colors.white),
+        iconTheme: const IconThemeData(color: Colors.white),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.shopping_bag),
+            icon: const Icon(Icons.shopping_bag),
             onPressed: () => _navigateToProducts(context),
           ),
         ],
@@ -38,14 +54,12 @@ class VendorAccountPage extends StatelessWidget {
   void _navigateToProducts(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => ProductsPage(),
-      ),
+      MaterialPageRoute(builder: (context) => ProductsPage()),
     );
   }
 
-  Widget _buildDrawer(BuildContext context, Color primaryColor,
-      Color accentColor, List<String> categorias) {
+  Widget _buildDrawer(
+      BuildContext context, Color primaryColor, Color accentColor, List<String> categorias) {
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -54,16 +68,20 @@ class VendorAccountPage extends StatelessWidget {
             height: 160,
             decoration: BoxDecoration(
               color: primaryColor,
-              borderRadius: BorderRadius.only(
+              borderRadius: const BorderRadius.only(
                 bottomRight: Radius.circular(20),
               ),
             ),
             child: UserAccountsDrawerHeader(
-              decoration: BoxDecoration(color: Colors.transparent),
-              accountName: Text(userInfo['Name'] ?? '',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              accountEmail:
-                  Text(userInfo['Email'] ?? '', style: TextStyle(fontSize: 14)),
+              decoration: const BoxDecoration(color: Colors.transparent),
+              accountName: Text(
+                userInfo['Name'] ?? '',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              accountEmail: Text(
+                userInfo['Email'] ?? '',
+                style: const TextStyle(fontSize: 14),
+              ),
               currentAccountPicture: CircleAvatar(
                 backgroundColor: Colors.white,
                 child: Icon(Icons.store, size: 40, color: primaryColor),
@@ -88,20 +106,23 @@ class VendorAccountPage extends StatelessWidget {
             onTap: () {},
             accentColor: accentColor,
           ),
-          Divider(),
+          const Divider(),
           Container(
-            margin: EdgeInsets.symmetric(horizontal: 16),
+            margin: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
               color: accentColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: ListTile(
               leading: Icon(Icons.category, color: accentColor),
-              title: Text('Categorias',
-                  style: TextStyle(
-                      color: accentColor, fontWeight: FontWeight.bold)),
-              subtitle: Text(categorias.join(', '),
-                  style: TextStyle(color: Colors.grey[600])),
+              title: const Text(
+                'Categorias',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
+                categorias.join(', '),
+                style: const TextStyle(color: Colors.grey),
+              ),
             ),
           ),
           _drawerItem(
@@ -123,36 +144,46 @@ class VendorAccountPage extends StatelessWidget {
   }) {
     return ListTile(
       leading: Icon(icon, color: accentColor),
-      title:
-          Text(label, style: TextStyle(color: Colors.grey[800], fontSize: 16)),
+      title: Text(
+        label,
+        style: TextStyle(color: Colors.grey[800], fontSize: 16),
+      ),
       onTap: onTap,
     );
   }
 
-  Widget _buildBody(BuildContext context, Map<String, dynamic> sellerProfile,
-      Color primaryColor, Color accentColor) {
+  Widget _buildBody(
+      BuildContext context, Map<String, dynamic> sellerProfile, Color primaryColor, Color accentColor) {
+    final storeName = sellerProfile['storeName'] ??
+        sellerProfile['nomeLoja'] ??
+        sellerProfile['name'] ??
+        '';
+    final categories = (sellerProfile['categories'] as List?) ??
+        sellerProfile['categorias'] ??
+        [];
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionHeader('Informações da Loja', Icons.storefront, accentColor),
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
           _infoCard(
             title: 'Nome da Loja',
-            value: sellerProfile['nomeLoja'] ?? '',
+            value: storeName,
             accentColor: accentColor,
             onEdit: () {},
           ),
           _infoCard(
             title: 'Categorias',
-            value: (sellerProfile['categorias'] as List?)?.join(', ') ?? '',
+            value: categories.join(', '),
             accentColor: accentColor,
             onEdit: () {},
           ),
-          SizedBox(height: 30),
+          const SizedBox(height: 30),
           _sectionHeader('Ações Rápidas', Icons.flash_on, accentColor),
-          SizedBox(height: 15),
+          const SizedBox(height: 15),
           _actionButtons(primaryColor, context),
         ],
       ),
@@ -163,10 +194,11 @@ class VendorAccountPage extends StatelessWidget {
     return Row(
       children: [
         Icon(icon, color: color, size: 28),
-        SizedBox(width: 10),
-        Text(title,
-            style: TextStyle(
-                fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
+        ),
       ],
     );
   }
@@ -178,7 +210,7 @@ class VendorAccountPage extends StatelessWidget {
     required VoidCallback onEdit,
   }) {
     return Card(
-      margin: EdgeInsets.only(bottom: 15),
+      margin: const EdgeInsets.only(bottom: 15),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: accentColor.withOpacity(0.2)),
@@ -191,20 +223,22 @@ class VendorAccountPage extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(title,
-                    style: TextStyle(
-                        color: accentColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16)),
+                Text(
+                  title,
+                  style: TextStyle(
+                      color: accentColor, fontWeight: FontWeight.bold, fontSize: 16),
+                ),
                 IconButton(
                   icon: Icon(Icons.edit, size: 20, color: accentColor),
                   onPressed: onEdit,
                 ),
               ],
             ),
-            SizedBox(height: 8),
-            Text(value,
-                style: TextStyle(color: Colors.grey[800], fontSize: 15)),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: TextStyle(color: Colors.grey[800], fontSize: 15),
+            ),
           ],
         ),
       ),
@@ -222,7 +256,7 @@ class VendorAccountPage extends StatelessWidget {
             onPressed: () => _navigateToAddProduct(context),
           ),
         ),
-        SizedBox(width: 10),
+        const SizedBox(width: 10),
         Expanded(
           child: _actionButton(
             label: 'Gerenciar Estoque',
@@ -243,13 +277,14 @@ class VendorAccountPage extends StatelessWidget {
   }) {
     return ElevatedButton.icon(
       icon: Icon(icon, color: Colors.white),
-      label: Text(label,
-          style: TextStyle(
-              color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
+      label: Text(
+        label,
+        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+      ),
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
-        padding: EdgeInsets.symmetric(vertical: 15),
+        padding: const EdgeInsets.symmetric(vertical: 15),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
@@ -267,18 +302,18 @@ class ProductsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Meus Produtos'),
+        title: const Text('Meus Produtos'),
       ),
       body: ListView.builder(
         itemCount: 10,
         itemBuilder: (context, index) => ListTile(
-          leading: Icon(Icons.shopping_bag),
+          leading: const Icon(Icons.shopping_bag),
           title: Text('Produto ${index + 1}'),
-          subtitle: Text('R\$ 99,99'),
+          subtitle: const Text('R\$ 99,99'),
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        child: Icon(Icons.add),
+        child: const Icon(Icons.add),
         onPressed: () {},
       ),
     );

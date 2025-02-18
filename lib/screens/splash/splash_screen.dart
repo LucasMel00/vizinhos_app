@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:vizinhos_app/screens/login/email_screen.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 import 'package:vizinhos_app/screens/login/home_screen.dart';
 import 'package:vizinhos_app/screens/User/home_page_user.dart';
@@ -55,7 +56,7 @@ class _SplashScreenState extends State<SplashScreen>
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 800),
         pageBuilder: (_, __, ___) =>
-            authProvider.isLoggedIn ? HomePage() : LoginScreen(),
+            authProvider.isLoggedIn ? HomePage() : EmailScreen(),
         transitionsBuilder: (_, animation, __, child) {
           return FadeTransition(
             opacity: animation,

@@ -25,7 +25,6 @@ class MenuItem {
 class Restaurant {
   final String restaurantId;
   final String name;
-  final String address;
   final List<String> categories;
   final double rating;
   final String? imageUrl;
@@ -37,7 +36,6 @@ class Restaurant {
   Restaurant({
     required this.restaurantId,
     required this.name,
-    required this.address,
     required this.categories,
     required this.rating,
     this.imageUrl,
@@ -51,7 +49,6 @@ class Restaurant {
     return Restaurant(
       restaurantId: json['restaurantId'] ?? '',
       name: json['name'] ?? 'Nome não disponível',
-      address: json['address'] ?? 'Endereço não disponível',
       categories: List<String>.from(json['categories'] ?? []),
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
       imageUrl: json['imageUrl'],

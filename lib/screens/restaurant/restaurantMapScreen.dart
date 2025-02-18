@@ -22,20 +22,21 @@ class RestaurantMapScreen extends StatefulWidget {
 class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
   late GoogleMapController mapController;
   final Set<Marker> _markers = {};
+  bool _isSatelliteView = false;
 
   @override
   void initState() {
     super.initState();
 
-    // Marcador para a localização do usuário (em azul)
+    // Marcador para a localização do usuário (em verde)
     _markers.add(Marker(
       markerId: const MarkerId('userLocation'),
       position: LatLng(widget.userLatitude, widget.userLongitude),
       infoWindow: const InfoWindow(title: "Você está aqui"),
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
     ));
 
-    // Marcadores para os restaurantes (em vermelho) com callback para navegar à página de detalhes
+    // Marcadores para os restaurantes (em verde escuro) com callback para navegar à página de detalhes
     for (var restaurant in widget.restaurants) {
       if (restaurant.x != null && restaurant.y != null) {
         _markers.add(Marker(
@@ -56,9 +57,24 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
               ),
             );
           },
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
         ));
       }
     }
+  }
+
+  void _toggleMapType() {
+    setState(() {
+      _isSatelliteView = !_isSatelliteView;
+    });
+  }
+
+  void _centerMapOnUser() {
+    mapController.animateCamera(
+      CameraUpdate.newLatLng(
+        LatLng(widget.userLatitude, widget.userLongitude),
+      ),
+    );
   }
 
   @override
@@ -69,13 +85,45 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
     );
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Mapa de Restaurantes")),
+      appBar: AppBar(
+        title: const Text("Mapa de Restaurantes"),
+        backgroundColor: Colors.green, // Tema verde
+        actions: [
+          IconButton(
+            icon: Icon(_isSatelliteView ? Icons.map : Icons.satellite),
+            onPressed: _toggleMapType,
+            tooltip: _isSatelliteView ? "Modo Mapa" : "Modo Satélite",
+          ),
+        ],
+      ),
       body: GoogleMap(
         initialCameraPosition: initialCameraPosition,
         markers: _markers,
+        mapType: _isSatelliteView ? MapType.satellite : MapType.normal,
         onMapCreated: (GoogleMapController controller) {
           mapController = controller;
         },
+      ),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            onPressed: _centerMapOnUser,
+            backgroundColor: Colors.green, // Tema verde
+            child: Icon(Icons.my_location, color: Colors.white),
+            tooltip: "Centralizar no usuário",
+          ),
+          SizedBox(height: 16),
+          FloatingActionButton(
+            onPressed: _toggleMapType,
+            backgroundColor: Colors.green, // Tema verde
+            child: Icon(
+              _isSatelliteView ? Icons.map : Icons.satellite,
+              color: Colors.white,
+            ),
+            tooltip: _isSatelliteView ? "Modo Mapa" : "Modo Satélite",
+          ),
+        ],
       ),
     );
   }

@@ -13,13 +13,11 @@ class SellerService {
 
   /// Cria o perfil de vendedor enviando os seguintes campos:
   /// - userId
-  /// - nomeLoja
+  /// - storeName
   /// - categorias
   /// - descricaoCurta
   /// - fotoPerfil (opcional, em base64)
   /// - fotoPerfilType (opcional, ex: image/jpeg)
-
-
   Future<void> createSellerProfile({
     required String userId,
     required String storeName,
@@ -35,10 +33,10 @@ class SellerService {
 
     final url = Uri.parse(apiUrl);
 
-    // O endereço não é enviado, pois o Lambda usará o endereço cadastrado na conta do usuário.
+    // Agora usamos "storeName" no lugar de "nomeLoja"
     final body = jsonEncode({
       'userId': userId,
-      'nomeLoja': storeName,
+      'storeName': storeName,
       'categorias': categories,
       'descricaoCurta': description,
       if (fotoPerfil != null) 'fotoPerfil': fotoPerfil,

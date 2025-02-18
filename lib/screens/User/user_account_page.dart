@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vizinhos_app/screens/User/home_page_user.dart';
+import 'package:vizinhos_app/screens/login/email_screen.dart';
 import 'package:vizinhos_app/screens/login/home_screen.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart';
 import 'package:vizinhos_app/screens/search/search_page.dart';
@@ -25,14 +26,18 @@ class UserAccountPage extends StatelessWidget {
     return json.decode(decoded) as Map<String, dynamic>;
   }
 
-  /// Função para realizar o logout e redirecionar para a tela de login
   Future<void> _logout(BuildContext context) async {
     await Provider.of<AuthProvider>(context, listen: false).logout();
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (context) => LoginScreen()),
+      MaterialPageRoute(builder: (context) => EmailScreen()),
       (route) => false,
     );
+  }
+
+  /// Função para atualizar os dados do usuário
+  Future<void> _handleRefresh(BuildContext context) async {
+    await Provider.of<AuthProvider>(context, listen: false).refreshUserData();
   }
 
   @override
@@ -57,122 +62,143 @@ class UserAccountPage extends StatelessWidget {
         leading: const BackButton(color: Colors.black),
       ),
       backgroundColor: Colors.white,
-      body: ListView(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 35,
-                  backgroundColor: Colors.grey[300],
-                  child:
-                      const Icon(Icons.person, size: 35, color: Colors.white),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        effectiveUserInfo?['Name'] ?? 'Nome não disponível',
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        effectiveUserInfo?['Email'] ?? 'Email não disponível',
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                      ),
-                    ],
+      body: RefreshIndicator(
+        onRefresh: () => _handleRefresh(context),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 35,
+                    backgroundColor: Colors.grey[300],
+                    child: const Icon(Icons.person, size: 35, color: Colors.white),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          effectiveUserInfo?['Name'] ?? 'Nome não disponível',
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          effectiveUserInfo?['Email'] ?? 'Email não disponível',
+                          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                        ),
+                        const SizedBox(height: 4),
+                        // Exibição do endereço sem o ícone de seta para baixo:
+                        Text(
+                            effectiveUserInfo?['Address'] != null
+                            ? effectiveUserInfo!['Address']['Street']
+                            : 'Endereço não disponível',
+                            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Divider(),
+            const Divider(),
 
-          // Aba de painel do vendedor, exibida apenas se o usuário for vendedor
-          if (isSeller)
+            // Aba de painel do vendedor, exibida apenas se o usuário for vendedor
+            if (isSeller)
+              _buildListTile(
+  icon: Icons.store_mall_directory,
+  title: 'Loja',
+  onTap: () async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    // Atualiza os dados do vendedor usando o endpoint /seller-profile
+    await authProvider.refreshUserData();
+    // Recupera os dados atualizados
+    final updatedUserInfo = authProvider.userInfo;
+    // Extrai o sellerProfile e faz o cast para Map<String, dynamic>
+    final sellerProfileRaw = updatedUserInfo['sellerProfile'];
+    final sellerProfile = sellerProfileRaw is Map
+        ? (sellerProfileRaw as Map).cast<String, dynamic>()
+        : <String, dynamic>{};
+
+    // Se sellerProfile não estiver vazio, navega para o painel; caso contrário, para criar loja.
+    if (sellerProfile.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VendorAccountPage(userInfo: updatedUserInfo),
+        ),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CreateStoreScreen(
+            userId: updatedUserInfo['sub'] ?? '',
+          ),
+        ),
+      ).then((shouldRefresh) {
+        if (shouldRefresh == true) {
+          authProvider.refreshUserData();
+        }
+      });
+    }
+  },
+),
+
             _buildListTile(
-              icon: Icons.store_mall_directory,
-              title: 'Loja',
-              onTap: () {
-                if (sellerProfile != null) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          VendorAccountPage(userInfo: effectiveUserInfo ?? {}),
-                    ),
-                  );
-                } else {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => CreateStoreScreen(
-                        userId: effectiveUserInfo?['sub'] ?? '',
-                      ),
-                    ),
-                  ).then((shouldRefresh) {
-                    if (shouldRefresh == true) {
-                      authProvider.refreshUserData();
-                    }
-                  });
-                }
+              icon: Icons.favorite_border,
+              title: 'Seus Favoritos',
+              onTap: () {},
+            ),
+            _buildListTile(
+              icon: Icons.account_balance_wallet_outlined,
+              title: 'Carteira',
+              onTap: () {},
+            ),
+            _buildListTile(
+              icon: Icons.help_outline,
+              title: 'Ajuda',
+              onTap: () {},
+            ),
+            _buildListTile(
+              icon: Icons.card_giftcard,
+              title: 'Cupons',
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.green[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Novo',
+                  style: TextStyle(fontSize: 12, color: Colors.green),
+                ),
+              ),
+              onTap: () {},
+            ),
+            _buildListTile(
+              icon: Icons.notifications_none,
+              title: 'Notificação',
+              onTap: () {},
+            ),
+            _buildListTile(
+              icon: Icons.star_border,
+              title: 'Avalie seu Vizinho',
+              onTap: () {},
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Deslogar', style: TextStyle(color: Colors.red)),
+              onTap: () async {
+                await _logout(context);
               },
             ),
-
-          _buildListTile(
-            icon: Icons.favorite_border,
-            title: 'Seus Favoritos',
-            onTap: () {},
-          ),
-          _buildListTile(
-            icon: Icons.account_balance_wallet_outlined,
-            title: 'Carteira',
-            onTap: () {},
-          ),
-          _buildListTile(
-            icon: Icons.help_outline,
-            title: 'Ajuda',
-            onTap: () {},
-          ),
-          _buildListTile(
-            icon: Icons.card_giftcard,
-            title: 'Cupons',
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.green[100],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                'Novo',
-                style: TextStyle(fontSize: 12, color: Colors.green),
-              ),
-            ),
-            onTap: () {},
-          ),
-          _buildListTile(
-            icon: Icons.notifications_none,
-            title: 'Notificação',
-            onTap: () {},
-          ),
-          _buildListTile(
-            icon: Icons.star_border,
-            title: 'Avalie seu Vizinho',
-            onTap: () {},
-          ),
-
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text('Deslogar', style: TextStyle(color: Colors.red)),
-            onTap: () async {
-              await _logout(context);
-            },
-          ),
-        ],
+          ],
+        ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.white,
@@ -191,6 +217,7 @@ class UserAccountPage extends StatelessWidget {
             case 0:
               Navigator.push(
                   context, MaterialPageRoute(builder: (context) => HomePage()));
+              break;
             case 1:
               Navigator.push(context,
                   MaterialPageRoute(builder: (context) => SearchPage()));
