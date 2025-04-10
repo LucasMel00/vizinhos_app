@@ -52,17 +52,22 @@ class _HomePageState extends State<HomePage> {
     if (!authProvider.isLoggedIn) return;
     final accessToken = authProvider.accessToken;
     if (accessToken == null) return;
-    final url = Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/user');
+    final url = Uri.parse(
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/user');
     try {
-      final response =
-          await http.get(url, headers: {'Authorization': 'Bearer $accessToken'});
+      final response = await http
+          .get(url, headers: {'Authorization': 'Bearer $accessToken'});
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         setState(() {
           userInfo = data;
         });
-        String? street = userInfo?['Address'] != null ? userInfo!['Address']['Street'] : null;
-        String? number = userInfo?['Address'] != null ? userInfo!['Address']['Numero'] : null;
+        String? street = userInfo?['Address'] != null
+            ? userInfo!['Address']['Street']
+            : null;
+        String? number = userInfo?['Address'] != null
+            ? userInfo!['Address']['Numero']
+            : null;
         if (street != null && street.isNotEmpty) {
           // Concatena a rua com o número, se disponível
           String fullAddress = street;
@@ -80,7 +85,8 @@ class _HomePageState extends State<HomePage> {
       } else {
         final errorBody = json.decode(response.body);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao carregar dados: ${errorBody['error']}')),
+          SnackBar(
+              content: Text('Erro ao carregar dados: ${errorBody['error']}')),
         );
       }
     } catch (e) {
@@ -123,7 +129,8 @@ class _HomePageState extends State<HomePage> {
                     )));
         break;
       case 2:
-        Navigator.push(context, MaterialPageRoute(builder: (_) => OrdersPage()));
+        Navigator.push(
+            context, MaterialPageRoute(builder: (_) => OrdersPage()));
         break;
       case 3:
         Navigator.push(
@@ -153,10 +160,12 @@ class _HomePageState extends State<HomePage> {
                 _selectedFilterCategory = category;
               });
             },
-            selectedColor: Colors.green.withOpacity(0.8),
+            selectedColor: Color(0xFFFbbc2c),
             backgroundColor: Colors.grey[200],
             labelStyle: TextStyle(
-              color: _selectedFilterCategory == category ? Colors.white : Colors.black,
+              color: _selectedFilterCategory == category
+                  ? Colors.white
+                  : Colors.black,
               fontWeight: FontWeight.bold,
             ),
           );
@@ -170,6 +179,8 @@ class _HomePageState extends State<HomePage> {
     return WillPopScope(
       onWillPop: () async => false,
       child: Scaffold(
+        extendBodyBehindAppBar: true,
+        extendBody: true, // Para o efeito flutuante da barra de navegação
         body: RefreshIndicator(
           onRefresh: _refresh,
           child: NestedScrollView(
@@ -178,27 +189,31 @@ class _HomePageState extends State<HomePage> {
                 pinned: true,
                 expandedHeight: 100,
                 automaticallyImplyLeading: false,
-                backgroundColor: Colors.green,
+                backgroundColor: const Color(0xFFFbbc2c),
                 flexibleSpace: FlexibleSpaceBar(
                   background: Container(
-                    color: Colors.green,
+                    color: const Color(0xFFFbbc2c),
                     child: Padding(
                       padding: const EdgeInsets.only(top: 60, left: 16),
                       child: Row(
                         children: [
-                          Icon(Icons.location_on, size: 20, color: Colors.white),
-                          SizedBox(width: 8),
+                          const Icon(Icons.location_on,
+                              size: 20, color: Colors.white),
+                          const SizedBox(width: 8),
                           Flexible(
                             child: Text(
                               userInfo?['Address'] != null
                                   ? '${userInfo!['Address']['Street']}'
                                   : 'Carregando endereço...',
-                              style: TextStyle(color: Colors.white, fontSize: 16),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           IconButton(
-                            icon: Icon(Icons.map, color: Colors.white),
+                            icon: const Icon(Icons.map, color: Colors.white),
                             onPressed: () {
                               if (currentLat != null && currentLon != null) {
                                 futureRestaurants.then((restaurants) {
@@ -215,7 +230,10 @@ class _HomePageState extends State<HomePage> {
                                 });
                               } else {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text("Localização não disponível.")),
+                                  const SnackBar(
+                                    content:
+                                        Text("Localização não disponível."),
+                                  ),
                                 );
                               }
                             },
@@ -233,26 +251,31 @@ class _HomePageState extends State<HomePage> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return _buildSkeletonLoading();
                 } else if (snapshot.hasError) {
-                  return Center(child: Text('Erro: ${snapshot.error}'));
+                  return Center(
+                    child: Text('Erro: ${snapshot.error}'),
+                  );
                 } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return Center(child: Text('Nenhum restaurante encontrado.'));
+                  return const Center(
+                    child: Text('Nenhum restaurante encontrado.'),
+                  );
                 } else {
                   List<Restaurant> restaurantes = snapshot.data!;
-
-                  // Extrai todas as categorias dos restaurantes
                   final Set<String> categorySet = {};
                   for (var r in restaurantes) {
                     categorySet.addAll(r.categories);
                   }
                   final List<String> filterCategories = ["All", ...categorySet];
 
-                  // Filtra os restaurantes conforme a categoria selecionada
-                  List<Restaurant> filteredRestaurants = _selectedFilterCategory == "All"
-                      ? restaurantes
-                      : restaurantes.where((r) => r.categories.contains(_selectedFilterCategory)).toList();
+                  List<Restaurant> filteredRestaurants =
+                      _selectedFilterCategory == "All"
+                          ? restaurantes
+                          : restaurantes
+                              .where((r) => r.categories
+                                  .contains(_selectedFilterCategory))
+                              .toList();
 
                   return SingleChildScrollView(
-                    physics: AlwaysScrollableScrollPhysics(),
+                    physics: const AlwaysScrollableScrollPhysics(),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -261,14 +284,19 @@ class _HomePageState extends State<HomePage> {
                           padding: const EdgeInsets.all(16.0),
                           child: GestureDetector(
                             onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => SearchPage(
-                                          currentLat: currentLat,
-                                          currentLon: currentLon,
-                                        ))),
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => SearchPage(
+                                  currentLat: currentLat,
+                                  currentLon: currentLon,
+                                ),
+                              ),
+                            ),
                             child: Container(
-                              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(30),
@@ -277,15 +305,18 @@ class _HomePageState extends State<HomePage> {
                                     color: Colors.grey.withOpacity(0.2),
                                     spreadRadius: 2,
                                     blurRadius: 10,
-                                    offset: Offset(0, 3),
+                                    offset: const Offset(0, 3),
                                   ),
                                 ],
                               ),
                               child: Row(
                                 children: [
                                   Icon(Icons.search, color: Colors.grey[600]),
-                                  SizedBox(width: 8),
-                                  Text("Buscar restaurantes...", style: TextStyle(color: Colors.grey[600])),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    "Buscar restaurantes...",
+                                    style: TextStyle(color: Colors.grey[600]),
+                                  ),
                                 ],
                               ),
                             ),
@@ -293,37 +324,68 @@ class _HomePageState extends State<HomePage> {
                         ),
                         // Categorias (ícones)
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16.0,
+                            vertical: 16.0,
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
-                              _buildCategoryIcon(context, Icons.local_fire_department, 'Ofertas', Colors.red, OffersPage()),
-                              _buildCategoryIcon(context, Icons.star, 'Melhores', Colors.orange, BestPage()),
-                              _buildCategoryIcon(context, Icons.card_giftcard, 'Cupons', Colors.pink, CategoryPage(categoryName: 'Cupons')),
+                              _buildCategoryIcon(
+                                context,
+                                Icons.local_fire_department,
+                                'Ofertas',
+                                Colors.red,
+                                OffersPage(),
+                              ),
+                              _buildCategoryIcon(
+                                context,
+                                Icons.star,
+                                'Melhores',
+                                Colors.orange,
+                                BestPage(),
+                              ),
+                              _buildCategoryIcon(
+                                context,
+                                Icons.card_giftcard,
+                                'Cupons',
+                                Colors.pink,
+                                CategoryPage(categoryName: 'Cupons'),
+                              ),
                             ],
                           ),
                         ),
-                        // Filtro por categoria com UI aprimorada (Choice Chips)
+                        // Filtro por categoria
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16.0,
+                            vertical: 8.0,
+                          ),
                           child: _buildCategoryFilter(filterCategories),
                         ),
                         // Título para restaurantes próximos
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          child: Text('Restaurantes Próximos',
-                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black)),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Text(
+                            'Restaurantes Próximos',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                          ),
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         // Lista de restaurantes filtrados
                         ListView.builder(
                           shrinkWrap: true,
-                          physics: NeverScrollableScrollPhysics(),
+                          physics: const NeverScrollableScrollPhysics(),
                           itemCount: filteredRestaurants.length,
                           itemBuilder: (context, index) {
                             return _buildRestaurantCard(
-                                context: context,
-                                restaurant: filteredRestaurants[index]);
+                              context: context,
+                              restaurant: filteredRestaurants[index],
+                            );
                           },
                         ),
                       ],
@@ -334,27 +396,77 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: _onNavItemTapped,
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: Colors.green,
-          unselectedItemColor: Colors.grey,
-          items: [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Procurar'),
-            BottomNavigationBarItem(icon: Icon(Icons.list), label: 'Pedidos'),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Conta'),
-          ],
+        bottomNavigationBar: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Container(
+            height: 60,
+            decoration: BoxDecoration(
+              color: const Color(0xFF3B4351),
+              borderRadius: BorderRadius.circular(30),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildNavIcon(Icons.home, 0, context),
+                _buildNavIcon(Icons.search, 1, context),
+                _buildNavIcon(Icons.list, 2, context),
+                _buildNavIcon(Icons.person, 3, context),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildCategoryIcon(
-      BuildContext context, IconData icon, String label, Color color, Widget destination) {
+  Widget _buildNavIcon(IconData icon, int index, BuildContext context) {
+    bool isSelected =
+        index == _selectedIndex; // Ou index == 3 para UserAccountPage
+
+    return InkWell(
+      onTap: () {
+        switch (index) {
+          case 0: // Home
+            Navigator.push(
+                context, MaterialPageRoute(builder: (context) => HomePage()));
+            break;
+          case 1: // Procurar
+            Navigator.push(
+                context, MaterialPageRoute(builder: (context) => SearchPage()));
+            break;
+          case 2: // Pedidos
+            Navigator.push(
+                context, MaterialPageRoute(builder: (context) => OrdersPage()));
+            break;
+          case 3: // Conta
+            Navigator.push(context,
+                MaterialPageRoute(builder: (context) => UserAccountPage()));
+            break;
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Icon(
+          icon,
+          size: 24,
+          color: isSelected ? Color(0xFFFbbc2c) : Colors.white,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryIcon(BuildContext context, IconData icon, String label,
+      Color color, Widget destination) {
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => destination)),
+      onTap: () => Navigator.push(
+          context, MaterialPageRoute(builder: (_) => destination)),
       child: Column(
         children: [
           CircleAvatar(
@@ -369,7 +481,8 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildRestaurantCard({required BuildContext context, required Restaurant restaurant}) {
+  Widget _buildRestaurantCard(
+      {required BuildContext context, required Restaurant restaurant}) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -388,13 +501,15 @@ class _HomePageState extends State<HomePage> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: restaurant.imageUrl != null && restaurant.imageUrl!.isNotEmpty
+                child: restaurant.imageUrl != null &&
+                        restaurant.imageUrl!.isNotEmpty
                     ? Image.network(
                         restaurant.imageUrl!,
                         height: 80,
                         width: 80,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => _buildDefaultImage(),
+                        errorBuilder: (context, error, stackTrace) =>
+                            _buildDefaultImage(),
                         loadingBuilder: (context, child, loadingProgress) {
                           if (loadingProgress == null) return child;
                           return _buildImageLoader();
@@ -408,7 +523,8 @@ class _HomePageState extends State<HomePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(restaurant.name,
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                     SizedBox(height: 4),
@@ -422,7 +538,8 @@ class _HomePageState extends State<HomePage> {
                         Icon(Icons.star, color: Colors.amber, size: 14),
                         SizedBox(width: 4),
                         Text(restaurant.rating.toString(),
-                            style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey[600])),
                       ],
                     ),
                     if (restaurant.distance != null) ...[
@@ -432,7 +549,8 @@ class _HomePageState extends State<HomePage> {
                           Icon(Icons.location_on, color: Colors.blue, size: 14),
                           SizedBox(width: 4),
                           Text('${restaurant.distance!.toStringAsFixed(0)} m',
-                              style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey[600])),
                         ],
                       ),
                     ]
@@ -470,7 +588,8 @@ class _HomePageState extends State<HomePage> {
       itemBuilder: (context, index) {
         return Card(
           margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           elevation: 4,
           child: Container(
             padding: EdgeInsets.all(12),
@@ -489,7 +608,8 @@ class _HomePageState extends State<HomePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(height: 16, width: 120, color: Colors.grey[300]),
+                      Container(
+                          height: 16, width: 120, color: Colors.grey[300]),
                       SizedBox(height: 8),
                       Container(height: 12, width: 80, color: Colors.grey[300]),
                       SizedBox(height: 8),

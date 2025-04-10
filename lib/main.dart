@@ -25,7 +25,7 @@ class MyApp extends StatelessWidget {
       title: 'Vizinhos App',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primaryColor: Colors.green,
+        primaryColor: Color(0xFFFbbc2c),
         scaffoldBackgroundColor: Colors.white,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),

@@ -52,6 +52,7 @@ dependencies:
   flutter_launcher_icons: "^0.13.1"
   geocoding: ^3.0.0
   google_maps_flutter: ^2.10.0
+  lottie: ^3.3.1
 
 dev_dependencies:
   flutter_test:
@@ -76,10 +77,13 @@ flutter:
         - assets/images/google_logo.png
         - assets/images/bolo.png
         - assets/images/default_restaurant_image.jpg
+        - assets/images/default_menu_item.jpg
+        - assets/lottie/mainScene.json
+  
   uses-material-design: true
 
 # Adicione esta seção para configurar o ícone do aplicativo
 flutter_icons:
   android: true
   ios: true
-  image_path: "assets/images/logo.jpg"
+  image_path: "assets/logo/vizinhos_logo.png"

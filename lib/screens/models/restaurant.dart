@@ -20,6 +20,8 @@ class MenuItem {
   }
 
   get description => null;
+
+  get imageUrl => null;
 }
 
 class Restaurant {
@@ -27,11 +29,11 @@ class Restaurant {
   final String name;
   final List<String> categories;
   final double rating;
-  final String? imageUrl;
   final List<MenuItem> menu;
   final double? distance;
   final double? x; // latitude (ou use 'latitude')
   final double? y; // longitude (ou use 'longitude')
+  final String? imageUrl;
 
   Restaurant({
     required this.restaurantId,

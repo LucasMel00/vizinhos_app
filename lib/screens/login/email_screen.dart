@@ -101,7 +101,9 @@ class _EmailScreenState extends State<EmailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("OK", style: TextStyle(color: const Color.fromARGB(255, 68, 255, 96))),
+            child: Text("OK",
+                style:
+                    TextStyle(color: const Color.fromARGB(255, 68, 255, 96))),
           ),
         ],
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -141,7 +143,8 @@ class _EmailScreenState extends State<EmailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(Icons.people_alt_rounded, size: 48, color: const Color.fromARGB(255, 21, 156, 28)),
+        Icon(Icons.people_alt_rounded,
+            size: 48, color: const Color(0xFFFbbc2c)),
         SizedBox(height: 24),
         Text("Bem-vindo ao Vizinhos App!",
             style: TextStyle(
@@ -212,7 +215,7 @@ class _EmailScreenState extends State<EmailScreen> {
                 }
               },
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color.fromARGB(255, 19, 173, 34),
+          backgroundColor: const Color(0xFFFbbc2c),
           foregroundColor: Colors.white,
           padding: EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
@@ -247,7 +250,7 @@ class _EmailScreenState extends State<EmailScreen> {
             TextSpan(
               text: "Termos de Serviço",
               style: TextStyle(
-                color: const Color.fromARGB(255, 47, 192, 21),
+                color: const Color(0xFFFbbc2c),
                 fontWeight: FontWeight.w600,
               ),
             ),

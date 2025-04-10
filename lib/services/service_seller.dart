@@ -36,7 +36,7 @@ class SellerService {
     // Agora usamos "storeName" no lugar de "nomeLoja"
     final body = jsonEncode({
       'userId': userId,
-      'storeName': storeName,
+      'nomeLoja': storeName, // Alterado de 'storeName' para 'nomeLoja'
       'categorias': categories,
       'descricaoCurta': description,
       if (fotoPerfil != null) 'fotoPerfil': fotoPerfil,
@@ -45,7 +45,8 @@ class SellerService {
 
     print("----- REQUISIÇÃO SENDO GERADA -----");
     print("URL: $url");
-    print("Headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': 'Bearer $authToken' }");
+    print(
+        "Headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': 'Bearer $authToken' }");
     print("Body: $body");
     print("----- FIM DA REQUISIÇÃO -----");
 

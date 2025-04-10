@@ -26,7 +26,8 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final url = Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/login');
+    final url = Uri.parse(
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/login');
 
     setState(() {
       _isLoading = true;
@@ -34,17 +35,19 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
     });
 
     try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: jsonEncode({
-          'email': widget.email,
-          'password': _passwordController.text.trim(),
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: jsonEncode({
+              'email': widget.email,
+              'password': _passwordController.text.trim(),
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       final responseData = jsonDecode(response.body);
 
@@ -86,7 +89,7 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
           backgroundColor: Colors.transparent,
           elevation: 0,
           leading: IconButton(
-            icon: Icon(Icons.arrow_back_rounded, color: Colors.green[800]),
+            icon: Icon(Icons.arrow_back_rounded, color: Color(0xFFFbbc2c)),
             onPressed: () => Navigator.pop(context),
           ),
         ),
@@ -124,14 +127,14 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(Icons.person, size: 60, color: Colors.green[800]),
+        Icon(Icons.person, size: 60, color: Color(0xFFFbbc2c)),
         SizedBox(height: 24),
         Text(
           'Bem-vindo Vizinhos!',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
-            color: Colors.green[900],
+            color: Color.fromARGB(206, 58, 58, 58),
           ),
         ),
         SizedBox(height: 8),
@@ -139,20 +142,20 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
           'Faça login para continuar',
           style: TextStyle(
             fontSize: 16,
-            color: Colors.green[800]!.withOpacity(0.8),
+            color: Color.fromARGB(255, 0, 0, 0),
           ),
         ),
         SizedBox(height: 16),
         Container(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.green[50],
+            color: Color.fromARGB(255, 238, 231, 213),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
             widget.email,
             style: TextStyle(
-              color: Colors.green[800],
+              color: Color.fromARGB(255, 221, 156, 3),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -167,11 +170,11 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
       obscureText: _obscurePassword,
       decoration: InputDecoration(
         labelText: 'Senha',
-        prefixIcon: Icon(Icons.lock_outline_rounded, color: Colors.green[800]),
+        prefixIcon: Icon(Icons.lock_outline_rounded, color: Color(0xFFFbbc2c)),
         suffixIcon: IconButton(
           icon: Icon(
             _obscurePassword ? Icons.visibility_off : Icons.visibility,
-            color: Colors.green[800]!.withOpacity(0.6),
+            color: Color(0xFFFbbc2c),
           ),
           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
         ),
@@ -180,7 +183,7 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
           borderSide: BorderSide.none,
         ),
         filled: true,
-        fillColor: const Color.fromARGB(112, 162, 184, 147),
+        fillColor: const Color.fromARGB(255, 250, 235, 202),
         contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
       ),
       validator: (value) {
@@ -218,11 +221,11 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
       child: ElevatedButton(
         onPressed: _isLoading ? null : () => _loginUser(context),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green[800],
+          backgroundColor: Color(0xFFFbbc2c),
           foregroundColor: Colors.white,
           padding: EdgeInsets.symmetric(vertical: 18),
           elevation: 2,
-          shadowColor: Colors.green[200],
+          shadowColor: Color(0xFFFbbc2c),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -249,7 +252,7 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
       child: Text(
         'Esqueceu a senha?',
         style: TextStyle(
-          color: Colors.green[800],
+          color: Color.fromARGB(255, 204, 145, 7),
           fontWeight: FontWeight.w600,
         ),
       ),
