@@ -34,28 +34,23 @@ class _EmailScreenState extends State<EmailScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['message'] == 'Usuário encontrado') {
-          bool isConfirmed = data['is_confirmed'];
-          if (isConfirmed) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => LoginEmailScreen(email: email),
-              ),
-            );
-          } else {
-            _showConfirmationDialog(context);
-          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => LoginEmailScreen(email: email),
+            ),
+          );
         } else {
           _navigateToRegistration(email);
         }
-      } else if (response.statusCode == 400) {
+      } else if (response.statusCode == 404) {
         _navigateToRegistration(email);
       } else {
         setState(() {
           _errorText = "Erro inesperado. Tente novamente mais tarde.";
         });
       }
-    } on http.ClientException catch (e) {
+    } on http.ClientException {
       setState(() {
         _errorText = "Erro de conexão. Verifique sua internet.";
       });

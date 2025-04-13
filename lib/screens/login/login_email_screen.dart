@@ -1,10 +1,9 @@
-import 'dart:async';
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:provider/provider.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:vizinhos_app/screens/User/home_page_user.dart';
-import 'package:vizinhos_app/services/auth_provider.dart';
 
 class LoginEmailScreen extends StatefulWidget {
   final String email;
@@ -21,18 +20,20 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
+  final storage = FlutterSecureStorage();
 
   Future<void> _loginUser(BuildContext context) async {
     if (!_formKey.currentState!.validate()) return;
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final url = Uri.parse(
-        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/login');
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/LoginUser');
 
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
+
+    print("Iniciando login para o usuário: ${widget.email}");
 
     try {
       final response = await http
@@ -44,20 +45,27 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
             },
             body: jsonEncode({
               'email': widget.email,
-              'password': _passwordController.text.trim(),
+              'senha': _passwordController.text.trim(),
             }),
           )
           .timeout(const Duration(seconds: 15));
 
+      print("Resposta recebida: ${response.statusCode}");
+
       final responseData = jsonDecode(response.body);
+      print("Resposta decodificada: $responseData");
 
       if (response.statusCode == 200) {
-        await authProvider.login(
-          accessToken: responseData['accessToken'],
-          idToken: responseData['idToken'],
-          refreshToken: responseData['refreshToken'],
-          expiresIn: responseData['expiresIn'],
-        );
+        // Armazenar tokens no Flutter Secure Storage
+        await storage.write(
+            key: 'accessToken', value: responseData['accessToken']);
+        await storage.write(key: 'idToken', value: responseData['idToken']);
+        await storage.write(
+            key: 'refreshToken', value: responseData['refreshToken']);
+        await storage.write(
+            key: 'expiresIn', value: responseData['expiresIn'].toString());
+
+        print("Tokens armazenados com sucesso");
 
         Navigator.pushReplacement(
           context,
@@ -67,16 +75,39 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
         setState(() {
           _errorMessage = responseData['error'] ?? 'Erro ao fazer login';
         });
+        print("Erro de login: ${responseData['error']}");
       }
     } on http.ClientException {
       setState(() => _errorMessage = 'Erro de conexão');
+      print("Erro de conexão");
     } on TimeoutException {
       setState(() => _errorMessage = 'Tempo esgotado');
+      print("Tempo de requisição esgotado");
     } catch (e) {
       setState(() => _errorMessage = 'Erro inesperado');
+      print("Erro inesperado: $e");
     } finally {
       setState(() => _isLoading = false);
+      print("Processo de login finalizado");
     }
+  }
+
+  // Recuperar tokens armazenados
+  Future<Map<String, String>> getStoredTokens() async {
+    final accessToken = await storage.read(key: 'accessToken');
+    final idToken = await storage.read(key: 'idToken');
+    final refreshToken = await storage.read(key: 'refreshToken');
+    final expiresIn = await storage.read(key: 'expiresIn');
+
+    print(
+        "Tokens recuperados: $accessToken, $idToken, $refreshToken, $expiresIn");
+
+    return {
+      'accessToken': accessToken ?? '',
+      'idToken': idToken ?? '',
+      'refreshToken': refreshToken ?? '',
+      'expiresIn': expiresIn ?? '',
+    };
   }
 
   @override
@@ -84,7 +115,7 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: Colors.white, // Fundo branco
+        backgroundColor: Colors.white,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
