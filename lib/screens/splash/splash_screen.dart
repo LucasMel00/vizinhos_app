@@ -15,51 +15,45 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  bool _navigated = false;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(vsync: this);
-    _startSplash();
+
+    // Ouvinte para saber quando a animação termina
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed && !_navigated) {
+        _navigated = true;
+        _checkAuthStatus();
+      }
+    });
   }
 
-  Future<void> _startSplash() async {
-    // Aguarde 4 segundos antes de verificar o status de autenticação
-    await Future.delayed(const Duration(seconds: 4));
-    _checkAuthStatus();
-  }
-
-  Future<void> _checkAuthStatus() async {
+  void _checkAuthStatus() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    while (authProvider.isLoading) {
-      await Future.delayed(const Duration(milliseconds: 100));
-    }
-
-    if (authProvider.isLoggedIn) {
-      await authProvider.fetchUserDataFromAPI();
+    // Se ainda estiver carregando, aguarde um pouco
+    if (authProvider.isLoading) {
+      Future.delayed(Duration(milliseconds: 300), () {
+        if (mounted) {
+          _checkAuthStatus(); // Verifica novamente após o delay
+        }
+      });
+      return;
     }
 
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 800),
         pageBuilder: (_, __, ___) =>
             authProvider.isLoggedIn ? HomePage() : EmailScreen(),
         transitionsBuilder: (_, animation, __, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: child,
-          );
+          return FadeTransition(opacity: animation, child: child);
         },
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 
   @override
@@ -71,7 +65,6 @@ class _SplashScreenState extends State<SplashScreen>
           'assets/lottie/mainScene.json',
           controller: _controller,
           onLoaded: (composition) {
-            // Define a duração da animação para corresponder aos 4 segundos
             _controller
               ..duration = composition.duration
               ..forward();
@@ -79,5 +72,11 @@ class _SplashScreenState extends State<SplashScreen>
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 }

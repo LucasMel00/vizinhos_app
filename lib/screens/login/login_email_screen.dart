@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:provider/provider.dart';
 import 'package:vizinhos_app/screens/User/home_page_user.dart';
+import 'package:vizinhos_app/services/auth_provider.dart';
 
 class LoginEmailScreen extends StatefulWidget {
   final String email;
@@ -56,14 +58,25 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
       print("Resposta decodificada: $responseData");
 
       if (response.statusCode == 200) {
-        // Armazenar tokens no Flutter Secure Storage
+        // Armazena os tokens com as chaves corretas (use EXATAMENTE a mesma capitalização da API)
         await storage.write(
-            key: 'accessToken', value: responseData['accessToken']);
+            key: 'accessToken', value: responseData['AccessToken']);
         await storage.write(key: 'idToken', value: responseData['idToken']);
         await storage.write(
             key: 'refreshToken', value: responseData['refreshToken']);
         await storage.write(
             key: 'expiresIn', value: responseData['expiresIn'].toString());
+        await storage.write(key: 'email', value: widget.email);
+
+        // Atualiza também o estado no AuthProvider
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        await authProvider.login(
+          accessToken: responseData['AccessToken'],
+          idToken: responseData['idToken'],
+          refreshToken: responseData['refreshToken'],
+          expiresIn: int.parse(responseData['expiresIn'].toString()),
+          email: widget.email,
+        );
 
         print("Tokens armazenados com sucesso");
 
@@ -92,7 +105,7 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
     }
   }
 
-  // Recuperar tokens armazenados
+  // Método para recuperar tokens armazenados (para debug)
   Future<Map<String, String>> getStoredTokens() async {
     final accessToken = await storage.read(key: 'accessToken');
     final idToken = await storage.read(key: 'idToken');

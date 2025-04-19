@@ -8,11 +8,10 @@ import 'package:vizinhos_app/screens/Offers/offers_page.dart';
 import 'package:vizinhos_app/screens/best/best_page.dart';
 import 'package:vizinhos_app/screens/category/category_page.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart';
-import 'package:vizinhos_app/screens/restaurant/restaurantMapScreen.dart';
 import 'package:vizinhos_app/screens/restaurant/restaurant_detail_page.dart';
 import 'package:vizinhos_app/screens/search/search_page.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
-import 'package:geocoding/geocoding.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -20,95 +19,154 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  late Future<List<Restaurant>> futureRestaurants = Future.value([]);
+  // Remova o 'late' e inicialize com um valor vazio seguro
+  Future<List<Restaurant>> futureRestaurants = Future.value([]);
   Map<String, dynamic>? userInfo;
-  double? currentLat;
-  double? currentLon;
   int _selectedIndex = 0;
-
-  // Variável para o filtro por categoria (inicialmente "All")
-  String _selectedFilterCategory = "All";
+  final storage = const FlutterSecureStorage();
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    futureRestaurants = Future.value([]);
-    fetchUserInfo().then((_) {
-      setState(() {
-        futureRestaurants = fetchRestaurants();
-      });
+
+    // Use WidgetsBinding para garantir que o context esteja disponível
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadData();
+      }
     });
   }
 
+  Future<void> _loadData() async {
+    if (!mounted) return;
+
+    try {
+      await fetchUserInfo();
+
+      if (mounted) {
+        setState(() {
+          futureRestaurants = fetchRestaurants();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print("Erro ao carregar dados: $e");
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   Future<void> _refresh() async {
-    await fetchUserInfo();
+    if (!mounted) return;
+
     setState(() {
-      futureRestaurants = fetchRestaurants();
+      _isLoading = true;
     });
+
+    await _loadData();
   }
 
   Future<void> fetchUserInfo() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isLoggedIn) return;
-    final accessToken = authProvider.accessToken;
-    if (accessToken == null) return;
+
+    // Tenta obter o email
+    String? email = authProvider.email;
+    if (email == null) {
+      email = await storage.read(key: 'email');
+      if (email == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Email não encontrado no dispositivo')),
+          );
+        }
+        return;
+      }
+    }
+
     final url = Uri.parse(
-        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/user');
+      'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetUserByEmail?email=$email',
+    );
+
     try {
-      final response = await http
-          .get(url, headers: {'Authorization': 'Bearer $accessToken'});
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      );
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        setState(() {
-          userInfo = data;
-        });
-        String? street = userInfo?['Address'] != null
-            ? userInfo!['Address']['Street']
-            : null;
-        String? number = userInfo?['Address'] != null
-            ? userInfo!['Address']['Numero']
-            : null;
-        if (street != null && street.isNotEmpty) {
-          // Concatena a rua com o número, se disponível
-          String fullAddress = street;
-          if (number != null && number.isNotEmpty) {
-            fullAddress += ', $number';
-          }
-          List<Location> locations = await locationFromAddress(fullAddress);
-          if (locations.isNotEmpty) {
-            setState(() {
-              currentLat = locations.first.latitude;
-              currentLon = locations.first.longitude;
-            });
-          }
+        if (mounted) {
+          setState(() {
+            userInfo = data;
+          });
         }
       } else {
-        final errorBody = json.decode(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Erro ao carregar dados: ${errorBody['error']}')),
-        );
+        if (response.body.isNotEmpty) {
+          try {
+            final errorBody = json.decode(response.body);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                    content: Text(
+                        'Erro ao carregar dados: ${errorBody['error'] ?? "Erro desconhecido"}')),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Erro ao processar resposta: $e')),
+              );
+            }
+          }
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro: $e')),
-      );
+      print("Erro fetchUserInfo: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro de rede: $e')),
+        );
+      }
     }
   }
 
   Future<List<Restaurant>> fetchRestaurants() async {
-    if (currentLat == null || currentLon == null) {
-      throw Exception('Coordenadas do usuário não disponíveis.');
-    }
-    final url = Uri.parse(
-        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/list?x=$currentLat&y=$currentLon');
-    final response = await http.get(url);
-    if (response.statusCode == 200) {
-      final jsonResponse = json.decode(response.body);
-      List<dynamic> restaurantsJson = jsonResponse['restaurants'];
-      return restaurantsJson.map((json) => Restaurant.fromJson(json)).toList();
-    } else {
-      throw Exception('Falha ao carregar restaurantes');
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      String? email = authProvider.email;
+
+      if (email == null) {
+        email = await storage.read(key: 'email');
+        if (email == null) {
+          return [];
+        }
+      }
+
+      final url = Uri.parse(
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetNearStores?email=$email',
+      );
+
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final jsonResponse = json.decode(response.body);
+        List<dynamic> lojasJson = jsonResponse['lojas'] ?? [];
+        return lojasJson.map((json) => Restaurant.fromJson(json)).toList();
+      } else {
+        print('Erro HTTP: ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      print('[ERRO] fetchRestaurants: $e');
+      return []; // Retorna lista vazia em caso de erro
     }
   }
 
@@ -117,60 +175,153 @@ class _HomePageState extends State<HomePage> {
       _selectedIndex = index;
     });
     switch (index) {
-      case 0:
-        break;
       case 1:
         Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (_) => SearchPage(
-                      currentLat: currentLat,
-                      currentLon: currentLon,
-                    )));
+          context,
+          MaterialPageRoute(builder: (_) => SearchPage()),
+        );
         break;
       case 2:
         Navigator.push(
-            context, MaterialPageRoute(builder: (_) => OrdersPage()));
+          context,
+          MaterialPageRoute(builder: (_) => OrdersPage()),
+        );
         break;
       case 3:
         Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (_) => UserAccountPage(userInfo: userInfo)));
+          context,
+          MaterialPageRoute(
+              builder: (_) => UserAccountPage(userInfo: userInfo)),
+        );
         break;
     }
   }
 
-  // Widget para exibir o filtro de categorias utilizando chips
-  Widget _buildCategoryFilter(List<String> categories) {
-    return Container(
-      height: 50,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: categories.length,
-        separatorBuilder: (context, index) => SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final category = categories[index];
-          return ChoiceChip(
-            label: Text(category),
-            selected: _selectedFilterCategory == category,
-            onSelected: (bool selected) {
-              setState(() {
-                _selectedFilterCategory = category;
-              });
-            },
-            selectedColor: Color(0xFFFbbc2c),
-            backgroundColor: Colors.grey[200],
-            labelStyle: TextStyle(
-              color: _selectedFilterCategory == category
-                  ? Colors.white
-                  : Colors.black,
-              fontWeight: FontWeight.bold,
-            ),
-          );
-        },
+  Widget _buildRestaurantCard({
+    required BuildContext context,
+    required Restaurant restaurant,
+  }) {
+    final imageBytes = restaurant.imageBytes;
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => RestaurantDetailPage(restaurant: restaurant),
+          ),
+        );
+      },
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 4,
+        // Adicione esta linha para definir a cor de fundo
+        color: const Color(0xFFF9F5ED), // Creme suave que complementa o amarelo
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: imageBytes != null
+                    ? Image.memory(
+                        imageBytes,
+                        height: 80,
+                        width: 80,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            _buildDefaultImage(),
+                      )
+                    : _buildDefaultImage(),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      restaurant.name,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      restaurant.descricao,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${restaurant.logradouro}, ${restaurant.numero}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Entrega: ${restaurant.tipoEntrega}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
+    );
+  }
+
+  Widget _buildDefaultImage() {
+    return Image.asset(
+      'assets/images/default_restaurant_image.jpg',
+      height: 80,
+      width: 80,
+      fit: BoxFit.cover,
+    );
+  }
+
+  Widget _buildSkeletonLoading() {
+    return ListView.builder(
+      itemCount: 5,
+      itemBuilder: (context, index) {
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: 4,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Container(
+                  height: 80,
+                  width: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                          height: 16, width: 120, color: Colors.grey[300]),
+                      const SizedBox(height: 8),
+                      Container(height: 12, width: 80, color: Colors.grey[300]),
+                      const SizedBox(height: 8),
+                      Container(height: 12, width: 60, color: Colors.grey[300]),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -180,7 +331,7 @@ class _HomePageState extends State<HomePage> {
       onWillPop: () async => false,
       child: Scaffold(
         extendBodyBehindAppBar: true,
-        extendBody: true, // Para o efeito flutuante da barra de navegação
+        extendBody: true,
         body: RefreshIndicator(
           onRefresh: _refresh,
           child: NestedScrollView(
@@ -202,8 +353,8 @@ class _HomePageState extends State<HomePage> {
                           const SizedBox(width: 8),
                           Flexible(
                             child: Text(
-                              userInfo?['Address'] != null
-                                  ? '${userInfo!['Address']['Street']}'
+                              userInfo?['endereco'] != null
+                                  ? '${userInfo!['endereco']['logradouro']}, ${userInfo!['endereco']['numero']}'
                                   : 'Carregando endereço...',
                               style: const TextStyle(
                                 color: Colors.white,
@@ -215,27 +366,11 @@ class _HomePageState extends State<HomePage> {
                           IconButton(
                             icon: const Icon(Icons.map, color: Colors.white),
                             onPressed: () {
-                              if (currentLat != null && currentLon != null) {
-                                futureRestaurants.then((restaurants) {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => RestaurantMapScreen(
-                                        userLatitude: currentLat!,
-                                        userLongitude: currentLon!,
-                                        restaurants: restaurants,
-                                      ),
-                                    ),
-                                  );
-                                });
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content:
-                                        Text("Localização não disponível."),
-                                  ),
-                                );
-                              }
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'Funcionalidade de mapa não disponível')),
+                              );
                             },
                           ),
                         ],
@@ -256,140 +391,17 @@ class _HomePageState extends State<HomePage> {
                   );
                 } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return const Center(
-                    child: Text('Nenhum restaurante encontrado.'),
+                    child: Text('Nenhuma loja encontrada.'),
                   );
                 } else {
-                  List<Restaurant> restaurantes = snapshot.data!;
-                  final Set<String> categorySet = {};
-                  for (var r in restaurantes) {
-                    categorySet.addAll(r.categories);
-                  }
-                  final List<String> filterCategories = ["All", ...categorySet];
-
-                  List<Restaurant> filteredRestaurants =
-                      _selectedFilterCategory == "All"
-                          ? restaurantes
-                          : restaurantes
-                              .where((r) => r.categories
-                                  .contains(_selectedFilterCategory))
-                              .toList();
-
-                  return SingleChildScrollView(
+                  return ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Barra de busca
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: GestureDetector(
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => SearchPage(
-                                  currentLat: currentLat,
-                                  currentLon: currentLon,
-                                ),
-                              ),
-                            ),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(30),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.grey.withOpacity(0.2),
-                                    spreadRadius: 2,
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 3),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.search, color: Colors.grey[600]),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    "Buscar restaurantes...",
-                                    style: TextStyle(color: Colors.grey[600]),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Categorias (ícones)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16.0,
-                            vertical: 16.0,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              _buildCategoryIcon(
-                                context,
-                                Icons.local_fire_department,
-                                'Ofertas',
-                                Colors.red,
-                                OffersPage(),
-                              ),
-                              _buildCategoryIcon(
-                                context,
-                                Icons.star,
-                                'Melhores',
-                                Colors.orange,
-                                BestPage(),
-                              ),
-                              _buildCategoryIcon(
-                                context,
-                                Icons.card_giftcard,
-                                'Cupons',
-                                Colors.pink,
-                                CategoryPage(categoryName: 'Cupons'),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Filtro por categoria
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16.0,
-                            vertical: 8.0,
-                          ),
-                          child: _buildCategoryFilter(filterCategories),
-                        ),
-                        // Título para restaurantes próximos
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16.0),
-                          child: Text(
-                            'Restaurantes Próximos',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        // Lista de restaurantes filtrados
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: filteredRestaurants.length,
-                          itemBuilder: (context, index) {
-                            return _buildRestaurantCard(
+                    children: snapshot.data!
+                        .map((store) => _buildRestaurantCard(
                               context: context,
-                              restaurant: filteredRestaurants[index],
-                            );
-                          },
-                        ),
-                      ],
-                    ),
+                              restaurant: store,
+                            ))
+                        .toList(),
                   );
                 }
               },
@@ -401,13 +413,13 @@ class _HomePageState extends State<HomePage> {
           child: Container(
             height: 60,
             decoration: BoxDecoration(
-              color: const Color(0xFF3B4351),
+              color: const Color(0xFFFbbc2c), // Mesma cor do app bar
               borderRadius: BorderRadius.circular(30),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withOpacity(0.1),
                   blurRadius: 10,
-                  offset: const Offset(0, 2),
+                  offset: const Offset(0, 1),
                 ),
               ],
             ),
@@ -427,201 +439,19 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildNavIcon(IconData icon, int index, BuildContext context) {
-    bool isSelected =
-        index == _selectedIndex; // Ou index == 3 para UserAccountPage
-
+    bool isSelected = index == _selectedIndex;
     return InkWell(
-      onTap: () {
-        switch (index) {
-          case 0: // Home
-            Navigator.push(
-                context, MaterialPageRoute(builder: (context) => HomePage()));
-            break;
-          case 1: // Procurar
-            Navigator.push(
-                context, MaterialPageRoute(builder: (context) => SearchPage()));
-            break;
-          case 2: // Pedidos
-            Navigator.push(
-                context, MaterialPageRoute(builder: (context) => OrdersPage()));
-            break;
-          case 3: // Conta
-            Navigator.push(context,
-                MaterialPageRoute(builder: (context) => UserAccountPage()));
-            break;
-        }
-      },
+      onTap: () => _onNavItemTapped(index),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Icon(
           icon,
           size: 24,
-          color: isSelected ? Color(0xFFFbbc2c) : Colors.white,
+          color: isSelected
+              ? Colors.white
+              : const Color(0xFF3B4351), // Branco para selecionado
         ),
       ),
-    );
-  }
-
-  Widget _buildCategoryIcon(BuildContext context, IconData icon, String label,
-      Color color, Widget destination) {
-    return GestureDetector(
-      onTap: () => Navigator.push(
-          context, MaterialPageRoute(builder: (_) => destination)),
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: color.withOpacity(0.2),
-            child: Icon(icon, size: 32, color: color),
-          ),
-          SizedBox(height: 8),
-          Text(label, style: TextStyle(fontSize: 14, color: Colors.black)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRestaurantCard(
-      {required BuildContext context, required Restaurant restaurant}) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) =>
-                    RestaurantDetailPage(restaurant: restaurant)));
-      },
-      child: Card(
-        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 4,
-        child: Container(
-          padding: EdgeInsets.all(12),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: restaurant.imageUrl != null &&
-                        restaurant.imageUrl!.isNotEmpty
-                    ? Image.network(
-                        restaurant.imageUrl!,
-                        height: 80,
-                        width: 80,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            _buildDefaultImage(),
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return _buildImageLoader();
-                        },
-                      )
-                    : _buildDefaultImage(),
-              ),
-              SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(restaurant.name,
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
-                    SizedBox(height: 4),
-                    Text(restaurant.categories.join(', '),
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
-                    SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.star, color: Colors.amber, size: 14),
-                        SizedBox(width: 4),
-                        Text(restaurant.rating.toString(),
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.grey[600])),
-                      ],
-                    ),
-                    if (restaurant.distance != null) ...[
-                      SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.location_on, color: Colors.blue, size: 14),
-                          SizedBox(width: 4),
-                          Text('${restaurant.distance!.toStringAsFixed(0)} m',
-                              style: TextStyle(
-                                  fontSize: 12, color: Colors.grey[600])),
-                        ],
-                      ),
-                    ]
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDefaultImage() {
-    return Image.asset(
-      'assets/images/default_restaurant_image.jpg',
-      height: 80,
-      width: 80,
-      fit: BoxFit.cover,
-    );
-  }
-
-  Widget _buildImageLoader() {
-    return Container(
-      height: 80,
-      width: 80,
-      alignment: Alignment.center,
-      child: CircularProgressIndicator(),
-    );
-  }
-
-  Widget _buildSkeletonLoading() {
-    return ListView.builder(
-      itemCount: 5,
-      itemBuilder: (context, index) {
-        return Card(
-          margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          elevation: 4,
-          child: Container(
-            padding: EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Container(
-                  height: 80,
-                  width: 80,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                          height: 16, width: 120, color: Colors.grey[300]),
-                      SizedBox(height: 8),
-                      Container(height: 12, width: 80, color: Colors.grey[300]),
-                      SizedBox(height: 8),
-                      Container(height: 12, width: 60, color: Colors.grey[300]),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 }

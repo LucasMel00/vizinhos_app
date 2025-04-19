@@ -225,9 +225,7 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        icon: _isLoading
-            ? SizedBox.shrink()
-            : Icon(Icons.storefront_outlined),
+        icon: _isLoading ? SizedBox.shrink() : Icon(Icons.storefront_outlined),
         label: _isLoading
             ? const CircularProgressIndicator(
                 strokeWidth: 2,
@@ -319,7 +317,7 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
       );
 
       // Atualiza os dados do usuário
-      await authProvider.refreshUserData();
+      authProvider.refreshUserData();
 
       // Exibe uma animação de sucesso
       await _showSuccessAnimation();

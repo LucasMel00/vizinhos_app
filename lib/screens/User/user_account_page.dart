@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:vizinhos_app/screens/User/home_page_user.dart';
 import 'package:vizinhos_app/screens/login/email_screen.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart';
@@ -8,9 +9,11 @@ import 'package:vizinhos_app/screens/search/search_page.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_account_page.dart';
 import 'package:vizinhos_app/screens/vendor/create_store_screen.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
+import 'package:vizinhos_app/services/secure_storage.dart';
+import 'package:http/http.dart' as http;
 
 class UserAccountPage extends StatefulWidget {
-  final Map? userInfo;
+  final Map<String, dynamic>? userInfo;
   const UserAccountPage({Key? key, this.userInfo}) : super(key: key);
 
   @override
@@ -18,10 +21,78 @@ class UserAccountPage extends StatefulWidget {
 }
 
 class _UserAccountPageState extends State<UserAccountPage> {
-  int _selectedIndex =
-      4; // Na tela de conta, o ícone "Conta" (índice 4) fica selecionado.
+  int _selectedIndex = 3;
+  final storage = const FlutterSecureStorage();
+  bool _isLoading = true; // Agora só usamos esta flag
+  Map<String, dynamic>? _userInfo;
 
-// Função para deslogar o usuário
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserData(); // Sempre chamamos ao iniciar
+
+    // Se os dados foram fornecidos via construtor, usamos como valor inicial
+    if (widget.userInfo != null) {
+      _userInfo = widget.userInfo;
+      _isLoading = false;
+    }
+  }
+
+  Future<void> _fetchUserData() async {
+    // Se já temos dados via construtor, só atualizamos em segundo plano
+    if (widget.userInfo != null && !_isLoading) {
+      setState(() => _isLoading = true);
+    }
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    if (!authProvider.isLoggedIn) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      String? email = authProvider.email ?? await storage.read(key: 'email');
+
+      if (email == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Email não encontrado')),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final response = await http.get(
+        Uri.parse(
+            'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetUserByEmail?email=$email'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final idEndereco = data['endereco']?['id_Endereco'];
+
+        if (idEndereco != null) {
+          await authProvider.setIdEndereco(idEndereco.toString());
+        }
+
+        setState(() {
+          _userInfo = data;
+          _isLoading = false;
+        });
+      } else {
+        throw Exception('Status code: ${response.statusCode}');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao atualizar: $e')),
+      );
+      // Mantemos os dados antigos se a atualização falhar
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // Função para deslogar o usuário
   Future<void> _logout(BuildContext context) async {
     await Provider.of<AuthProvider>(context, listen: false).logout();
     Navigator.pushAndRemoveUntil(
@@ -31,58 +102,97 @@ class _UserAccountPageState extends State<UserAccountPage> {
     );
   }
 
-// Função para atualizar os dados do usuário (refresh)
-  Future<void> _handleRefresh(BuildContext context) async {
-    await Provider.of<AuthProvider>(context, listen: false).refreshUserData();
+  // Função para atualizar os dados do usuário (refresh)
+  Future<void> _handleRefresh() async {
+    await _fetchUserData();
   }
 
-// Widget auxiliar para construir um ListTile (opção)
+  // Widget auxiliar para construir um ListTile (opção)
   Widget _buildListTile({
     required IconData icon,
     required String title,
     Widget? trailing,
     void Function()? onTap,
+    Color? iconColor,
+    Color? textColor,
   }) {
     return ListTile(
-      leading: Icon(icon, color: Colors.black54),
-      title: Text(title, style: TextStyle(fontSize: 16)),
+      leading: Icon(icon, color: iconColor ?? Colors.black54),
+      title: Text(title, style: TextStyle(fontSize: 16, color: textColor)),
       trailing: trailing,
       onTap: onTap,
     );
   }
 
-// Widget para construir cada botão da barra de navegação inferior
+  void _navigateToSellerPage() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    // Mostra loading enquanto carrega
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            CircularProgressIndicator(color: Colors.white),
+            SizedBox(width: 10),
+            Text('Carregando dados da loja...'),
+          ],
+        ),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      // Força uma atualização dos dados antes de navegar
+      await _fetchUserData();
+
+      if (_userInfo != null && _userInfo!['endereco'] != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VendorAccountPage(
+              userInfo: _userInfo!,
+            ),
+          ),
+        );
+      } else {
+        throw Exception('Dados da loja não disponíveis');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao acessar loja: $e')),
+      );
+    }
+  }
+
+  // Widget para construir cada botão da barra de navegação inferior
   Widget _buildNavIcon(IconData icon, int index, BuildContext context) {
     bool isSelected = index == _selectedIndex;
-
     return InkWell(
       onTap: () {
         setState(() {
           _selectedIndex = index;
         });
         switch (index) {
-          case 0: // Chat/Home – navega para HomePage
-            Navigator.push(
+          case 0: // Home
+            Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(builder: (_) => HomePage()),
+              (route) => false,
             );
             break;
-          case 1: // Procurar
+          case 1: // Busca
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => SearchPage()),
             );
             break;
-          case 2: // Ícone central (ex: Agenda/horário); implementar ação desejada
-            // Por exemplo, ação personalizada pode ser adicionada aqui.
-            break;
-          case 3: // Notificações/Pedidos
+          case 2: // Pedidos
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => OrdersPage()),
             );
             break;
-          case 4: // Conta – já estamos nesta página
+          case 3: // Perfil (já estamos aqui)
             break;
         }
       },
@@ -91,7 +201,9 @@ class _UserAccountPageState extends State<UserAccountPage> {
         child: Icon(
           icon,
           size: 24,
-          color: isSelected ? Color.fromARGB(255, 209, 146, 0) : Colors.white,
+          color: isSelected
+              ? const Color.fromARGB(255, 255, 255, 255)
+              : const Color(0xFF3B4351),
         ),
       ),
     );
@@ -100,12 +212,31 @@ class _UserAccountPageState extends State<UserAccountPage> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    final Map? providerUserInfo = authProvider.userInfo;
-    final Map? effectiveUserInfo = widget.userInfo ?? providerUserInfo;
-    final bool isSeller = authProvider.isSeller;
+    final bool isSeller = authProvider.isSeller ||
+        (_userInfo?['usuario']?['Usuario_Tipo'] == 'seller');
+
+    // Se ainda está carregando, mostre um indicador de progresso
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          title: const Text(
+            'Conta',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          ),
+          centerTitle: true,
+          automaticallyImplyLeading: false,
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(color: Color(0xFFFbbc2c)),
+        ),
+      );
+    }
+
+    // Se os dados foram carregados, mostre a página completa
     return Scaffold(
-      extendBody:
-          true, // Permite que o conteúdo se estenda por trás da barra inferior flutuante
+      extendBody: true,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -113,12 +244,12 @@ class _UserAccountPageState extends State<UserAccountPage> {
           'Conta',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
+        automaticallyImplyLeading: false,
         centerTitle: true,
-        leading: const BackButton(color: Colors.black),
       ),
       backgroundColor: Colors.white,
       body: RefreshIndicator(
-        onRefresh: () => _handleRefresh(context),
+        onRefresh: () => _handleRefresh(),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
@@ -129,7 +260,7 @@ class _UserAccountPageState extends State<UserAccountPage> {
                 children: [
                   CircleAvatar(
                     radius: 35,
-                    backgroundColor: Color.fromARGB(255, 226, 181, 75),
+                    backgroundColor: const Color(0xFFFbbc2c),
                     child:
                         const Icon(Icons.person, size: 35, color: Colors.white),
                   ),
@@ -139,24 +270,47 @@ class _UserAccountPageState extends State<UserAccountPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          effectiveUserInfo?['Name'] ?? 'Nome não disponível',
+                          _userInfo?['usuario']?['nome'] ??
+                              'Nome não disponível',
                           style: const TextStyle(
                               fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          effectiveUserInfo?['Email'] ?? 'Email não disponível',
+                          _userInfo?['usuario']?['email'] ??
+                              'Email não disponível',
                           style:
                               TextStyle(fontSize: 14, color: Colors.grey[600]),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          effectiveUserInfo?['Address'] != null
-                              ? effectiveUserInfo!['Address']['Street']
+                          _userInfo?['endereco'] != null
+                              ? '${_userInfo!['endereco']['logradouro']}, ${_userInfo!['endereco']['numero']}'
                               : 'Endereço não disponível',
                           style:
                               TextStyle(fontSize: 14, color: Colors.grey[600]),
                         ),
+
+                        // Badge de vendedor, se aplicável
+                        if (isSeller) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFbbc2c).withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'Vendedor',
+                              style: TextStyle(
+                                color: Color(0xFFFbbc2c),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -164,42 +318,19 @@ class _UserAccountPageState extends State<UserAccountPage> {
               ),
             ),
             const Divider(),
+
             // Painel do vendedor (exibido se o usuário for vendedor)
             if (isSeller)
               _buildListTile(
                 icon: Icons.store_mall_directory,
-                title: 'Loja',
-                onTap: () async {
-                  await authProvider.refreshUserData();
-                  final updatedUserInfo = authProvider.userInfo;
-                  final sellerProfileRaw = updatedUserInfo?['sellerProfile'];
-                  final sellerProfile = sellerProfileRaw is Map
-                      ? (sellerProfileRaw as Map).cast<String, dynamic>()
-                      : <String, dynamic>{};
-                  if (sellerProfile.isNotEmpty) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            VendorAccountPage(userInfo: updatedUserInfo),
-                      ),
-                    );
-                  } else {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CreateStoreScreen(
-                          userId: updatedUserInfo?['sub'] ?? '',
-                        ),
-                      ),
-                    ).then((shouldRefresh) {
-                      if (shouldRefresh == true) {
-                        authProvider.refreshUserData();
-                      }
-                    });
-                  }
-                },
+                title: 'Sua Loja',
+                iconColor: const Color(0xFFFbbc2c),
+                textColor: const Color(0xFF333333),
+                trailing: Icon(Icons.arrow_forward_ios,
+                    size: 16, color: Colors.grey[400]),
+                onTap: _navigateToSellerPage,
               ),
+
             // Outras opções do menu
             _buildListTile(
               icon: Icons.favorite_border,
@@ -253,34 +384,33 @@ class _UserAccountPageState extends State<UserAccountPage> {
           ],
         ),
       ),
-      // Barra de navegação inferior flutuante (mesmo estilo da HomePage)
+      // Barra de navegação inferior flutuante
       bottomNavigationBar: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Container(
           height: 60,
           decoration: BoxDecoration(
-            color: Color(0xFF3B4351),
+            color: const Color(0xFFFbbc2c), // Mesma cor do app bar
             borderRadius: BorderRadius.circular(30),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withOpacity(0.1),
                 blurRadius: 10,
-                offset: const Offset(0, 2),
+                offset: const Offset(0, 1),
               ),
             ],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildNavIcon(Icons.chat_bubble_outline, 0, context),
+              _buildNavIcon(Icons.home, 0, context),
               _buildNavIcon(Icons.search, 1, context),
-              _buildNavIcon(Icons.access_time, 2, context),
-              _buildNavIcon(Icons.notifications_none, 3, context),
-              _buildNavIcon(Icons.person_outline, 4, context),
+              _buildNavIcon(Icons.list, 2, context),
+              _buildNavIcon(Icons.person, 3, context),
             ],
           ),
         ),
       ),
     );
   }
-} 
+}

@@ -7,13 +7,11 @@ class UserService {
 
   UserService({required this.apiUrl, required this.authToken});
 
-  Future<Map<String, dynamic>> getUserInfo() async {
+  Future<Map<String, dynamic>> getUserInfo(String email) async {
     try {
       final response = await http.get(
-        Uri.parse('$apiUrl/user'), // Endpoint da API
-        headers: {
-          'Authorization': 'Bearer $authToken',
-        },
+        Uri.parse('$apiUrl/GetUserByEmail?email=$email'), // Endpoint da API
+        headers: {},
       );
 
       if (response.statusCode == 200) {

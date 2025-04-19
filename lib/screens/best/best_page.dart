@@ -1,39 +1,42 @@
+// screens/Offers/offers_page.dart
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:vizinhos_app/screens/models/restaurant.dart';
 import 'package:vizinhos_app/screens/restaurant/restaurant_detail_page.dart';
 
-class BestPage extends StatefulWidget {
+class OffersPage extends StatefulWidget {
+  const OffersPage({Key? key}) : super(key: key);
+
   @override
-  _BestPageState createState() => _BestPageState();
+  _OffersPageState createState() => _OffersPageState();
 }
 
-class _BestPageState extends State<BestPage> {
-  late Future<List<Restaurant>> futureBest;
+class _OffersPageState extends State<OffersPage> {
+  late Future<List<Restaurant>> _futureRestaurants;
 
   @override
   void initState() {
     super.initState();
-    futureBest = fetchBest();
+    _futureRestaurants = _loadRestaurants();
   }
 
-  Future<List<Restaurant>> fetchBest() async {
-    final response = await http.get(Uri.parse(
-        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/list'));
+  Future<List<Restaurant>> _loadRestaurants() async {
+    final storage = const FlutterSecureStorage();
+    final email = await storage.read(key: 'email');
+    if (email == null) throw Exception('Email não encontrado.');
 
+    final url = Uri.parse(
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetNearStores?email=$email');
+    final response = await http.get(url);
     if (response.statusCode == 200) {
-      List<dynamic> jsonResponse = json.decode(response.body);
-      List<Restaurant> allRestaurants = jsonResponse
-          .map((restaurant) => Restaurant.fromJson(restaurant))
-          .toList();
-
-      // Filtrar restaurantes que contêm "Melhores" em suas categorias
-      return allRestaurants
-          .where((restaurant) => restaurant.categories.contains('Melhores'))
+      final data = json.decode(response.body);
+      return (data['lojas'] as List)
+          .map((json) => Restaurant.fromJson(json))
           .toList();
     } else {
-      throw Exception('Falha ao carregar melhores');
+      throw Exception('Falha ao buscar ofertas');
     }
   }
 
@@ -41,127 +44,97 @@ class _BestPageState extends State<BestPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Melhores'),
-        backgroundColor: Colors.orange,
+        title: const Text('Ofertas'),
+        backgroundColor: Colors.red.shade700,
       ),
       body: FutureBuilder<List<Restaurant>>(
-        future: futureBest,
+        future: _futureRestaurants,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
             return Center(child: Text('Erro: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return Center(child: Text('Nenhum melhor restaurante encontrado.'));
-          } else {
-            List<Restaurant> best = snapshot.data!;
-            return ListView.builder(
-              itemCount: best.length,
-              itemBuilder: (context, index) {
-                return _buildRestaurantCard(best[index]);
-              },
-            );
           }
+          final list = snapshot.data!;
+          return list.isNotEmpty
+              ? ListView.builder(
+                  itemCount: list.length,
+                  itemBuilder: (context, index) {
+                    final r = list[index];
+                    final bytes = r.imageBytes;
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => RestaurantDetailPage(restaurant: r),
+                          ),
+                        );
+                      },
+                      child: Card(
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: bytes != null
+                                    ? Image.memory(
+                                        bytes,
+                                        width: 80,
+                                        height: 80,
+                                        fit: BoxFit.cover,
+                                      )
+                                    : Image.asset(
+                                        'assets/images/default_restaurant_image.jpg',
+                                        width: 80,
+                                        height: 80,
+                                        fit: BoxFit.cover,
+                                      ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      r.name,
+                                      style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(r.descricao),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              IconButton(
+                                icon: const Icon(Icons.arrow_forward),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          RestaurantDetailPage(restaurant: r),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                )
+              : const Center(child: Text('Nenhuma oferta disponível.'));
         },
       ),
-    );
-  }
-
-  // Método para construir o card do restaurante
-  Widget _buildRestaurantCard(Restaurant restaurant) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => RestaurantDetailPage(
-              restaurant: restaurant,
-            ),
-          ),
-        );
-      },
-      child: Card(
-        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          children: [
-            // Imagem do restaurante
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child:
-                  restaurant.imageUrl != null && restaurant.imageUrl!.isNotEmpty
-                      ? Image.network(
-                          restaurant.imageUrl!,
-                          height: 80,
-                          width: 80,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return _buildDefaultImage();
-                          },
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return _buildImageLoader();
-                          },
-                        )
-                      : _buildDefaultImage(),
-            ),
-            SizedBox(width: 16),
-            // Informações do restaurante
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      restaurant.name,
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      restaurant.menu.isNotEmpty
-                          ? 'R\$ ${restaurant.menu[0].price.toStringAsFixed(2)} • 25-35 min'
-                          : 'R\$ 0.00 • 25-35 min',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.star, color: Colors.amber, size: 16),
-                        SizedBox(width: 4),
-                        Text(
-                          restaurant.rating.toString(),
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Widget para exibir a imagem padrão
-  Widget _buildDefaultImage() {
-    return Container(
-      height: 80,
-      width: 80,
-      color: Colors.grey[200],
-      child: Icon(Icons.image, color: Colors.grey),
-    );
-  }
-
-  // Widget para exibir o indicador de carregamento
-  Widget _buildImageLoader() {
-    return Container(
-      height: 80,
-      width: 80,
-      alignment: Alignment.center,
-      child: CircularProgressIndicator(),
     );
   }
 }

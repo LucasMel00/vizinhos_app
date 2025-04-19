@@ -1,271 +1,354 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:vizinhos_app/screens/vendor/vendor_edit_page.dart';
+import 'package:vizinhos_app/screens/vendor/vendor_orders_page.dart';
+import 'package:vizinhos_app/screens/vendor/vendor_products_page.dart';
 
-class VendorAccountPage extends StatelessWidget {
+class VendorAccountPage extends StatefulWidget {
   final Map<String, dynamic> userInfo;
 
   const VendorAccountPage({Key? key, required this.userInfo}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    // Faz o cast para Map<String, dynamic> caso sellerProfile exista
-    final sellerProfileRaw = userInfo['sellerProfile'];
-    final sellerProfile = sellerProfileRaw is Map
-        ? (sellerProfileRaw as Map).cast<String, dynamic>()
-        : <String, dynamic>{};
+  _VendorAccountPageState createState() => _VendorAccountPageState();
+}
 
-    // Tenta obter o nome da loja utilizando as chaves 'storeName', 'nomeLoja' ou 'name'
-    final storeName = sellerProfile['storeName'] ??
-        sellerProfile['nomeLoja'] ??
-        sellerProfile['name'] ??
-        'Painel do Vendedor';
+class _VendorAccountPageState extends State<VendorAccountPage> {
+  late Map<String, dynamic> _currentUserInfo = widget.userInfo;
+  late String _userId = widget.userInfo['usuario']?['id_Usuario'] ?? '';
 
-    // Recupera as categorias utilizando 'categories' ou 'categorias'
-    final categorias = List<String>.from(
-      sellerProfile['categories'] ?? sellerProfile['categorias'] ?? [],
+  Map<String, dynamic>? storeData;
+  bool _isLoading = true;
+  bool _infoExpanded = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentUserInfo = widget.userInfo;
+    _loadStoreData();
+  }
+
+  Future<void> _loadStoreData() async {
+    setState(() => _isLoading = true);
+    try {
+      final idEndereco = _currentUserInfo['endereco']?['id_Endereco'];
+      if (idEndereco == null) throw Exception('ID do endereço não encontrado');
+
+      final response = await http.get(
+        Uri.parse(
+            'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetAddressById?id_Endereco=$idEndereco'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          storeData = jsonDecode(response.body);
+          _isLoading = false;
+        });
+      } else {
+        throw Exception('Erro na API: ${response.statusCode}');
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao carregar loja: $e')),
+      );
+    }
+  }
+
+  void _navigateToEditPage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => VendorEditPage(
+          userInfo: _currentUserInfo,
+          storeData: storeData ?? {},
+          onSave: (updatedData) {
+            setState(() {
+              storeData = updatedData;
+            });
+          },
+        ),
+      ),
     );
-    final primaryColor = const Color(0xFF2ECC71);
-    final accentColor = const Color(0xFF27AE60);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primaryColor = const Color(0xFFFbbc2c);
+    final accentColor = const Color(0xFF5F4A14);
+
+    final storeName = storeData?['endereco']?['nome_Loja'] ?? 'Sua Loja';
+    final storeDescription =
+        storeData?['endereco']?['descricao_Loja'] ?? 'Sem descrição';
+    final userName =
+        widget.userInfo['usuario']?['nome'] ?? 'Nome não disponível';
+    final userPhone =
+        widget.userInfo['usuario']?['telefone'] ?? 'Telefone não disponível';
+
+    final storeAddress =
+        '${storeData?['endereco']?['logradouro'] ?? ''}, ${storeData?['endereco']?['numero'] ?? ''}';
+    final storeComplement = storeData?['endereco']?['complemento'] ?? '';
+    final deliveryType =
+        storeData?['endereco']?['tipo_Entrega'] ?? 'Não especificado';
+    final storeCep = storeData?['endereco']?['cep'] ?? '';
+
+    Widget storeImageWidget = Icon(Icons.store, size: 40, color: primaryColor);
+    String? imageBase64 = storeData?['endereco']?['id_Imagem'];
+    if (imageBase64 != null && imageBase64.isNotEmpty) {
+      try {
+        final imageBytes = base64Decode(imageBase64);
+        storeImageWidget = Image.memory(
+          imageBytes,
+          fit: BoxFit.cover,
+          width: 110,
+          height: 110,
+          errorBuilder: (_, __, ___) =>
+              Icon(Icons.store, size: 40, color: primaryColor),
+        );
+      } catch (e) {
+        storeImageWidget = Icon(Icons.store, size: 40, color: primaryColor);
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
           storeName,
-          style: const TextStyle(color: Colors.white),
+          style:
+              const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         backgroundColor: primaryColor,
-        elevation: 5,
+        elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.shopping_bag),
-            onPressed: () => _navigateToProducts(context),
+            icon: const Icon(Icons.edit),
+            onPressed: _navigateToEditPage,
           ),
         ],
       ),
-      drawer: _buildDrawer(context, primaryColor, accentColor, categorias),
-      body: _buildBody(context, sellerProfile, primaryColor, accentColor),
-    );
-  }
-
-  void _navigateToProducts(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => ProductsPage()),
-    );
-  }
-
-  Widget _buildDrawer(
-      BuildContext context, Color primaryColor, Color accentColor, List<String> categorias) {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          Container(
-            height: 160,
-            decoration: BoxDecoration(
-              color: primaryColor,
-              borderRadius: const BorderRadius.only(
-                bottomRight: Radius.circular(20),
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              child: Column(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 30, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: primaryColor,
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(30),
+                        bottomRight: Radius.circular(30),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          spreadRadius: 2,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        CircleAvatar(
+                          radius: 60,
+                          backgroundColor: Colors.white,
+                          child: ClipOval(
+                            child: SizedBox(
+                              width: 110,
+                              height: 110,
+                              child: storeImageWidget,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 15),
+                        Text(
+                          storeName,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          storeDescription,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ExpansionTile(
+                          initiallyExpanded: _infoExpanded,
+                          onExpansionChanged: (val) {
+                            setState(() => _infoExpanded = val);
+                          },
+                          leading: Icon(Icons.info, color: accentColor),
+                          title: Text(
+                            'Informações da Loja',
+                            style: TextStyle(
+                              color: accentColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          children: [
+                            _infoCard(
+                              icon: Icons.person,
+                              title: 'Proprietário',
+                              value: userName,
+                              accentColor: accentColor,
+                            ),
+                            _infoCard(
+                              icon: Icons.phone,
+                              title: 'Telefone',
+                              value: userPhone,
+                              accentColor: accentColor,
+                            ),
+                            _infoCard(
+                              icon: Icons.location_on,
+                              title: 'Endereço',
+                              value:
+                                  '$storeAddress${storeComplement.isNotEmpty ? ' - $storeComplement' : ''}',
+                              accentColor: accentColor,
+                            ),
+                            _infoCard(
+                              icon: Icons.local_shipping,
+                              title: 'Tipo de Entrega',
+                              value: deliveryType,
+                              accentColor: accentColor,
+                            ),
+                            _infoCard(
+                              icon: Icons.location_city,
+                              title: 'CEP',
+                              value: storeCep,
+                              accentColor: accentColor,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 25),
+                        _sectionHeader(
+                            'Ações Rápidas', Icons.flash_on, accentColor),
+                        const SizedBox(height: 15),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _actionButton(
+                                label: 'Produtos',
+                                icon: Icons.shopping_bag,
+                                color: primaryColor,
+                                onPressed: () {
+                                  Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (context) =>
+                                              VendorProductsPage()));
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _actionButton(
+                                label: 'Pedidos',
+                                icon: Icons.receipt_long,
+                                color: primaryColor,
+                                onPressed: () {
+                                  Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (context) =>
+                                              OrdersVendorPage()));
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: UserAccountsDrawerHeader(
-              decoration: const BoxDecoration(color: Colors.transparent),
-              accountName: Text(
-                userInfo['Name'] ?? '',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              accountEmail: Text(
-                userInfo['Email'] ?? '',
-                style: const TextStyle(fontSize: 14),
-              ),
-              currentAccountPicture: CircleAvatar(
-                backgroundColor: Colors.white,
-                child: Icon(Icons.store, size: 40, color: primaryColor),
-              ),
-            ),
-          ),
-          _drawerItem(
-            icon: Icons.dashboard,
-            label: 'Dashboard',
-            onTap: () {},
-            accentColor: accentColor,
-          ),
-          _drawerItem(
-            icon: Icons.shopping_bag,
-            label: 'Produtos',
-            onTap: () => _navigateToProducts(context),
-            accentColor: accentColor,
-          ),
-          _drawerItem(
-            icon: Icons.receipt,
-            label: 'Pedidos',
-            onTap: () {},
-            accentColor: accentColor,
-          ),
-          const Divider(),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: accentColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: ListTile(
-              leading: Icon(Icons.category, color: accentColor),
-              title: const Text(
-                'Categorias',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-              subtitle: Text(
-                categorias.join(', '),
-                style: const TextStyle(color: Colors.grey),
-              ),
-            ),
-          ),
-          _drawerItem(
-            icon: Icons.settings,
-            label: 'Configurações',
-            onTap: () {},
-            accentColor: accentColor,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _drawerItem({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    required Color accentColor,
-  }) {
-    return ListTile(
-      leading: Icon(icon, color: accentColor),
-      title: Text(
-        label,
-        style: TextStyle(color: Colors.grey[800], fontSize: 16),
-      ),
-      onTap: onTap,
-    );
-  }
-
-  Widget _buildBody(
-      BuildContext context, Map<String, dynamic> sellerProfile, Color primaryColor, Color accentColor) {
-    final storeName = sellerProfile['storeName'] ??
-        sellerProfile['nomeLoja'] ??
-        sellerProfile['name'] ??
-        '';
-    final categories = (sellerProfile['categories'] as List?) ??
-        sellerProfile['categorias'] ??
-        [];
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionHeader('Informações da Loja', Icons.storefront, accentColor),
-          const SizedBox(height: 20),
-          _infoCard(
-            title: 'Nome da Loja',
-            value: storeName,
-            accentColor: accentColor,
-            onEdit: () {},
-          ),
-          _infoCard(
-            title: 'Categorias',
-            value: categories.join(', '),
-            accentColor: accentColor,
-            onEdit: () {},
-          ),
-          const SizedBox(height: 30),
-          _sectionHeader('Ações Rápidas', Icons.flash_on, accentColor),
-          const SizedBox(height: 15),
-          _actionButtons(primaryColor, context),
-        ],
-      ),
     );
   }
 
   Widget _sectionHeader(String title, IconData icon, Color color) {
     return Row(
       children: [
-        Icon(icon, color: color, size: 28),
+        Icon(icon, color: color, size: 24),
         const SizedBox(width: 10),
         Text(
           title,
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
         ),
       ],
     );
   }
 
   Widget _infoCard({
+    required IconData icon,
     required String title,
     required String value,
     required Color accentColor,
-    required VoidCallback onEdit,
   }) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 15),
+      color: const Color(0xFFF9F5ED),
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: accentColor.withOpacity(0.2)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                      color: accentColor, fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                IconButton(
-                  icon: Icon(Icons.edit, size: 20, color: accentColor),
-                  onPressed: onEdit,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(color: Colors.grey[800], fontSize: 15),
+            Icon(icon, color: accentColor, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: accentColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _actionButtons(Color primaryColor, BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _actionButton(
-            label: 'Adicionar Produto',
-            icon: Icons.add,
-            color: primaryColor,
-            onPressed: () => _navigateToAddProduct(context),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _actionButton(
-            label: 'Gerenciar Estoque',
-            icon: Icons.inventory,
-            color: primaryColor,
-            onPressed: () {},
-          ),
-        ),
-      ],
     );
   }
 
@@ -276,45 +359,22 @@ class VendorAccountPage extends StatelessWidget {
     required VoidCallback onPressed,
   }) {
     return ElevatedButton.icon(
-      icon: Icon(icon, color: Colors.white),
+      icon: Icon(icon, color: Colors.white, size: 18),
       label: Text(
         label,
-        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
       ),
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
-        padding: const EdgeInsets.symmetric(vertical: 15),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
-      ),
-    );
-  }
-
-  void _navigateToAddProduct(BuildContext context) {
-    // Implementar navegação para adicionar produto
-  }
-}
-
-class ProductsPage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Meus Produtos'),
-      ),
-      body: ListView.builder(
-        itemCount: 10,
-        itemBuilder: (context, index) => ListTile(
-          leading: const Icon(Icons.shopping_bag),
-          title: Text('Produto ${index + 1}'),
-          subtitle: const Text('R\$ 99,99'),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add),
-        onPressed: () {},
       ),
     );
   }

@@ -10,9 +10,9 @@ class SecureStorage {
   static const String _refreshTokenKey = 'refresh_token';
   static const String _expiresInKey = 'expires_in';
   static const String _storeInfoKey = 'store_info';
+  static const String _idEnderecoKey = 'id_Endereco';
 
-  // Methods for tokens
-
+  // Token methods
   Future<void> setAccessToken(String token) async {
     await _storage.write(key: _accessTokenKey, value: token);
   }
@@ -53,9 +53,7 @@ class SecureStorage {
     await _storage.delete(key: _expiresInKey);
   }
 
-  // Methods for store information
-
-  /// Stores the seller’s store information as a JSON string.
+  // Store info methods
   Future<void> setStoreInfo(Map<String, dynamic> storeInfo) async {
     await _storage.write(key: _storeInfoKey, value: json.encode(storeInfo));
   }
@@ -68,12 +66,23 @@ class SecureStorage {
     return null;
   }
 
-  /// Deletes the stored seller’s store information.
   Future<void> deleteStoreInfo() async {
     await _storage.delete(key: _storeInfoKey);
   }
 
-  /// Retorna todos os valores armazenados no Secure Storage.
+  Future<void> setEnderecoId(String idEndereco) async {
+    await _storage.write(key: _idEnderecoKey, value: idEndereco);
+  }
+
+  Future<String?> getEnderecoId() async {
+    return await _storage.read(key: _idEnderecoKey);
+  }
+
+  Future<void> deleteEnderecoId() async {
+    await _storage.delete(key: _idEnderecoKey);
+  }
+
+  // Utilitário geral
   Future<Map<String, String>> readAllValues() async {
     return await _storage.readAll();
   }

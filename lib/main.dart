@@ -1,15 +1,18 @@
-// lib/main.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 import 'package:vizinhos_app/screens/splash/splash_screen.dart';
 
 void main() {
+  // Garante que o binding Flutter esteja inicializado
+  WidgetsFlutterBinding.ensureInitialized();
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(
+          create: (_) => AuthProvider(),
+        ),
       ],
       child: const MyApp(),
     ),
@@ -17,7 +20,7 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -25,11 +28,11 @@ class MyApp extends StatelessWidget {
       title: 'Vizinhos App',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primaryColor: Color(0xFFFbbc2c),
+        primaryColor: const Color(0xFFFbbc2c),
         scaffoldBackgroundColor: Colors.white,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: const SplashScreen(), // Tela inicial agora é o Splash
+      home: const SplashScreen(),
     );
   }
 }

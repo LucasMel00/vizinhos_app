@@ -1,33 +1,28 @@
-// search_page.dart
-
+// screens/search/search_page.dart
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:vizinhos_app/screens/models/restaurant.dart';
 import 'package:vizinhos_app/screens/restaurant/restaurant_detail_page.dart';
 
 class SearchPage extends StatefulWidget {
-  final double? currentLat;
-  final double? currentLon;
-
-  const SearchPage({Key? key, this.currentLat, this.currentLon})
-      : super(key: key);
+  const SearchPage({Key? key}) : super(key: key);
 
   @override
   _SearchPageState createState() => _SearchPageState();
 }
 
 class _SearchPageState extends State<SearchPage> {
-  late Future<List<Restaurant>> futureRestaurants;
+  late Future<List<Restaurant>> _futureRestaurants;
   List<Restaurant> _allRestaurants = [];
-  List<Restaurant> _filteredRestaurants = [];
+  List<Restaurant> _filtered = [];
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    futureRestaurants = fetchRestaurants();
+    _futureRestaurants = _loadRestaurants();
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -38,35 +33,35 @@ class _SearchPageState extends State<SearchPage> {
     super.dispose();
   }
 
-  Future<List<Restaurant>> fetchRestaurants() async {
-    if (widget.currentLat == null || widget.currentLon == null) {
-      throw Exception('Coordenadas do usuário não disponíveis.');
-    }
+  Future<List<Restaurant>> _loadRestaurants() async {
+    final storage = const FlutterSecureStorage();
+    final email = await storage.read(key: 'email');
+    if (email == null) throw Exception('Email não encontrado.');
+
     final url = Uri.parse(
-        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/list?x=${widget.currentLat}&y=${widget.currentLon}');
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetNearStores?email=$email');
     final response = await http.get(url);
     if (response.statusCode == 200) {
-      final jsonResponse = json.decode(response.body);
-      List<dynamic> restaurantsJson = jsonResponse['restaurants'];
-      List<Restaurant> restaurantes = restaurantsJson
+      final data = json.decode(response.body);
+      final list = (data['lojas'] as List)
           .map((json) => Restaurant.fromJson(json))
           .toList();
       setState(() {
-        _allRestaurants = restaurantes;
-        _filteredRestaurants = restaurantes;
+        _allRestaurants = list;
+        _filtered = list;
       });
-      return restaurantes;
+      return list;
     } else {
-      throw Exception('Falha ao carregar restaurantes');
+      throw Exception('Falha ao buscar restaurantes');
     }
   }
 
   void _onSearchChanged() {
-    String query = _searchController.text.toLowerCase();
+    final query = _searchController.text.toLowerCase();
     setState(() {
-      _filteredRestaurants = _allRestaurants.where((restaurant) {
-        return restaurant.name.toLowerCase().contains(query);
-      }).toList();
+      _filtered = _allRestaurants
+          .where((r) => r.name.toLowerCase().contains(query))
+          .toList();
     });
   }
 
@@ -75,168 +70,134 @@ class _SearchPageState extends State<SearchPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Buscar Restaurantes'),
-        backgroundColor: Colors.green,
+        backgroundColor: Colors.green.shade700,
       ),
       body: FutureBuilder<List<Restaurant>>(
-        future: futureRestaurants,
+        future: _futureRestaurants,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            // Indicador de carregamento
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            // Mensagem de erro
             return Center(child: Text('Erro: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            // Mensagem se não houver dados
-            return const Center(child: Text('Nenhum restaurante encontrado.'));
-          } else {
-            return Column(
-              children: [
-                // Barra de busca
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Buscar restaurantes...',
-                      prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+          }
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Buscar restaurantes...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
-                // Lista de resultados
-                Expanded(
-                  child: _filteredRestaurants.isNotEmpty
-                      ? ListView.builder(
-                          itemCount: _filteredRestaurants.length,
-                          itemBuilder: (context, index) {
-                            Restaurant restaurant = _filteredRestaurants[index];
-                            return _buildRestaurantCard(restaurant);
-                          },
-                        )
-                      : const Center(child: Text('Nenhum resultado encontrado.')),
-                ),
-              ],
-            );
-          }
+              ),
+              Expanded(
+                child: _filtered.isNotEmpty
+                    ? ListView.builder(
+                        itemCount: _filtered.length,
+                        itemBuilder: (context, index) {
+                          final r = _filtered[index];
+                          final bytes = r.imageBytes;
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      RestaurantDetailPage(restaurant: r),
+                                ),
+                              );
+                            },
+                            child: Card(
+                              margin: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              child: Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Row(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: bytes != null
+                                          ? Image.memory(
+                                              bytes,
+                                              width: 80,
+                                              height: 80,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : Image.asset(
+                                              'assets/images/default_restaurant_image.jpg',
+                                              width: 80,
+                                              height: 80,
+                                              fit: BoxFit.cover,
+                                            ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            r.name,
+                                            style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            r.descricao,
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey.shade600),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${r.logradouro}, ${r.numero}',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey.shade600),
+                                          ),
+                                          if (r.complemento.isNotEmpty)
+                                            Text(
+                                              r.complemento,
+                                              style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey.shade600),
+                                            ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Entrega: ${r.tipoEntrega}',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey.shade600),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      )
+                    : const Center(
+                        child: Text('Nenhum restaurante encontrado.')),
+              ),
+            ],
+          );
         },
       ),
     );
   }
-
-  // Card do restaurante com tamanho reduzido e distância
-  Widget _buildRestaurantCard(Restaurant restaurant) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                RestaurantDetailPage(restaurant: restaurant),
-          ),
-        );
-      },
-      child: Card(
-        elevation: 2,
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Row(
-            children: [
-              // Imagem do restaurante
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: restaurant.imageUrl != null &&
-                        restaurant.imageUrl!.isNotEmpty
-                    ? Image.network(
-                        restaurant.imageUrl!,
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            _buildDefaultImage(),
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return _buildImageLoader();
-                        },
-                      )
-                    : _buildDefaultImage(),
-              ),
-              const SizedBox(width: 8),
-              // Informações do restaurante
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      restaurant.name,
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      restaurant.categories.join(', '),
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.star, color: Colors.amber, size: 14),
-                        const SizedBox(width: 4),
-                        Text(
-                          restaurant.rating.toString(),
-                          style:
-                              const TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                        if (restaurant.distance != null) ...[
-                          const SizedBox(width: 8),
-                          const Icon(Icons.location_on,
-                              color: Colors.blue, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${restaurant.distance!.toStringAsFixed(0)} m',
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.grey),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Widget para exibir a imagem padrão (80x80)
-Widget _buildDefaultImage() {
-    return Image.asset(
-      'assets/images/default_restaurant_image.jpg',
-      height: 80,
-      width: 80,
-      fit: BoxFit.cover,
-    );
-  }
-
-// Widget para exibir o indicador de carregamento da imagem (80x80)
-Widget _buildImageLoader() {
-  return Container(
-    width: 80,
-    height: 80,
-    alignment: Alignment.center,
-    child: const CircularProgressIndicator(),
-  );
 }
