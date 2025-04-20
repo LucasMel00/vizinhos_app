@@ -4,9 +4,6 @@ import 'dart:convert';
 import 'package:provider/provider.dart';
 import 'package:vizinhos_app/screens/User/user_account_page.dart';
 import 'package:vizinhos_app/screens/models/restaurant.dart';
-import 'package:vizinhos_app/screens/Offers/offers_page.dart';
-import 'package:vizinhos_app/screens/best/best_page.dart';
-import 'package:vizinhos_app/screens/category/category_page.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart';
 import 'package:vizinhos_app/screens/restaurant/restaurant_detail_page.dart';
 import 'package:vizinhos_app/screens/search/search_page.dart';
@@ -214,9 +211,10 @@ class _HomePageState extends State<HomePage> {
       child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 4,
-        // Adicione esta linha para definir a cor de fundo
-        color: const Color(0xFFF9F5ED), // Creme suave que complementa o amarelo
+        elevation: 8,
+        color: const Color.fromARGB(
+            255, 255, 255, 255), // Creme suave que complementa o amarelo
+
         child: Container(
           padding: const EdgeInsets.all(12),
           child: Row(

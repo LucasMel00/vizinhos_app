@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:vizinhos_app/screens/User/home_page_user.dart';
+import 'package:vizinhos_app/screens/User/user_profile_page.dart';
 import 'package:vizinhos_app/screens/login/email_screen.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart';
 import 'package:vizinhos_app/screens/search/search_page.dart';
@@ -258,11 +259,23 @@ class _UserAccountPageState extends State<UserAccountPage> {
               padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 35,
-                    backgroundColor: const Color(0xFFFbbc2c),
-                    child:
-                        const Icon(Icons.person, size: 35, color: Colors.white),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => UserProfilePage(
+                            userInfo: _userInfo ?? {},
+                          ),
+                        ),
+                      );
+                    },
+                    child: CircleAvatar(
+                      radius: 35,
+                      backgroundColor: const Color(0xFFFbbc2c),
+                      child: const Icon(Icons.person,
+                          size: 35, color: Colors.white),
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(

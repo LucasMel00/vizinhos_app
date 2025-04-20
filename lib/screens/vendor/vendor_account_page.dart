@@ -313,11 +313,11 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
     required Color accentColor,
   }) {
     return Card(
-      color: const Color(0xFFF9F5ED),
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
+      color: const Color.fromARGB(255, 255, 255, 255),
+      margin: const EdgeInsets.all(5),
+      elevation: 5,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
