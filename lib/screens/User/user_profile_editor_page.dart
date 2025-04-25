@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
+import 'package:http/http.dart' as http;
 
 class UserProfileEditorPage extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -36,17 +38,40 @@ class _UserProfileEditorPageState extends State<UserProfileEditorPage> {
     setState(() => _isLoading = true);
 
     try {
+      // Prepare the payload
       final updatedData = {
-        "usuario": {
-          "nome": _nameController.text,
-          "telefone": _phoneController.text,
-          "email": widget.userData?['usuario']?['email'],
-        },
-        "endereco": widget.userData?['endereco'],
+        "nome": _nameController.text,
+        "telefone": _phoneController.text,
+        "cpf": widget.userData?['usuario']?['cpf'], // Keep the CPF as it is
+        "Usuario_Tipo": widget.userData?['usuario']?['Usuario_Tipo'],
+        "fk_id_Endereco": widget.userData?['endereco']?['id_Endereco'],
       };
 
-      widget.onSave(updatedData);
-      Navigator.pop(context);
+      final response = await http.post(
+        Uri.parse(
+            'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/UpdateUser'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          "nome": updatedData['nome'],
+          "cpf": updatedData['cpf'],
+          "Usuario_Tipo": updatedData['Usuario_Tipo'],
+          "fk_id_Endereco": updatedData['fk_id_Endereco'],
+          "telefone": updatedData['telefone'],
+        }),
+      );
+
+      final responseBody = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        widget.onSave(updatedData); // Notify the parent widget
+        Navigator.pop(context); // Go back to the previous page
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro: ${responseBody['message']}')),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao salvar: $e')),

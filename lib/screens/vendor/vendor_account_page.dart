@@ -255,10 +255,12 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
                                 color: primaryColor,
                                 onPressed: () {
                                   Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                          builder: (context) =>
-                                              VendorProductsPage()));
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          VendorProductsPage(),
+                                    ),
+                                  );
                                 },
                               ),
                             ),
