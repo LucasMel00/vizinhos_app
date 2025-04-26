@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:flutter_masked_text2/flutter_masked_text2.dart';
+import 'package:vizinhos_app/screens/vendor/vendor_products_page.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 
 final primaryColor = const Color(0xFFFbbc2c);
@@ -57,45 +58,42 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
   File? selectedImage;
   String? base64Image;
 
-  // Lista completa de características
-  final List<Caracteristica> caracteristicas = [
-    Caracteristica(
-        id: "a4b6bf35-78ea-4cca-9429-6900decc0112", descricao: "Sem lactose"),
-    Caracteristica(
-        id: "7c15190d-2fd3-4891-84f8-7821d8094a3a", descricao: "Light"),
-    Caracteristica(
-        id: "9b64ccc5-f048-412c-8037-120a743007d5",
-        descricao: "Rico em fibras"),
-    Caracteristica(
-        id: "90c5f19b-a4d4-4991-b863-35da4dcd36ae", descricao: "Vegetariano"),
-    Caracteristica(
-        id: "b332ab38-45dc-4535-953a-bae803e642ec",
-        descricao: "Sem gordura trans"),
-    Caracteristica(
-        id: "00017710-e042-4c7c-aabf-a7da4bc325e5", descricao: "Integral"),
-    Caracteristica(
-        id: "0776abb9-37e9-4a3d-81a6-3d3e79369f85",
-        descricao: "Fonte de proteína"),
-    Caracteristica(
-        id: "7435721f-0c35-41e7-bd21-c94c0ced6637", descricao: "Sem glúten"),
-    Caracteristica(
-        id: "75509857-24d8-44b2-b507-7510410df5d9",
-        descricao: "Sem adição de açúcar"),
-    Caracteristica(
-        id: "4985346a-45e6-469d-bc45-8747083a2751",
-        descricao: "Caracteristica Teste"),
-    Caracteristica(
-        id: "20ea0ecd-e81e-4b42-bbdf-0aedd38e2378", descricao: "Diet"),
-    Caracteristica(
-        id: "8b55ff07-6f86-443c-9352-e1c9516606dc", descricao: "Low carb"),
-    Caracteristica(
-        id: "01f37c9c-1c22-4358-af08-f52a39fb633e", descricao: "Vegano"),
-    Caracteristica(
-        id: "3a31e495-fa3d-4844-b61e-b990bf89ea6e", descricao: "Orgânico"),
-  ];
-
+  // Lista dinâmica de características carregada da API
+  List<Caracteristica> caracteristicas = [];
   List<String> selectedCharacteristics = [];
   bool _isLoading = false;
+  bool _loadingChars = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCaracteristicas();
+  }
+
+  Future<void> _fetchCaracteristicas() async {
+    try {
+      final uri = Uri.parse(
+          'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetCharacteristics');
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List<dynamic> list = data['caracteristicas'];
+        setState(() {
+          caracteristicas =
+              list.map((json) => Caracteristica.fromJson(json)).toList();
+          _loadingChars = false;
+        });
+      } else {
+        throw Exception('Falha ao carregar características');
+      }
+    } catch (e) {
+      // opcional: exibir erro
+      setState(() => _loadingChars = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao buscar características: $e')),
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -160,7 +158,13 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Produto criado com sucesso!')),
         );
-        Navigator.pushReplacementNamed(context, '/vendor_products_page');
+        // Navegação usando MaterialPageRoute
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VendorProductsPage(),
+          ),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erro ao criar produto: ${response.body}')),
@@ -419,31 +423,37 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                       ),
                     ),
                   ),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: caracteristicas.map((c) {
-                      final isSelected = selectedCharacteristics.contains(c.id);
-                      return FilterChip(
-                        selected: isSelected,
-                        label: Text(c.descricao),
-                        onSelected: (selected) {
-                          setState(() {
-                            if (selected) {
-                              selectedCharacteristics.add(c.id);
-                            } else {
-                              selectedCharacteristics.remove(c.id);
-                            }
-                          });
-                        },
-                        selectedColor: primaryColor.withOpacity(0.2),
-                        checkmarkColor: primaryColor,
-                        labelStyle: TextStyle(
-                          color: isSelected ? primaryColor : Colors.grey[700],
-                        ),
-                      );
-                    }).toList(),
-                  ),
+                  if (_loadingChars)
+                    Center(
+                        child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation(primaryColor)))
+                  else
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: caracteristicas.map((c) {
+                        final isSelected =
+                            selectedCharacteristics.contains(c.id);
+                        return FilterChip(
+                          selected: isSelected,
+                          label: Text(c.descricao),
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                selectedCharacteristics.add(c.id);
+                              } else {
+                                selectedCharacteristics.remove(c.id);
+                              }
+                            });
+                          },
+                          selectedColor: primaryColor.withOpacity(0.2),
+                          checkmarkColor: primaryColor,
+                          labelStyle: TextStyle(
+                            color: isSelected ? primaryColor : Colors.grey[700],
+                          ),
+                        );
+                      }).toList(),
+                    ),
                   const SizedBox(height: 32),
 
                   // Botão Salvar

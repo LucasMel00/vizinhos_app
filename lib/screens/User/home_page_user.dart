@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
 import 'package:vizinhos_app/screens/User/user_account_page.dart';
-import 'package:vizinhos_app/screens/models/restaurant.dart';
+import 'package:vizinhos_app/screens/model/restaurant.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart';
 import 'package:vizinhos_app/screens/restaurant/restaurant_detail_page.dart';
 import 'package:vizinhos_app/screens/search/search_page.dart';

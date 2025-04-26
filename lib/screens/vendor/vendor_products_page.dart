@@ -2,55 +2,72 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:provider/provider.dart';
+import 'package:vizinhos_app/screens/model/characteristic.dart';
+import 'package:vizinhos_app/services/app_theme.dart';
+import 'package:vizinhos_app/services/auth_provider.dart';
+import 'package:vizinhos_app/screens/model/product.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_create_product_page.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_edit_product_page.dart';
-import 'dart:typed_data'; // Import necessário para manipulação de base64
 
-final primaryColor = const Color(0xFFFbbc2c);
-final storage = FlutterSecureStorage();
+class CharacteristicsHelper {
+  static final Map<String, String> _characteristicsMap = {};
+  static bool _isLoaded = false;
 
-class Product {
-  final String nome;
-  final String descricao;
-  final double valorVenda;
-  final bool disponivel;
-  final String categoria;
-  final String? imagemUrl;
-  final List<String> caracteristicas;
-  final String? imagemBase64;
+  static Future<void> loadCharacteristics(AuthProvider auth) async {
+    if (_isLoaded) return;
 
-  Product({
-    required this.nome,
-    required this.descricao,
-    required this.valorVenda,
-    required this.disponivel,
-    required this.categoria,
-    this.imagemUrl,
-    required this.caracteristicas,
-    this.imagemBase64, // Nova propriedade para imagem em base64
-  });
+    try {
+      final response = await http.get(
+        Uri.parse(
+            'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetCharacteristics'),
+        headers: {
+          'Authorization': 'Bearer ${auth.accessToken}',
+          'Content-Type': 'application/json',
+        },
+      );
 
-  factory Product.fromJson(Map<String, dynamic> json) {
-    // Garantir que 'valor_venda' seja convertido corretamente
-    var valorVenda = json['valor_venda'];
-    double valorVendaConvertido = 0.0;
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['caracteristicas'] != null) {
+          final chars = (data['caracteristicas'] as List)
+              .map((json) => Characteristic.fromJson(json))
+              .toList();
 
-    if (valorVenda is String) {
-      valorVendaConvertido = double.tryParse(valorVenda) ?? 0.0;
-    } else if (valorVenda is num) {
-      valorVendaConvertido = valorVenda.toDouble();
+          _characteristicsMap.clear();
+          for (var char in chars) {
+            // Garante que a chave é String e remove espaços/aspas extras
+            final key = char.id.toString().trim().replaceAll('"', '');
+            _characteristicsMap[key] = char.descricao;
+          }
+          _isLoaded = true;
+          debugPrint('Mapa de características carregado: $_characteristicsMap');
+        } else {
+          debugPrint('Nenhuma característica encontrada na resposta');
+        }
+      } else {
+        debugPrint('Erro ao carregar características: ${response.statusCode}');
+        debugPrint('Resposta: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Erro ao carregar características: $e');
     }
+  }
 
-    return Product(
-      nome: json['nome'],
-      descricao: json['descricao'],
-      valorVenda: valorVendaConvertido,
-      disponivel: json['disponivel'],
-      categoria: json['categoria'] ?? 'Sem categoria',
-      imagemUrl: json['imagem_url'],
-      caracteristicas: List<String>.from(json['caracteristicas'] ?? []),
-      imagemBase64: json['id_imagem'], // Adicionando a imagem em base64
-    );
+  static String getCharacteristicName(String id) {
+    // Normaliza o ID para busca
+    final normalizedId = id.toString().trim().replaceAll('"', '');
+    debugPrint(
+        'Buscando característica com ID: "$normalizedId" no mapa: $_characteristicsMap');
+    return _characteristicsMap[normalizedId] ?? 'Característica $normalizedId';
+  }
+
+  static String mapCharacteristics(List<String> ids) {
+    if (ids.isEmpty) return 'Sem características';
+    debugPrint('Mapeando IDs: $ids');
+    final result = ids.map((id) => getCharacteristicName(id)).join(', ');
+    debugPrint('Resultado do mapeamento: $result');
+    return result;
   }
 }
 
@@ -62,228 +79,390 @@ class VendorProductsPage extends StatefulWidget {
 class _VendorProductsPageState extends State<VendorProductsPage> {
   List<Product> products = [];
   bool isLoading = true;
+  String? errorMessage;
 
   @override
   void initState() {
     super.initState();
-    loadProducts();
+    _loadProducts();
   }
 
-  // Função para recarregar os produtos
-  Future<void> loadProducts() async {
+  Future<void> _loadProducts() async {
+    if (!mounted) return;
+
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
     try {
-      final enderecoId = await storage.read(key: 'id_Endereco');
-      if (enderecoId == null) return;
+      final auth = context.read<AuthProvider>();
+      await CharacteristicsHelper.loadCharacteristics(auth);
+
+      final enderecoId = auth.idEndereco;
+      final token = auth.accessToken;
+
+      if (enderecoId == null) {
+        throw Exception('Endereço não configurado');
+      }
 
       final uri = Uri.parse(
-          'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetProductsByStore?fk_id_Endereco=$enderecoId');
-      final response = await http.get(uri);
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/'
+        'GetProductsByStore?fk_id_Endereco=$enderecoId',
+      );
+
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final produtos = List<Product>.from(
-          (data['produtos'] as List).map((item) => Product.fromJson(item)),
-        );
+        final body = json.decode(response.body) as Map<String, dynamic>;
+        final lista = body['produtos'] as List<dynamic>;
+        final loaded = lista
+            .map((item) => Product.fromJson(item as Map<String, dynamic>))
+            .toList();
 
         if (mounted) {
-          // Verificação se o widget ainda está montado
           setState(() {
-            products = produtos;
+            products = loaded;
             isLoading = false;
           });
         }
       } else {
-        print('Erro ao carregar produtos: ${response.body}');
-        if (mounted) {
-          // Verificação se o widget ainda está montado
-          setState(() => isLoading = false);
-        }
+        debugPrint('Erro ao carregar produtos: ${response.statusCode}');
+        throw Exception('Erro ao carregar produtos: ${response.statusCode}');
       }
     } catch (e) {
-      print('Erro: $e');
       if (mounted) {
-        // Verificação se o widget ainda está montado
-        setState(() => isLoading = false);
+        setState(() {
+          isLoading = false;
+          errorMessage = e.toString();
+        });
       }
+      debugPrint('Erro ao carregar produtos: $e');
     }
+  }
+
+  Future<void> _handleEditProduct(Product product) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditProductScreen(product: product),
+      ),
+    );
+
+    if (result == true) {
+      await _loadProducts();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Produto atualizado com sucesso!'),
+          backgroundColor: AppTheme.successColor,
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleCreateProduct() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => CreateProductScreen()),
+    );
+    await _loadProducts();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0.5,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: primaryColor),
-          onPressed: () => Navigator.of(context).pop(),
+    return Theme(
+      data: AppTheme.theme,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Produtos'),
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
         ),
-        title: Text('Produtos',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Container(color: primaryColor, height: 2),
+        body: _buildBody(),
+        floatingActionButton: FloatingActionButton(
+          backgroundColor: AppTheme.primaryColor,
+          child: Icon(Icons.add, color: Colors.white),
+          onPressed: _handleCreateProduct,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
       ),
-      body: isLoading
-          ? Center(child: CircularProgressIndicator(color: primaryColor))
-          : RefreshIndicator(
-              onRefresh: loadProducts, // Função que recarrega os produtos
-              color: primaryColor, // Cor do indicador de atualização
-              child: products.isEmpty
-                  ? Center(child: Text('Nenhum produto encontrado.'))
-                  : ListView.builder(
-                      padding: EdgeInsets.all(16),
-                      itemCount: products.length,
-                      itemBuilder: (context, index) {
-                        final p = products[index];
-                        return Card(
-                          margin: EdgeInsets.only(bottom: 16),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          elevation: 0.5,
-                          color: Color(0xFFF9F5ED),
-                          child: Padding(
-                            padding: EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      width: 40,
-                                      height: 40,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(6),
-                                        color: Colors.grey[200],
-                                      ),
-                                      child: p.imagemBase64 != null
-                                          ? ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                              child: Image.memory(
-                                                base64Decode(p.imagemBase64!),
-                                                fit: BoxFit.cover,
-                                              ),
-                                            )
-                                          : p.imagemUrl != null
-                                              ? ClipRRect(
-                                                  borderRadius:
-                                                      BorderRadius.circular(6),
-                                                  child: Image.network(
-                                                    p.imagemUrl!,
-                                                    fit: BoxFit.cover,
-                                                  ),
-                                                )
-                                              : Icon(Icons.image,
-                                                  color: Colors.grey),
-                                    ),
-                                    SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(p.nome,
-                                              style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 16)),
-                                          Text(
-                                            p.descricao,
-                                            style: TextStyle(
-                                                color: Colors.grey[600],
-                                                fontSize: 12),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: Icon(Icons.edit,
-                                          color: primaryColor, size: 20),
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                              builder: (context) =>
-                                                  EditProductScreen()),
-                                        );
-                                      },
-                                      tooltip: 'Editar',
-                                    ),
-                                  ],
-                                ),
-                                SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Text(
-                                        'R\$${p.valorVenda.toStringAsFixed(2)}',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 15)),
-                                    Spacer(),
-                                    Switch(
-                                      value: p.disponivel,
-                                      onChanged: (_) {},
-                                      activeColor: primaryColor,
-                                    )
-                                  ],
-                                ),
-                                SizedBox(height: 6),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: primaryColor,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 4),
-                                  child: Text(
-                                    p.categoria,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(height: 8),
-                                // Exibição das características com cor diferente
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: const Color.fromARGB(
-                                        255, 233, 165, 40), // Cor diferente
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 4),
-                                  child: Text(
-                                    'Características: ${p.caracteristicas.join(', ')}',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (isLoading) {
+      return Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+        ),
+      );
+    }
+
+    if (errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 48,
+              color: AppTheme.errorColor,
             ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: primaryColor,
-        child: Icon(Icons.add, color: Colors.white),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => CreateProductScreen()),
-          );
+            const SizedBox(height: 16),
+            Text(
+              'Erro ao carregar produtos',
+              style:
+                  AppTheme.subheadingStyle.copyWith(color: AppTheme.errorColor),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              errorMessage!,
+              style: AppTheme.secondaryTextStyle,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _loadProducts,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Tentar novamente'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (products.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.inventory,
+              size: 48,
+              color: AppTheme.primaryColor.withOpacity(0.5),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Nenhum produto encontrado',
+              style: AppTheme.subheadingStyle,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _handleCreateProduct,
+              icon: const Icon(Icons.add),
+              label: const Text('Criar primeiro produto'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadProducts,
+      color: AppTheme.primaryColor,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: products.length,
+        itemBuilder: (context, index) {
+          final p = products[index];
+          return _buildProductCard(p);
         },
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  Widget _buildProductCard(Product p) {
+    debugPrint('Exibindo produto: ${p.nome}, ID: ${p.id}');
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 3,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _buildProductImage(p),
+                const SizedBox(width: 16),
+                _buildProductInfo(p),
+                _buildEditButton(p),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Divider(height: 1),
+            const SizedBox(height: 12),
+            _buildPriceRow(p),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _buildCategoryChip(p),
+                const SizedBox(width: 8),
+                if (p.caracteristicasIDs.isNotEmpty)
+                  Expanded(child: _buildCharacteristicsChip(p)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductImage(Product p) {
+    return Container(
+      width: 60,
+      height: 60,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: AppTheme.backgroundColor,
+      ),
+      child: p.imagemBase64 != null
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.memory(
+                base64Decode(p.imagemBase64!),
+                fit: BoxFit.cover,
+              ),
+            )
+          : p.imagemUrl != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    p.imagemUrl!,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              : Icon(Icons.image, color: AppTheme.textSecondaryColor, size: 30),
+    );
+  }
+
+  Widget _buildProductInfo(Product p) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            p.nome,
+            style: AppTheme.cardTitleStyle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            p.descricao,
+            style: AppTheme.secondaryTextStyle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEditButton(Product p) {
+    return IconButton(
+      icon: Icon(Icons.edit, color: AppTheme.primaryColor),
+      onPressed: () => _handleEditProduct(p),
+    );
+  }
+
+  Widget _buildPriceRow(Product p) {
+    return Row(
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'R\$${p.valorVenda.toStringAsFixed(2)}',
+              style: AppTheme.emphasizedTextStyle.copyWith(
+                color: AppTheme.primaryColor,
+                fontSize: 18,
+              ),
+            ),
+            if (p.valorCusto > 0)
+              Text(
+                'Custo: R\$${p.valorCusto.toStringAsFixed(2)}',
+                style: AppTheme.captionStyle,
+              ),
+          ],
+        ),
+        const Spacer(),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              p.disponivel ? 'Disponível' : 'Indisponível',
+              style: TextStyle(
+                color:
+                    p.disponivel ? AppTheme.successColor : AppTheme.errorColor,
+                fontWeight: FontWeight.w500,
+                fontSize: 14,
+              ),
+            ),
+            Switch(
+              value: p.disponivel,
+              onChanged: (value) {
+                // TODO: Implementar toggle de disponibilidade
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Funcionalidade em desenvolvimento'),
+                    backgroundColor: AppTheme.infoColor,
+                  ),
+                );
+              },
+              activeColor: AppTheme.primaryColor,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryChip(Product p) {
+    return AppTheme.buildBadge(
+      text: p.categoria,
+      backgroundColor: AppTheme.primaryColor,
+      textColor: Colors.white,
+    );
+  }
+
+  Widget _buildCharacteristicsChip(Product p) {
+    final characteristicsText =
+        CharacteristicsHelper.mapCharacteristics(p.caracteristicasIDs);
+
+    debugPrint('Texto das características do produto: $characteristicsText');
+
+    if (characteristicsText.isEmpty ||
+        characteristicsText == 'Sem características') {
+      debugPrint('Nenhuma característica encontrada para o produto ${p.nome}');
+      return SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryLightColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        characteristicsText,
+        style: TextStyle(
+          color: AppTheme.accentColor,
+          fontWeight: FontWeight.w500,
+          fontSize: 12,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }

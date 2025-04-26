@@ -1,7 +1,7 @@
 // screens/restaurant/restaurant_detail_page.dart
 import 'package:flutter/material.dart';
 import 'dart:typed_data';
-import 'package:vizinhos_app/screens/models/restaurant.dart';
+import 'package:vizinhos_app/screens/model/restaurant.dart';
 
 class RestaurantDetailPage extends StatelessWidget {
   final Restaurant restaurant;
