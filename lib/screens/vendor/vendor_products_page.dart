@@ -242,26 +242,58 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
 
     if (products.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.inventory,
-              size: 48,
-              color: AppTheme.primaryColor.withOpacity(0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Nenhum produto encontrado',
-              style: AppTheme.subheadingStyle,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _handleCreateProduct,
-              icon: const Icon(Icons.add),
-              label: const Text('Criar primeiro produto'),
-            ),
-          ],
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.inventory_2_outlined,
+                  size: 64,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Nenhum produto cadastrado',
+                style: AppTheme.headingStyle.copyWith(
+                  fontSize: 22,
+                  color: AppTheme.textPrimaryColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Você ainda não possui produtos cadastrados. Adicione seu primeiro produto para começar a vender!',
+                style: AppTheme.secondaryTextStyle.copyWith(fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                onPressed: _handleCreateProduct,
+                icon: const Icon(Icons.add),
+                label: const Text('Adicionar primeiro produto'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -326,23 +358,21 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
         borderRadius: BorderRadius.circular(12),
         color: AppTheme.backgroundColor,
       ),
-      child: p.imagemBase64 != null
+      child: p.imagemUrl != null && p.imagemUrl!.isNotEmpty
           ? ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.memory(
-                base64Decode(p.imagemBase64!),
+              child: Image.network(
+                p.imagemUrl!,
                 fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  debugPrint('Erro ao carregar imagem: $error');
+                  return Icon(Icons.image_not_supported, 
+                    color: AppTheme.textSecondaryColor, 
+                    size: 30);
+                },
               ),
             )
-          : p.imagemUrl != null
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    p.imagemUrl!,
-                    fit: BoxFit.cover,
-                  ),
-                )
-              : Icon(Icons.image, color: AppTheme.textSecondaryColor, size: 30),
+          : Icon(Icons.image, color: AppTheme.textSecondaryColor, size: 30),
     );
   }
 

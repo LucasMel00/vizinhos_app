@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class Product {
   final String id;
   final String nome;
@@ -9,7 +11,7 @@ class Product {
   final String categoria;
   List<String> caracteristicasIDs;
   final String? imagemUrl;
-  final String? imagemBase64;
+  final String? imageId; // antes chamado imagemBase64
   final double? desconto;
 
   Product({
@@ -23,18 +25,17 @@ class Product {
     required this.categoria,
     required this.caracteristicasIDs,
     this.imagemUrl,
-    this.imagemBase64,
+    this.imageId,
     this.desconto,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
-    // Corrigindo o mapeamento de características
     List<String> parseCharacteristics(dynamic characteristics) {
       if (characteristics == null) return [];
       if (characteristics is List) {
         return characteristics
-            .map((e) => e.toString()) // Garante que todos os IDs são strings
-            .where((id) => id.isNotEmpty) // Remove IDs vazios
+            .map((e) => e.toString())
+            .where((id) => id.isNotEmpty)
             .toList();
       }
       return [];
@@ -51,10 +52,9 @@ class Product {
       diasValidade: _parseInt(json['dias_vcto']),
       disponivel: json['disponivel'] ?? false,
       categoria: json['categoria'] ?? 'Sem categoria',
-      caracteristicasIDs: parseCharacteristics(
-          json['caracteristicas_IDs']), // Usa a nova função
+      caracteristicasIDs: parseCharacteristics(json['caracteristicas_IDs']),
       imagemUrl: json['imagem_url'],
-      imagemBase64: json['id_imagem'],
+      imageId: json['id_imagem']?.toString(), // mapeia o ID da imagem
       desconto: _parseDouble(json['desconto']),
     );
   }
@@ -84,7 +84,7 @@ class Product {
       'disponivel': disponivel,
       'categoria': categoria,
       'caracteristicas_IDs': caracteristicasIDs,
-      if (imagemBase64 != null) 'id_imagem': imagemBase64,
+      if (imageId != null) 'id_imagem': imageId, // inclui só se existir
       if (desconto != null) 'desconto': desconto,
     };
   }

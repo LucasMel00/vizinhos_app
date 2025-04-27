@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 import 'package:vizinhos_app/screens/User/home_page_user.dart';
+import 'package:vizinhos_app/screens/login/email_screen.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 
 class LoginEmailScreen extends StatefulWidget {
@@ -86,7 +87,8 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
         );
       } else {
         setState(() {
-          _errorMessage = responseData['error'] ?? 'Erro ao fazer login';
+          _errorMessage = responseData['error'] ??
+              'Erro ao fazer login, verifique se confirmou a conta em seu email.';
         });
         print("Erro de login: ${responseData['error']}");
       }
@@ -134,7 +136,10 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
           elevation: 0,
           leading: IconButton(
             icon: Icon(Icons.arrow_back_rounded, color: Color(0xFFFbbc2c)),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => EmailScreen()),
+            ),
           ),
         ),
         body: Container(

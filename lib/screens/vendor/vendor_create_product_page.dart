@@ -55,8 +55,12 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
   final validityController = TextEditingController();
 
   String category = 'Doce';
+  // Adicionando opção de tamanho
+  String size = 'Médio'; // Valor padrão
+  List<String> availableSizes = ['Grande', 'Médio', 'Pequeno'];
+
   File? selectedImage;
-  String? base64Image;
+  String? imageId; // Renomeado de base64Image para imageId para maior clareza
 
   // Lista dinâmica de características carregada da API
   List<Caracteristica> caracteristicas = [];
@@ -87,7 +91,6 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
         throw Exception('Falha ao carregar características');
       }
     } catch (e) {
-      // opcional: exibir erro
       setState(() => _loadingChars = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao buscar características: $e')),
@@ -106,21 +109,107 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     super.dispose();
   }
 
+  // Função atualizada para usar a API SaveStoreImage
   Future<void> pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
     if (pickedFile != null) {
       setState(() {
         selectedImage = File(pickedFile.path);
+        _isLoading = true; // Mostrar indicador de carregamento
       });
-      final bytes = await pickedFile.readAsBytes();
-      base64Image = base64Encode(bytes);
+
+      try {
+        // Obter a extensão do arquivo
+        final String extension = pickedFile.path.split('.').last.toLowerCase();
+        if (!['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(extension)) {
+          throw Exception(
+              'Formato de imagem não suportado. Use JPG, PNG, GIF ou WebP.');
+        }
+
+        // Normalizar extensão (jpg/jpeg)
+        final String normalizedExtension =
+            extension == 'jpeg' ? 'jpg' : extension;
+
+        // Ler os bytes da imagem
+        final bytes = await pickedFile.readAsBytes();
+
+        // Converter para base64
+        final String base64Image = base64Encode(bytes);
+
+        // Preparar o payload para a API SaveStoreImage
+        final Map<String, dynamic> payload = {
+          'image': base64Image,
+          'file_extension': normalizedExtension
+        };
+
+        // Enviar para a API SaveStoreImage
+        final response = await http.post(
+          Uri.parse(
+              'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/SaveProductImage'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(payload),
+        );
+
+        // Depuração: imprimir a resposta completa
+        print('Resposta da API SaveStoreImage: ${response.body}');
+
+        // Verificar resposta
+        if (response.statusCode == 200) {
+          try {
+            // Decodificar a resposta JSON
+            final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+            // Extrair o nome do arquivo
+            final String fileName = responseData['file_name'];
+
+            // Depuração: imprimir o valor extraído
+            print('Nome do arquivo extraído: $fileName');
+
+            // Armazenar o ID da imagem (nome do arquivo)
+            setState(() {
+              imageId = fileName; // Armazena o ID da imagem, não o base64
+              _isLoading = false;
+            });
+
+            // Feedback para o usuário
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Imagem enviada com sucesso!")),
+            );
+          } catch (jsonError) {
+            print('Erro ao decodificar JSON: $jsonError');
+            print('Conteúdo da resposta: ${response.body}');
+            throw Exception('Erro ao processar resposta da API: $jsonError');
+          }
+        } else {
+          throw Exception('Falha ao enviar imagem: ${response.body}');
+        }
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erro ao processar imagem: ${e.toString()}")),
+        );
+      }
     }
   }
 
+  // Método atualizado para usar o ID da imagem e o tamanho selecionado
   Future<void> submitProduct() async {
     if (!_validatePrices()) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    // Verificar se a imagem foi selecionada
+    if (selectedImage == null || imageId == null || imageId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Por favor, selecione uma imagem para o produto')),
+      );
+      return;
+    }
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final enderecoId = int.tryParse(authProvider.idEndereco ?? '') ?? 0;
@@ -135,12 +224,15 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
       "dias_vcto": int.tryParse(validityController.text) ?? 0,
       "valor_venda": _parseCurrency(priceController.text),
       "valor_custo": _parseCurrency(costController.text),
-      "tamanho": "único",
+      "tamanho": size,
       "descricao": descriptionController.text,
-      "id_imagem": base64Image ?? "",
+      "id_imagem": imageId,
       "disponivel": true,
       "caracteristicas_IDs": selectedCharacteristics,
     };
+
+    // Depuração: imprimir o body antes de enviar
+    print('Body do request: ${jsonEncode(body)}');
 
     setState(() => _isLoading = true);
 
@@ -153,6 +245,10 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
         },
         body: jsonEncode(body),
       );
+
+      // Depuração: imprimir a resposta
+      print('Status code: ${response.statusCode}');
+      print('Resposta: ${response.body}');
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -411,6 +507,24 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                   ),
                   const SizedBox(height: 24),
 
+                  // Tamanho
+                  DropdownButtonFormField<String>(
+                    value: size,
+                    items: availableSizes
+                        .map((size) => DropdownMenuItem(
+                              value: size,
+                              child: Text(size),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        size = value!;
+                      });
+                    },
+                    decoration: inputDecoration.copyWith(
+                      labelText: 'Tamanho',
+                    ),
+                  ),
                   // Características
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),

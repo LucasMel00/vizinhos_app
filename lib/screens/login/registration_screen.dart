@@ -92,26 +92,99 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     super.dispose();
   }
 
-  // Função para selecionar uma imagem do dispositivo e convertê-la para base64
+// Versão corrigida da função _pickImage()
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
     if (pickedFile != null) {
-      final bytes = await pickedFile.readAsBytes();
       setState(() {
-        // Armazena apenas a string base64, sem prefixos como 'data:image/png;base64,'
-        sellerImageController.text = base64Encode(bytes);
-        // Opcional: Mostrar feedback de que a imagem foi selecionada
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Imagem selecionada!")),
-        );
+        isLoading = true;
       });
+
+      try {
+        // Obter a extensão do arquivo
+        final String extension = pickedFile.path.split('.').last.toLowerCase();
+        if (!['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(extension)) {
+          throw Exception(
+              'Formato de imagem não suportado. Use JPG, PNG, GIF ou WebP.');
+        }
+
+        // Normalizar extensão (jpg/jpeg)
+        final String normalizedExtension =
+            extension == 'jpeg' ? 'jpg' : extension;
+
+        // Ler os bytes da imagem
+        final bytes = await pickedFile.readAsBytes();
+
+        // Converter para base64
+        final String base64Image = base64Encode(bytes);
+
+        // Preparar o payload para a API
+        final Map<String, dynamic> payload = {
+          'image': base64Image,
+          'file_extension': normalizedExtension
+        };
+
+        // Enviar para a API SaveStoreImage
+        final response = await http.post(
+          Uri.parse(
+              'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/SaveStoreImage'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(payload),
+        );
+
+        // Depuração: imprimir a resposta completa
+        print('Resposta da API SaveStoreImage: ${response.body}');
+
+        // Verificar resposta
+        if (response.statusCode == 200) {
+          try {
+            // Decodificar a resposta JSON
+            final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+            // Extrair o nome do arquivo
+            final String fileName = responseData['file_name'];
+
+            // Depuração: imprimir o valor extraído
+            print('Nome do arquivo extraído: $fileName');
+
+            // Armazenar apenas o nome do arquivo como string
+            setState(() {
+              sellerImageController.text = fileName;
+              isLoading = false;
+            });
+
+            // Feedback para o usuário
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Imagem enviada com sucesso!")),
+            );
+          } catch (jsonError) {
+            print('Erro ao decodificar JSON: $jsonError');
+            print('Conteúdo da resposta: ${response.body}');
+            throw Exception('Erro ao processar resposta da API: $jsonError');
+          }
+        } else {
+          throw Exception('Falha ao enviar imagem: ${response.body}');
+        }
+      } catch (e) {
+        setState(() {
+          isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erro ao processar imagem: ${e.toString()}")),
+        );
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Nenhuma imagem selecionada.")),
       );
     }
   }
+
+// Versão corrigida da parte do método registerUser() que lida com o ID da imagem
+// Dentro do método registerUser(), substitua o bloco if (isSeller) por:
 
   // Método de validação dos campos obrigatórios ANTES DA SUBMISSÃO FINAL
   bool _validateFinalSubmissionFields() {
@@ -243,13 +316,23 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
     // Se for vendedor, adiciona os campos extras
     if (isSeller) {
+      // Depuração: imprimir o valor antes de adicionar ao userData
+      print(
+          'ID da imagem antes de adicionar ao userData: ${sellerImageController.text}');
+
+      // Verificar se o ID da imagem é válido antes de adicioná-lo
+      final String imageId = sellerImageController.text.trim();
+
       userData.addAll({
         'nome_Loja': sellerNameController.text.trim(),
         'descricao_Loja': sellerDescriptionController.text.trim(),
-        // Verificar se o backend espera a string base64 diretamente ou um objeto/link
-        'id_Imagem': sellerImageController.text.trim(), // Envia a string base64
+        // Usar diretamente o valor do controller como string, sem tentar decodificar
+        'id_Imagem': imageId,
         'tipo_Entrega': sellerDeliveryTypeController.text.trim(),
       });
+
+      // Depuração: imprimir o userData após adicionar o ID da imagem
+      print('userData após adicionar ID da imagem: $userData');
     }
 
     // 4. Formata o JSON conforme o exemplo: {"body": "<string JSON com os dados do usuário>"}
@@ -809,25 +892,41 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ),
           ),
           // Opcional: Preview da imagem selecionada
-          if (sellerImageController.text.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 16.0),
-              child: Image.memory(
-                base64Decode(sellerImageController.text),
-                height: 100,
-                width: 100,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) =>
-                    const Icon(Icons.error, color: Colors.red),
-              ),
-            ),
 
           const SizedBox(height: 24),
-          _buildTextField(
-            controller: sellerDeliveryTypeController,
-            label: 'Tipo de Entrega', // Opcional?
-            icon: Icons.local_shipping_outlined,
-            // Considerar usar um DropdownButtonFormField se as opções forem fixas
+          DropdownButtonFormField<String>(
+            value: sellerDeliveryTypeController.text.isNotEmpty
+                ? sellerDeliveryTypeController.text
+                : null,
+            decoration: InputDecoration(
+              labelText: 'Tipo de Entrega *',
+              prefixIcon:
+                  Icon(Icons.local_shipping_outlined, color: Color(0xFFFbbc2c)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+            ),
+            items: [
+              DropdownMenuItem(
+                value: 'Retirada no local',
+                child: Text('Retirada no local'),
+              ),
+              DropdownMenuItem(
+                value: 'Delivery',
+                child: Text('Delivery'),
+              ),
+            ],
+            onChanged: (value) {
+              setState(() {
+                sellerDeliveryTypeController.text = value ?? '';
+              });
+            },
+            validator: (value) => (value == null || value.isEmpty)
+                ? 'Selecione o tipo de entrega'
+                : null,
           ),
           const SizedBox(height: 16),
           Text('* Campos obrigatórios',
@@ -1074,38 +1173,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ),
         ],
       ),
-      // Não precisa mais do FloatingActionButton para loading se já está no botão
-      // floatingActionButton: isLoading
-      //     ? Container(...)
-      //     : null,
     );
   }
 }
-
-// --- Telas de Exemplo (Dummy) ---
-// Você precisa ter essas telas ou remover as referências a elas
-
-// class LoginEmailScreen extends StatelessWidget {
-//   final String email;
-//   const LoginEmailScreen({Key? key, required this.email}) : super(key: key);
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(title: const Text('Login')),
-//       body: Center(child: Text('Tela de Login para ${email}')),
-//     );
-//   }
-// }
-
-// class TermsScreen extends StatelessWidget {
-//   const TermsScreen({Key? key}) : super(key: key);
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(title: const Text('Termos e Política')),
-//       body: const Center(child: Text('Conteúdo dos Termos e Política de Privacidade aqui.')),
-//     );
-//   }
-// }
