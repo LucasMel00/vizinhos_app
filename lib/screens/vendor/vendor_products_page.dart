@@ -121,26 +121,43 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
 
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
-        final lista = body['produtos'] as List<dynamic>;
-        final loaded = lista
-            .map((item) => Product.fromJson(item as Map<String, dynamic>))
-            .toList();
 
-        if (mounted) {
-          setState(() {
-            products = loaded;
-            isLoading = false;
-          });
+        // Verifica se o campo 'produtos' existe e não é nulo
+        if (body.containsKey('produtos') && body['produtos'] != null) {
+          final lista = body['produtos'] as List<dynamic>;
+          final loaded = lista
+              .map((item) => Product.fromJson(item as Map<String, dynamic>))
+              .toList();
+
+          if (mounted) {
+            setState(() {
+              products = loaded;
+              isLoading = false;
+            });
+          }
+        } else {
+          // Caso não tenha produtos, define uma lista vazia
+          if (mounted) {
+            setState(() {
+              products = [];
+              isLoading = false;
+            });
+          }
         }
       } else {
-        debugPrint('Erro ao carregar produtos: ${response.statusCode}');
-        throw Exception('Erro ao carregar produtos: ${response.statusCode}');
+        if (mounted) {
+          setState(() {
+            isLoading = false;
+            errorMessage = 'Não há nenhum produto cadastrado.';
+          });
+        }
+        debugPrint('Erro ao carregar produtos');
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           isLoading = false;
-          errorMessage = e.toString();
+          errorMessage = 'Não há nenhum produto cadastrado.';
         });
       }
       debugPrint('Erro ao carregar produtos: $e');
@@ -366,9 +383,8 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) {
                   debugPrint('Erro ao carregar imagem: $error');
-                  return Icon(Icons.image_not_supported, 
-                    color: AppTheme.textSecondaryColor, 
-                    size: 30);
+                  return Icon(Icons.image_not_supported,
+                      color: AppTheme.textSecondaryColor, size: 30);
                 },
               ),
             )

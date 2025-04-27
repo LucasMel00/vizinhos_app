@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_masked_text2/flutter_masked_text2.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_products_page.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
+import 'package:intl/intl.dart';
 
 final primaryColor = const Color(0xFFFbbc2c);
 
@@ -54,6 +55,10 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
   final descriptionController = TextEditingController();
   final validityController = TextEditingController();
 
+  // Novos controllers para o lote
+  final fabricationDateController = TextEditingController();
+  final quantityController = TextEditingController();
+
   String category = 'Doce';
   // Adicionando opção de tamanho
   String size = 'Médio'; // Valor padrão
@@ -68,10 +73,20 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
   bool _isLoading = false;
   bool _loadingChars = true;
 
+  // Variável para armazenar o ID do produto criado
+  String? createdProductId;
+
   @override
   void initState() {
     super.initState();
     _fetchCaracteristicas();
+
+    // Inicializa a data de fabricação com a data atual
+    fabricationDateController.text =
+        DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    // Inicializa a quantidade com um valor padrão
+    quantityController.text = "1";
   }
 
   Future<void> _fetchCaracteristicas() async {
@@ -106,6 +121,8 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     discountController.dispose();
     costController.dispose();
     validityController.dispose();
+    fabricationDateController.dispose();
+    quantityController.dispose();
     super.dispose();
   }
 
@@ -197,7 +214,42 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     }
   }
 
-  // Método atualizado para usar o ID da imagem e o tamanho selecionado
+  // Método para selecionar data de fabricação
+  Future<void> _selectFabricationDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: primaryColor,
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        fabricationDateController.text =
+            DateFormat('yyyy-MM-dd').format(picked);
+      });
+    }
+  }
+
+  // Método para calcular o valor de venda com desconto
+  double _calcularValorVendaDesconto() {
+    final preco = _parseCurrency(priceController.text);
+    final desconto = _parseCurrency(discountController.text);
+    return preco - desconto;
+  }
+
+  // Método atualizado para criar o produto e depois o lote
   Future<void> submitProduct() async {
     if (!_validatePrices()) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -214,46 +266,101 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final enderecoId = int.tryParse(authProvider.idEndereco ?? '') ?? 0;
 
-    final uri = Uri.parse(
-        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/CreateProduct');
-
-    final body = {
-      "nome": nameController.text,
-      "fk_id_Endereco": enderecoId,
-      "fk_id_Categoria": getCategoryId(),
-      "dias_vcto": int.tryParse(validityController.text) ?? 0,
-      "valor_venda": _parseCurrency(priceController.text),
-      "valor_custo": _parseCurrency(costController.text),
-      "tamanho": size,
-      "descricao": descriptionController.text,
-      "id_imagem": imageId,
-      "disponivel": true,
-      "caracteristicas_IDs": selectedCharacteristics,
-    };
-
-    // Depuração: imprimir o body antes de enviar
-    print('Body do request: ${jsonEncode(body)}');
-
     setState(() => _isLoading = true);
 
     try {
-      final response = await http.post(
-        uri,
+      // 1. Criar o produto
+      final produtoUri = Uri.parse(
+          'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/CreateProduct');
+
+      final produtoBody = {
+        "nome": nameController.text,
+        "fk_id_Endereco": enderecoId,
+        "fk_id_Categoria": getCategoryId(),
+        "dias_vcto": int.tryParse(validityController.text) ?? 0,
+        "valor_venda": _parseCurrency(priceController.text),
+        "valor_custo": _parseCurrency(costController.text),
+        "tamanho": size,
+        "descricao": descriptionController.text,
+        "id_imagem": imageId,
+        "disponivel": true,
+        "caracteristicas_IDs": selectedCharacteristics,
+      };
+
+      // Depuração: imprimir o body antes de enviar
+      print('Body do request de produto: ${jsonEncode(produtoBody)}');
+
+      final produtoResponse = await http.post(
+        produtoUri,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${authProvider.accessToken}',
         },
-        body: jsonEncode(body),
+        body: jsonEncode(produtoBody),
       );
 
-      // Depuração: imprimir a resposta
-      print('Status code: ${response.statusCode}');
-      print('Resposta: ${response.body}');
+      // Depuração: imprimir a resposta completa
+      print('Status code produto: ${produtoResponse.statusCode}');
+      print('Resposta produto completa: ${produtoResponse.body}');
 
-      if (response.statusCode == 200) {
+      if (produtoResponse.statusCode == 200) {
+        // Extrair o ID do produto da resposta
+        try {
+          final produtoData = jsonDecode(produtoResponse.body);
+
+          // Log detalhado da resposta para depuração
+          print('Resposta decodificada: $produtoData');
+          print('Tipo da resposta: ${produtoData.runtimeType}');
+          print(
+              'Chaves disponíveis: ${produtoData is Map ? produtoData.keys.toList() : "Não é um Map"}');
+
+          // Verificar se a resposta contém o ID do produto diretamente ou em uma estrutura aninhada
+          if (produtoData is Map) {
+            if (produtoData.containsKey('id_Produto')) {
+              createdProductId = produtoData['id_Produto'].toString();
+              print('ID do produto encontrado diretamente: $createdProductId');
+            } else if (produtoData.containsKey('produto') &&
+                produtoData['produto'] is Map) {
+              createdProductId =
+                  produtoData['produto']['id_Produto'].toString();
+              print(
+                  'ID do produto encontrado em estrutura aninhada: $createdProductId');
+            } else if (produtoData.containsKey('message') &&
+                produtoData.containsKey('produto_id')) {
+              createdProductId = produtoData['produto_id'].toString();
+              print(
+                  'ID do produto encontrado como produto_id: $createdProductId');
+            } else {
+              // Tentar encontrar qualquer campo que possa conter o ID
+              for (var key in produtoData.keys) {
+                if (key.toLowerCase().contains('id') &&
+                    produtoData[key] != null) {
+                  createdProductId = produtoData[key].toString();
+                  print(
+                      'Possível ID do produto encontrado em campo $key: $createdProductId');
+                  break;
+                }
+              }
+            }
+          }
+
+          if (createdProductId == null || createdProductId!.isEmpty) {
+            throw Exception(
+                'ID do produto não encontrado na resposta. Resposta completa: ${produtoResponse.body}');
+          }
+        } catch (e) {
+          print('Erro ao extrair ID do produto: $e');
+          throw Exception(
+              'Erro ao extrair ID do produto: $e. Resposta completa: ${produtoResponse.body}');
+        }
+
+        // 2. Criar o lote associado ao produto
+        await _createBatch(createdProductId!);
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Produto criado com sucesso!')),
+          const SnackBar(content: Text('Produto e lote criados com sucesso!')),
         );
+
         // Navegação usando MaterialPageRoute
         Navigator.pushReplacement(
           context,
@@ -262,16 +369,75 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
           ),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao criar produto: ${response.body}')),
-        );
+        throw Exception('Erro ao criar produto: ${produtoResponse.body}');
       }
     } catch (e) {
+      print('Erro durante o processo de criação: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro de conexão: $e')),
+        SnackBar(content: Text('Erro: $e')),
       );
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  // Método para criar o lote associado ao produto
+  Future<void> _createBatch(String produtoId) async {
+    try {
+      final loteUri = Uri.parse(
+          'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/CreateBatch');
+
+      // Verificar se a quantidade é um número válido
+      final quantidade = int.tryParse(quantityController.text);
+      if (quantidade == null || quantidade <= 0) {
+        throw Exception('Quantidade inválida');
+      }
+
+      // Preparar o payload para a API de lotes
+      final loteBody = {
+        "fk_id_Produto": produtoId,
+        "dt_fabricacao": fabricationDateController.text,
+        "valor_venda_desc": _calcularValorVendaDesconto(),
+        "quantidade": quantidade
+      };
+
+      // Depuração: imprimir o body antes de enviar
+      print('Body do request de lote: ${jsonEncode(loteBody)}');
+
+      final loteResponse = await http.post(
+        loteUri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization':
+              'Bearer ${Provider.of<AuthProvider>(context, listen: false).accessToken}',
+        },
+        body: jsonEncode(loteBody),
+      );
+
+      // Depuração: imprimir a resposta completa
+      print('Status code lote: ${loteResponse.statusCode}');
+      print('Resposta lote completa: ${loteResponse.body}');
+
+      if (loteResponse.statusCode != 200) {
+        throw Exception('Erro ao criar lote: ${loteResponse.body}');
+      } else {
+        // Log de sucesso
+        print('Lote criado com sucesso para o produto ID: $produtoId');
+        final loteData = jsonDecode(loteResponse.body);
+        if (loteData is Map && loteData.containsKey('lote')) {
+          final loteId = loteData['lote']['id_Lote'];
+          print('ID do lote criado: $loteId');
+        }
+      }
+    } catch (e) {
+      print('Erro ao criar lote: $e');
+      // Se houver erro na criação do lote, exibir mensagem mas não interromper o fluxo
+      // já que o produto foi criado com sucesso
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                'Aviso: Produto criado, mas houve erro ao criar o lote: $e')),
+      );
     }
   }
 
@@ -478,7 +644,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                   TextFormField(
                     controller: validityController,
                     decoration: inputDecoration.copyWith(
-                      labelText: 'Dias validade',
+                      labelText: 'Dias de validade',
                     ),
                     keyboardType: TextInputType.number,
                     validator: (value) => value == null || value.isEmpty
@@ -487,106 +653,219 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Categoria
-                  DropdownButtonFormField<String>(
-                    value: category,
-                    items: ['Doce', 'Salgado', 'Bebida']
-                        .map((cat) => DropdownMenuItem(
-                              value: cat,
-                              child: Text(cat),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        category = value!;
-                      });
-                    },
-                    decoration: inputDecoration.copyWith(
-                      labelText: 'Categoria',
+                  // Divisor para seção de lotes
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Informações do Lote',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[800],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          height: 2,
+                          color: primaryColor.withOpacity(0.3),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 24),
 
-                  // Tamanho
-                  DropdownButtonFormField<String>(
-                    value: size,
-                    items: availableSizes
-                        .map((size) => DropdownMenuItem(
-                              value: size,
-                              child: Text(size),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        size = value!;
-                      });
-                    },
-                    decoration: inputDecoration.copyWith(
-                      labelText: 'Tamanho',
-                    ),
-                  ),
-                  // Características
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: Text(
-                      'Características do Produto',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[800],
+                  // Data de Fabricação
+                  GestureDetector(
+                    onTap: _selectFabricationDate,
+                    child: AbsorbPointer(
+                      child: TextFormField(
+                        controller: fabricationDateController,
+                        decoration: inputDecoration.copyWith(
+                          labelText: 'Data de Fabricação',
+                          suffixIcon:
+                              Icon(Icons.calendar_today, color: primaryColor),
+                        ),
+                        validator: (value) => value == null || value.isEmpty
+                            ? 'Informe a data de fabricação'
+                            : null,
                       ),
                     ),
                   ),
+                  const SizedBox(height: 14),
+
+                  // Quantidade
+                  TextFormField(
+                    controller: quantityController,
+                    decoration: inputDecoration.copyWith(
+                      labelText: 'Quantidade no Lote',
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Informe a quantidade';
+                      }
+                      final quantidade = int.tryParse(value);
+                      if (quantidade == null || quantidade <= 0) {
+                        return 'Quantidade deve ser um número positivo';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Categoria
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Categoria',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: category,
+                            isExpanded: true,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            borderRadius: BorderRadius.circular(10),
+                            items: ['Doce', 'Salgado', 'Bebida']
+                                .map((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              );
+                            }).toList(),
+                            onChanged: (String? newValue) {
+                              if (newValue != null) {
+                                setState(() {
+                                  category = newValue;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Tamanho
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Tamanho',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: size,
+                            isExpanded: true,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            borderRadius: BorderRadius.circular(10),
+                            items: availableSizes.map((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              );
+                            }).toList(),
+                            onChanged: (String? newValue) {
+                              if (newValue != null) {
+                                setState(() {
+                                  size = newValue;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Características
                   if (_loadingChars)
                     Center(
-                        child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation(primaryColor)))
-                  else
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: caracteristicas.map((c) {
-                        final isSelected =
-                            selectedCharacteristics.contains(c.id);
-                        return FilterChip(
-                          selected: isSelected,
-                          label: Text(c.descricao),
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                selectedCharacteristics.add(c.id);
-                              } else {
-                                selectedCharacteristics.remove(c.id);
-                              }
-                            });
-                          },
-                          selectedColor: primaryColor.withOpacity(0.2),
-                          checkmarkColor: primaryColor,
-                          labelStyle: TextStyle(
-                            color: isSelected ? primaryColor : Colors.grey[700],
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                      ),
+                    )
+                  else if (caracteristicas.isNotEmpty)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Características',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[700],
                           ),
-                        );
-                      }).toList(),
+                        ),
+                        const SizedBox(height: 8),
+                        ...caracteristicas.map((caracteristica) {
+                          return CheckboxListTile(
+                            title: Text(caracteristica.descricao),
+                            value: selectedCharacteristics
+                                .contains(caracteristica.id),
+                            onChanged: (bool? value) {
+                              setState(() {
+                                if (value == true) {
+                                  selectedCharacteristics
+                                      .add(caracteristica.id);
+                                } else {
+                                  selectedCharacteristics
+                                      .remove(caracteristica.id);
+                                }
+                              });
+                            },
+                            activeColor: primaryColor,
+                            contentPadding: EdgeInsets.zero,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            dense: true,
+                          );
+                        }).toList(),
+                      ],
                     ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 30),
 
-                  // Botão Salvar
+                  // Botão de Criar Produto
                   SizedBox(
                     width: double.infinity,
-                    height: 48,
                     child: ElevatedButton(
+                      onPressed: _isLoading ? null : submitProduct,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
                         elevation: 0,
                       ),
-                      onPressed: _isLoading ? null : submitProduct,
                       child: _isLoading
                           ? const SizedBox(
-                              width: 24,
-                              height: 24,
+                              height: 20,
+                              width: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor:
@@ -594,26 +873,25 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                               ),
                             )
                           : const Text(
-                              'Salvar',
+                              'Criar Produto e Lote',
                               style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
                                 fontSize: 16,
-                                letterSpacing: 0.5,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                     ),
                   ),
+                  const SizedBox(height: 30),
                 ],
               ),
             ),
           ),
           if (_isLoading)
             Container(
-              color: Colors.black.withOpacity(0.1),
-              child: const Center(
+              color: Colors.black.withOpacity(0.3),
+              child: Center(
                 child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
                 ),
               ),
             ),

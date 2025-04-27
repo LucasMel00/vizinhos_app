@@ -98,22 +98,16 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
     Widget storeImageWidget =
         Icon(Icons.store, size: 40, color: AppTheme.primaryColor);
 
-    String? imageBase64 = storeData?['endereco']?['id_Imagem'];
-    if (imageBase64 != null && imageBase64.isNotEmpty) {
-      try {
-        final imageBytes = base64Decode(imageBase64);
-        storeImageWidget = Image.memory(
-          imageBytes,
-          fit: BoxFit.cover,
-          width: 110,
-          height: 110,
-          errorBuilder: (_, __, ___) =>
-              Icon(Icons.store, size: 40, color: AppTheme.primaryColor),
-        );
-      } catch (e) {
-        storeImageWidget =
-            Icon(Icons.store, size: 40, color: AppTheme.primaryColor);
-      }
+    String? imageUrl = storeData?['endereco']?['imagem_url'];
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      storeImageWidget = Image.network(
+        imageUrl,
+        fit: BoxFit.cover,
+        width: 110,
+        height: 110,
+        errorBuilder: (_, __, ___) =>
+            Icon(Icons.store, size: 40, color: AppTheme.primaryColor),
+      );
     }
 
     return Theme(
