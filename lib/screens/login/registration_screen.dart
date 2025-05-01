@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io'; // Necessário para arquivos (se for o caso) - Embora não usado diretamente para File, ImagePicker usa
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;

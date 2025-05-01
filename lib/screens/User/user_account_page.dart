@@ -85,11 +85,13 @@ class _UserAccountPageState extends State<UserAccountPage> {
         throw Exception('Status code: ${response.statusCode}');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao atualizar: $e')),
-      );
-      // Mantemos os dados antigos se a atualização falhar
-      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao atualizar: $e')),
+        );
+        // Mantemos os dados antigos se a atualização falhar
+        setState(() => _isLoading = false);
+      }
     }
   }
 

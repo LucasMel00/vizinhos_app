@@ -66,6 +66,13 @@ class AppTheme {
     color: textSecondaryColor,
   );
 
+  // Novo estilo para preços
+  static const TextStyle priceStyle = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.normal,
+    color: textPrimaryColor,
+  );
+
   // Estilos para texto sobre fundos coloridos
   static const TextStyle onPrimaryTextStyle = TextStyle(
     color: Colors.white,

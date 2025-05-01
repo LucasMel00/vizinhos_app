@@ -5,22 +5,14 @@ import 'package:flutter_masked_text2/flutter_masked_text2.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
-import '../model/product.dart';
+import '../model/product.dart'; // Contains Product and Characteristic classes
 import '../../services/auth_provider.dart';
-import 'vendor_products_page.dart';
+import 'vendor_products_page.dart'; // May not be needed if not used directly
 
 const primaryColor = Color(0xFFFbbc2c);
 List<String> availableSizes = ['Grande', 'Médio', 'Pequeno'];
 
-class Caracteristica {
-  final String id;
-  final String descricao;
-  Caracteristica({required this.id, required this.descricao});
-  factory Caracteristica.fromJson(Map<String, dynamic> j) => Caracteristica(
-        id: j['id_Caracteristica'].toString(),
-        descricao: j['descricao'] ?? '',
-      );
-}
+// Removed local Caracteristica class, using Characteristic from product.dart
 
 class EditProductScreen extends StatefulWidget {
   final Product product;
@@ -45,10 +37,11 @@ class _EditProductScreenState extends State<EditProductScreen> {
   String category = 'Doce';
   File? selectedImage;
   String? imageId; // armazena o id do backend
+  String? imageUrl; // armazena a URL da imagem
   bool _isLoading = false, _loadingChars = true;
 
-  List<Caracteristica> allChars = [];
-  List<String> selectedChars = [];
+  List<Characteristic> allChars = []; // Use Characteristic from product model
+  List<String> selectedCharIds = []; // Store only selected IDs
 
   @override
   void initState() {
@@ -75,13 +68,24 @@ class _EditProductScreenState extends State<EditProductScreen> {
         thousandSeparator: '.',
         leftSymbol: 'R\$ ');
 
-    // Pré–seleção
-    selectedChars = List.from(widget.product.caracteristicasIDs);
+    // Initialize selected characteristic IDs from the product's characteristics list
+    selectedCharIds = widget.product.caracteristicas!
+        .map((c) => c.id_Caracteristica)
+        .toList();
     category = widget.product.categoria;
-    size = availableSizes.contains(size) ? size : availableSizes.first;
+    // Ensure the product's size is valid, otherwise default to the first available size
+    size = availableSizes.contains(widget.product.tamanho)
+        ? widget.product.tamanho
+        : availableSizes.first;
 
     // IMPORTANTE: Inicializa o imageId com o ID da imagem atual do produto
     imageId = widget.product.imageId;
+    imageUrl = widget.product.imagemUrl;
+    if (imageUrl != null && imageUrl!.isNotEmpty) {
+      debugPrint('Produto ${widget.product.id} tem imagem: $imageUrl');
+    } else {
+      debugPrint('Produto ${widget.product.id} não tem imagem.');
+    }
 
     debugPrint(
         'Inicializando produto ${widget.product.id} com ID de imagem: $imageId');
@@ -95,8 +99,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
           'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetCharacteristics'));
       final data = jsonDecode(r.body);
       setState(() {
-        allChars = (data['caracteristicas'] as List)
-            .map((j) => Caracteristica.fromJson(j))
+        // Use Characteristic.fromJson from the product model
+        allChars = (data["caracteristicas"] as List)
+            .map((j) => Characteristic.fromJson(j as Map<String, dynamic>))
             .toList();
         _loadingChars = false;
       });
@@ -198,7 +203,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
         'descricao': descCtrl.text,
         'tamanho': size,
         'disponivel': widget.product.disponivel,
-        'caracteristicas_IDs': selectedChars,
+        'caracteristicas_IDs': selectedCharIds, // Use the updated list of IDs
       };
 
       // IMPORTANTE: Sempre incluir o ID da imagem no corpo da requisição,
@@ -399,14 +404,17 @@ class _EditProductScreenState extends State<EditProductScreen> {
                       spacing: 8,
                       runSpacing: 8,
                       children: allChars.map((ch) {
-                        final sel = selectedChars.contains(ch.id);
+                        // Check if the characteristic ID is in the selected list
+                        final sel =
+                            selectedCharIds.contains(ch.id_Caracteristica);
                         return FilterChip(
-                          label: Text(ch.descricao),
+                          label: Text(ch.descricao), // Display description
                           selected: sel,
                           onSelected: (b) => setState(() {
+                            // Add or remove the ID from selectedCharIds
                             b
-                                ? selectedChars.add(ch.id)
-                                : selectedChars.remove(ch.id);
+                                ? selectedCharIds.add(ch.id_Caracteristica)
+                                : selectedCharIds.remove(ch.id_Caracteristica);
                           }),
                           selectedColor: primaryColor.withOpacity(0.2),
                           checkmarkColor: primaryColor,

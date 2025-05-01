@@ -198,7 +198,8 @@ class _HomePageState extends State<HomePage> {
     required BuildContext context,
     required Restaurant restaurant,
   }) {
-    final imageBytes = restaurant.imageBytes;
+    final imageBytes =
+        restaurant.imagemUrl; // Aqui a URL da imagem é a imagem de loja
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -212,17 +213,15 @@ class _HomePageState extends State<HomePage> {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 8,
-        color: const Color.fromARGB(
-            255, 255, 255, 255), // Creme suave que complementa o amarelo
-
+        color: const Color.fromARGB(255, 255, 255, 255), // Cor de fundo do card
         child: Container(
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: imageBytes != null
-                    ? Image.memory(
+                child: (imageBytes != null && imageBytes.isNotEmpty)
+                    ? Image.network(
                         imageBytes,
                         height: 80,
                         width: 80,
@@ -273,7 +272,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildDefaultImage() {
     return Image.asset(
-      'assets/images/default_restaurant_image.jpg',
+      'assets/images/default_restaurant_image.jpg', // Default image
       height: 80,
       width: 80,
       fit: BoxFit.cover,

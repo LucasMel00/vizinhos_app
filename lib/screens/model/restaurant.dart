@@ -11,6 +11,7 @@ class Restaurant {
   final String name;
   final String cep;
   final String? imageString;
+  final String? imagemUrl;
 
   Restaurant({
     required this.idEndereco,
@@ -18,6 +19,7 @@ class Restaurant {
     required this.logradouro,
     required this.complemento,
     required this.tipoEntrega,
+    required this.imagemUrl,
     required this.descricao,
     required this.name,
     required this.cep,
@@ -35,6 +37,7 @@ class Restaurant {
       name: json['nome_Loja'] ?? '',
       cep: json['cep'] ?? '',
       imageString: json['id_Imagem'] as String?,
+      imagemUrl: json['imagem'], // URL da imagem
     );
   }
 

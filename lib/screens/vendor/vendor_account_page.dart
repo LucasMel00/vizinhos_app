@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:vizinhos_app/screens/model/product.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_edit_page.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_orders_page.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_products_page.dart';
@@ -9,7 +10,7 @@ import 'package:vizinhos_app/services/app_theme.dart';
 class VendorAccountPage extends StatefulWidget {
   final Map<String, dynamic> userInfo;
 
-  const VendorAccountPage({Key? key, required this.userInfo}) : super(key: key);
+  const VendorAccountPage({super.key, required this.userInfo});
 
   @override
   _VendorAccountPageState createState() => _VendorAccountPageState();
@@ -17,17 +18,23 @@ class VendorAccountPage extends StatefulWidget {
 
 class _VendorAccountPageState extends State<VendorAccountPage> {
   late Map<String, dynamic> _currentUserInfo = widget.userInfo;
-  late String _userId = widget.userInfo['usuario']?['id_Usuario'] ?? '';
+  late final String _userId;
 
   Map<String, dynamic>? storeData;
   bool _isLoading = true;
+
+  List<Product> _products = [];
+  bool _isProductsLoading = true;
+
   bool _infoExpanded = true;
 
   @override
   void initState() {
     super.initState();
+    _userId = widget.userInfo['usuario']?['id_Usuario'] ?? '';
     _currentUserInfo = widget.userInfo;
     _loadStoreData();
+    _loadProducts();
   }
 
   Future<void> _loadStoreData() async {
@@ -43,6 +50,7 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
       );
 
       if (response.statusCode == 200) {
+        if (!mounted) return;
         setState(() {
           storeData = jsonDecode(response.body);
           _isLoading = false;
@@ -51,10 +59,50 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
         throw Exception('Erro na API: ${response.statusCode}');
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Erro ao carregar loja: $e'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
+  }
+
+  Future<void> _loadProducts() async {
+    setState(() => _isProductsLoading = true);
+    try {
+      // Extract the address ID from _currentUserInfo and validate it
+      final idEndereco = _currentUserInfo['endereco']?['id_Endereco'];
+      if (idEndereco == null) throw Exception('ID do endereço não encontrado');
+
+      // Ajuste a URL para o endpoint correto de produtos do vendedor
+      final response = await http.get(
+        Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/'
+            'GetProductsByStore?fk_id_Endereco=$idEndereco'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> productsJson = jsonDecode(response.body);
+        final products = productsJson
+            .map((json) => Product.fromJson(json as Map<String, dynamic>))
+            .toList();
+        if (!mounted) return;
+        setState(() {
+          _products = products;
+          _isProductsLoading = false;
+        });
+      } else {
+        throw Exception('Erro na API: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProductsLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao carregar produtos: $e'),
           backgroundColor: AppTheme.errorColor,
         ),
       );
@@ -140,7 +188,7 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withAlpha((0.1 * 255).round()),
                             blurRadius: 10,
                             spreadRadius: 2,
                             offset: const Offset(0, 3),
@@ -250,12 +298,10 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
                               ],
                             ),
                           ),
-
                           // Seção de ações rápidas
                           AppTheme.buildSectionHeader(
                               'Ações Rápidas', Icons.flash_on),
                           const SizedBox(height: 15),
-
                           // Botões de ação
                           Row(
                             children: [
@@ -281,22 +327,22 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
                                   icon: Icons.receipt_long,
                                   onPressed: () {
                                     Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                            builder: (context) =>
-                                                OrdersVendorPage()));
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            OrdersVendorPage(),
+                                      ),
+                                    );
                                   },
                                 ),
                               ),
                             ],
                           ),
-
                           // Estatísticas da loja (nova seção)
                           const SizedBox(height: 25),
                           AppTheme.buildSectionHeader(
                               'Estatísticas', Icons.bar_chart),
                           const SizedBox(height: 15),
-
                           // Cards de estatísticas
                           Row(
                             children: [
@@ -311,7 +357,9 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
                               Expanded(
                                 child: _buildStatCard(
                                   title: 'Produtos',
-                                  value: '0',
+                                  value: _isProductsLoading
+                                      ? '...'
+                                      : _products.length.toString(),
                                   icon: Icons.inventory,
                                   color: AppTheme.infoColor,
                                 ),
@@ -339,7 +387,6 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
                               ),
                             ],
                           ),
-
                           const SizedBox(height: 30),
                         ],
                       ),
