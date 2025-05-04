@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
-// Removed import for characteristic.dart as it's now defined in product.dart
 import 'package:vizinhos_app/services/app_theme.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 import 'package:vizinhos_app/screens/model/product.dart'; // Contains Product and Characteristic classes now
@@ -167,16 +166,19 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
           setState(() {
             isLoading = false;
             errorMessage =
-                'Erro ao carregar produtos: ${response.statusCode}'; // More specific error
+                'Erro ao carregar produtos: Crie um produto para poder listar'; // More specific error
           });
         }
         debugPrint('Erro ao carregar produtos: ${response.statusCode}');
       }
     } catch (e) {
       if (mounted) {
+        // Handle specific error cases
         setState(() {
           isLoading = false;
-          errorMessage = 'Erro ao carregar produtos: $e'; // More specific error
+          errorMessage = 'Nenhum produto existente: Clique em criar um produto';
+          
+           // More specific error
         });
       }
       debugPrint('Erro ao carregar produtos: $e');

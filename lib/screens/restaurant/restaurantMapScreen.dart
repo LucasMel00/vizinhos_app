@@ -66,7 +66,7 @@ class _RestaurantMapScreenState extends State<RestaurantMapScreen> {
                     context,
                     MaterialPageRoute(
                       builder: (_) =>
-                          RestaurantDetailPage(restaurant: restaurant),
+                          RestaurantDetailPage(restaurantId: restaurant.idEndereco,),
                     ),
                   );
                 },

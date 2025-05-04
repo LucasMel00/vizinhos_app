@@ -44,10 +44,10 @@ class _UserProfileEditorPageState extends State<UserProfileEditorPage> {
         "telefone": _phoneController.text,
         "cpf": widget.userData?['usuario']?['cpf'], // Keep the CPF as it is
         "Usuario_Tipo": widget.userData?['usuario']?['Usuario_Tipo'],
-        "fk_id_Endereco": widget.userData?['endereco']?['id_Endereco'],
+        "fk_id_Endereco": int.parse(widget.userData?['endereco']?['id_Endereco']?.toString() ?? '0'),
       };
 
-      final response = await http.post(
+      final response = await http.put(
         Uri.parse(
             'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/UpdateUser'),
         headers: {

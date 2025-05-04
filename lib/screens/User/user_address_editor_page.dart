@@ -22,21 +22,25 @@ class _UserAddressEditorPageState extends State<UserAddressEditorPage> {
   late TextEditingController _logradouroController;
   late TextEditingController _numeroController;
   late TextEditingController _complementoController;
-  bool _isLoading = false;
 
+  bool _isLoading = false;
   final _cepMask = MaskTextInputFormatter(mask: '#####-###');
 
   @override
   void initState() {
     super.initState();
-    _cepController =
-        TextEditingController(text: widget.userData?['endereco']?['cep'] ?? '');
-    _logradouroController = TextEditingController(
-        text: widget.userData?['endereco']?['logradouro'] ?? '');
-    _numeroController = TextEditingController(
-        text: widget.userData?['endereco']?['numero'] ?? '');
-    _complementoController = TextEditingController(
-        text: widget.userData?['endereco']?['complemento'] ?? '');
+
+    final endereco = widget.userData?['endereco'] ?? {};
+    final usuario = widget.userData?['usuario'] ?? {};
+    final userType = usuario['Usuario_Tipo'] ?? 'customer';
+
+    // Inicializa apenas os campos de endereço
+    _cepController = TextEditingController(text: endereco['cep'] ?? '');
+    _logradouroController =
+        TextEditingController(text: endereco['logradouro'] ?? '');
+    _numeroController = TextEditingController(text: endereco['numero'] ?? '');
+    _complementoController =
+        TextEditingController(text: endereco['complemento'] ?? '');
 
     _cepController.addListener(_onCepChanged);
   }
@@ -63,26 +67,92 @@ class _UserAddressEditorPageState extends State<UserAddressEditorPage> {
     setState(() => _isLoading = true);
 
     try {
-      final updatedEndereco = {
-        "endereco": {
-          "id_Endereco": widget.userData?['endereco']?['id_Endereco'],
-          "logradouro": _logradouroController.text,
-          "numero": _numeroController.text,
-          "complemento": _complementoController.text,
-          "cep": _cepController.text,
-        },
-        "usuario": widget.userData?['usuario'],
+      final usuario = widget.userData?['usuario'] ?? {};
+      final endereco = widget.userData?['endereco'] ?? {};
+      final userType = usuario['Usuario_Tipo'] ?? 'customer';
+
+      final idEnderecoRaw = endereco['id_Endereco'];
+      final int? parsedId = idEnderecoRaw is int
+          ? idEnderecoRaw
+          : int.tryParse(idEnderecoRaw.toString());
+      if (parsedId == null) {
+        throw Exception("ID do endereço inválido");
+      }
+      final int idEndereco = parsedId;
+
+      // Monta o corpo da requisição com dados do endereço
+      final Map<String, dynamic> requestBody = {
+        "Usuario_Tipo": userType,
+        "id_Endereco": idEndereco,
+        "cep": _cepController.text.trim(),
+        "logradouro": _logradouroController.text.trim(),
+        "numero": _numeroController.text.trim(),
+        "complemento": _complementoController.text.trim(),
       };
 
-      widget.onSave(updatedEndereco);
-      Navigator.pop(context);
-    } catch (e) {
+      // Se for vendedor, inclui dados da loja existentes, mas não editáveis
+      if (userType != 'customer') {
+        final String nomeLoja = endereco['nome_Loja']?.toString() ?? '';
+        final String descricaoLoja = endereco['descricao_Loja']?.toString() ?? '';
+        final String tipoEntrega = endereco['tipo_Entrega']?.toString() ?? '';
+        final String idImagem = endereco['id_Imagem']?.toString() ?? '';
+
+        if (nomeLoja.isEmpty || descricaoLoja.isEmpty || tipoEntrega.isEmpty) {
+          throw Exception("Dados incompletos da loja. Contate o suporte.");
+        }
+
+        requestBody.addAll({
+          "nome_Loja": nomeLoja,
+          "descricao_Loja": descricaoLoja,
+          "id_Imagem": idImagem,
+          "tipo_Entrega": tipoEntrega,
+        });
+      }
+
+      final response = await http.put(
+        Uri.parse(
+            'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/UpdateAddress'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> updatedData = {
+          'usuario': usuario,
+          'endereco': {
+            'id_Endereco': idEndereco,
+            'cep': _cepController.text,
+            'logradouro': _logradouroController.text,
+            'numero': _numeroController.text,
+            'complemento': _complementoController.text,
+          },
+        };
+
+        widget.onSave(updatedData);
+        Navigator.pop(context);
+      } else {
+        final resBody = jsonDecode(response.body);
+        throw Exception(resBody['message'] ?? 'Erro ao salvar alterações');
+      }
+    } catch (e, stacktrace) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao salvar: $e')),
       );
+      print("❌ Erro ao salvar:");
+      print(e);
+      print(stacktrace);
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  @override
+  void dispose() {
+    _cepController.dispose();
+    _logradouroController.dispose();
+    _numeroController.dispose();
+    _complementoController.dispose();
+    super.dispose();
   }
 
   @override
@@ -97,7 +167,7 @@ class _UserAddressEditorPageState extends State<UserAddressEditorPage> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
+        child: ListView(
           children: [
             TextFormField(
               controller: _cepController,

@@ -67,7 +67,8 @@ class _OffersPageState extends State<OffersPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => RestaurantDetailPage(restaurant: r),
+                            builder: (_) =>                           RestaurantDetailPage(restaurantId: r.idEndereco,),
+
                           ),
                         );
                       },
@@ -120,7 +121,7 @@ class _OffersPageState extends State<OffersPage> {
                                     context,
                                     MaterialPageRoute(
                                       builder: (_) =>
-                                          RestaurantDetailPage(restaurant: r),
+                          RestaurantDetailPage(restaurantId: r.idEndereco,),
                                     ),
                                   );
                                 },

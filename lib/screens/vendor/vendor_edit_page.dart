@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 import 'package:vizinhos_app/screens/User/user_account_page.dart';
 
 class VendorEditPage extends StatefulWidget {
@@ -21,71 +21,111 @@ class VendorEditPage extends StatefulWidget {
 }
 
 class _VendorEditPageState extends State<VendorEditPage> {
-  late Map<String, dynamic> storeData;
-  late TextEditingController nameController;
-  late TextEditingController descriptionController;
+  late final Map<String, dynamic> storeData;
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController descriptionController = TextEditingController();
+  String selectedDeliveryType = 'Delivery';
   String? newImageBase64;
   bool isLoading = false;
-
   final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
-    storeData = widget.storeData;
-    nameController = TextEditingController(
-      text: storeData['endereco']['nome_Loja'] ?? '',
+    // Clona o map para não mexer no original direto
+    storeData = Map<String, dynamic>.from(widget.storeData);
+
+    // Atualiza os controllers com valores vindos de storeData
+    nameController.text = storeData['endereco']['nome_Loja'] ?? '';
+    descriptionController.text = storeData['endereco']['descricao_Loja'] ?? '';
+    selectedDeliveryType =
+        storeData['endereco']['tipo_Entrega'] as String? ?? 'Delivery';
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> pickImage() async {
+    final XFile? file = await _picker.pickImage(source: ImageSource.gallery);
+    if (file == null) return;
+
+    final bytes = await file.readAsBytes();
+    final base64Image = base64Encode(bytes);
+    final extension = file.path.split('.').last;
+
+    final uploadedName = await uploadImage(base64Image, extension);
+    if (uploadedName != null) {
+      setState(() {
+        newImageBase64 = base64Image;
+        storeData['endereco']['id_Imagem'] = uploadedName;
+      });
+    }
+  }
+
+  Future<String?> uploadImage(String base64Image, String ext) async {
+    final url = Uri.parse(
+      'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/SaveStoreImage',
     );
-    descriptionController = TextEditingController(
-      text: storeData['endereco']['descricao_Loja'] ?? '',
+    final resp = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'image': base64Image,
+        'file_extension': ext,
+      }),
     );
+    if (resp.statusCode == 200) {
+      final map = jsonDecode(resp.body);
+      return map['file_name'] as String?;
+    } else {
+      debugPrint('Erro upload imagem: ${resp.body}');
+      return null;
+    }
   }
 
   Future<void> saveData() async {
     setState(() => isLoading = true);
 
-    try {
-      Map<String, dynamic> updatedBody = {
-        "id_Endereco":
-            int.parse(storeData['endereco']['id_Endereco'].toString()),
-        "cep": storeData['endereco']['cep'] ?? '',
-        "logradouro": storeData['endereco']['logradouro'] ?? '',
-        "numero": storeData['endereco']['numero'] ?? '',
-        "complemento": storeData['endereco']['complemento'] ?? '',
-        "nome_Loja": nameController.text,
-        "descricao_Loja": descriptionController.text,
-        "id_Imagem": newImageBase64 ?? storeData['endereco']['id_Imagem'] ?? '',
-        "tipo_Entrega": storeData['endereco']['tipo_Entrega'] ?? '',
-        "Usuario_Tipo": "seller",
+   try {
+      final updatedBody = {
+      'id_Endereco': int.parse(storeData['endereco']['id_Endereco'].toString()),
+      'cep': storeData['endereco']['cep'] ?? '',
+      'logradouro': storeData['endereco']['logradouro'] ?? '',
+      'numero': storeData['endereco']['numero'] ?? '',
+      'complemento': storeData['endereco']['complemento'] ?? '',
+      'nome_Loja': nameController.text,
+      'descricao_Loja': descriptionController.text,
+      'tipo_Entrega': selectedDeliveryType,
+      'id_Imagem': storeData['endereco']['id_Imagem'] ?? '',
+      'Usuario_Tipo': 'seller',
       };
 
-      final response = await http.put(
+
+      final resp = await http.put(
         Uri.parse(
-            'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/UpdateAddress'),
+          'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/UpdateAddress',
+        ),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(updatedBody),
       );
 
-      if (response.statusCode == 200) {
+      if (resp.statusCode == 200) {
         widget.onSave(updatedBody);
-        Navigator.of(context).push(
+        Navigator.of(context).pushReplacement(
           PageRouteBuilder(
-            transitionDuration: Duration(milliseconds: 300),
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                UserAccountPage(
-              userInfo: widget.userInfo,
+            transitionDuration: const Duration(milliseconds: 300),
+            pageBuilder: (_, animation, __) => FadeTransition(
+              opacity: animation,
+              child: UserAccountPage(userInfo: widget.userInfo),
             ),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
-              return FadeTransition(
-                opacity: animation,
-                child: child,
-              );
-            },
           ),
         );
       } else {
-        throw Exception('Erro ao salvar alterações: ${response.body}');
+        throw Exception('Status ${resp.statusCode}: ${resp.body}');
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -93,17 +133,6 @@ class _VendorEditPageState extends State<VendorEditPage> {
       );
     } finally {
       setState(() => isLoading = false);
-    }
-  }
-
-  Future<void> pickImage() async {
-    final XFile? pickedFile =
-        await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      final bytes = await pickedFile.readAsBytes();
-      setState(() {
-        newImageBase64 = base64Encode(bytes);
-      });
     }
   }
 
@@ -117,23 +146,30 @@ class _VendorEditPageState extends State<VendorEditPage> {
           fit: BoxFit.cover,
         ),
       );
-    } else if (storeData['endereco']['id_Imagem'] != null &&
-        storeData['endereco']['id_Imagem'].isNotEmpty) {
+    }
+    final idImg = storeData['endereco']['id_Imagem'];
+    if (idImg != null && idImg.toString().isNotEmpty) {
+      final url =
+          'https://loja-profile-pictures.s3.amazonaws.com/$idImg';
       return ClipOval(
-        child: Image.memory(
-          base64Decode(storeData['endereco']['id_Imagem']),
+        child: Image.network(
+          url,
           width: 120,
           height: 120,
           fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => CircleAvatar(
+            radius: 60,
+            backgroundColor: Colors.grey[200],
+            child: Icon(Icons.store, size: 40, color: Colors.grey),
+          ),
         ),
       );
-    } else {
-      return CircleAvatar(
-        radius: 60,
-        backgroundColor: Colors.grey[200],
-        child: Icon(Icons.store, size: 40, color: Colors.grey),
-      );
     }
+    return CircleAvatar(
+      radius: 60,
+      backgroundColor: Colors.grey[200],
+      child: Icon(Icons.store, size: 40, color: Colors.grey),
+    );
   }
 
   @override
@@ -143,7 +179,7 @@ class _VendorEditPageState extends State<VendorEditPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Editar Loja"),
+        title: const Text('Editar Loja'),
         backgroundColor: primaryColor,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -161,7 +197,7 @@ class _VendorEditPageState extends State<VendorEditPage> {
                     child: Column(
                       children: [
                         AnimatedSwitcher(
-                          duration: Duration(milliseconds: 300),
+                          duration: const Duration(milliseconds: 300),
                           child: _buildImageWidget(),
                         ),
                         const SizedBox(height: 8),
@@ -177,27 +213,63 @@ class _VendorEditPageState extends State<VendorEditPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                Text('Nome da Loja', style: textTheme.bodyMedium),
+
+                Text('Nome da Loja', style: textTheme.bodyLarge),
                 const SizedBox(height: 4),
                 TextFormField(
                   controller: nameController,
                   decoration: InputDecoration(
                     hintText: 'Digite o nome da loja',
-                    border: OutlineInputBorder(),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text('Descrição', style: textTheme.bodyMedium),
+
+                Text('Descrição', style: textTheme.bodyLarge),
                 const SizedBox(height: 4),
                 TextFormField(
                   controller: descriptionController,
                   maxLines: 3,
                   decoration: InputDecoration(
                     hintText: 'Descreva sua loja',
-                    border: OutlineInputBorder(),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
+                const SizedBox(height: 16),
+
+                Text('Tipo de Entrega', style: textTheme.bodyLarge),
+                const SizedBox(height: 4),
+                DropdownButtonFormField<String>(
+                  value: selectedDeliveryType,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'Delivery',
+                      child: Text('Delivery'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Retirada no local',
+                      child: Text('Retirada no local'),
+                    ),
+                  ],
+                  onChanged: isLoading
+                      ? null
+                      : (v) {
+                          if (v != null) {
+                            setState(() => selectedDeliveryType = v);
+                          }
+                        },
+                ),
                 const SizedBox(height: 32),
+
                 SizedBox(
                   width: double.infinity,
                   height: 50,
@@ -210,8 +282,10 @@ class _VendorEditPageState extends State<VendorEditPage> {
                       ),
                     ),
                     child: isLoading
-                        ? CircularProgressIndicator(color: Colors.white)
-                        : Text(
+                        ? const CircularProgressIndicator(
+                            color: Colors.white,
+                          )
+                        : const Text(
                             'SALVAR ALTERAÇÕES',
                             style: TextStyle(
                               fontSize: 16,
@@ -223,10 +297,13 @@ class _VendorEditPageState extends State<VendorEditPage> {
               ],
             ),
           ),
+
           if (isLoading)
             Container(
               color: Colors.black.withOpacity(0.3),
-              child: Center(child: CircularProgressIndicator()),
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
             ),
         ],
       ),
