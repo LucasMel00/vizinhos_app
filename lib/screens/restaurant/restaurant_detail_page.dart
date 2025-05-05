@@ -464,23 +464,23 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
                 ),
               ),
             // Lote Info - Corrected display
-            if (product.lote != null)
+            if (product.id_lote != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8.0),
                 child: Builder(
                   builder: (context) {
                     Lote? lote;
-                    if (product.lote is String) {
+                    if (product.id_lote is String) {
                       try {
-                        lote = Lote.fromJson(json.decode(product.lote!));
+                        lote = Lote.fromJson(json.decode(product.id_lote!));
                       } catch (e) {
                         print("Error decoding lote JSON: $e");
                         lote = null;
                       }
-                    } else if (product.lote is Lote) {
-                      lote = product.lote as Lote?;
-                    } else if (product.lote is Map<String, dynamic>) {
-                       lote = Lote.fromJson(product.lote as Map<String, dynamic>);
+                    } else if (product.id_lote is Lote) {
+                      lote = product.id_lote as Lote?;
+                    } else if (product.id_lote is Map<String, dynamic>) {
+                       lote = Lote.fromJson(product.id_lote as Map<String, dynamic>);
                     }
 
                     if (lote != null) {

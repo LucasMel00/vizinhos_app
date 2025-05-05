@@ -44,7 +44,7 @@ class Product {
   final String? imagemUrl;
   final String? imageId;
   final double? desconto;
-  final String? lote;
+  final String? id_lote; // Renomeado de lote
   final DateTime? dataFabricacao;
   final int? quantidade;
 
@@ -65,7 +65,7 @@ class Product {
     this.imagemUrl,
     this.imageId,
     this.desconto,
-    this.lote,
+    this.id_lote, // Renomeado de lote
     this.dataFabricacao,
     required this.quantidade,
   });
@@ -118,7 +118,7 @@ class Product {
       imagemUrl: json['imagem_url'],
       imageId: json['id_imagem']?.toString(),
       desconto: _parseDouble(json['desconto']),
-      lote: json['lote']?.toString(),
+      id_lote: json["id_lote"]?.toString(), // Corrigido para ler id_lote
       dataFabricacao: json['dt_fabricacao'] != null
           ? DateTime.tryParse(json['dt_fabricacao'])
           : null,

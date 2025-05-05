@@ -19,17 +19,17 @@ class CartProvider with ChangeNotifier {
     return total;
   }
 
-  // Helper to get available quantity from lote
+  // Helper to get available quantity from lote using id_lote
   int _getAvailableQuantity(Product product) {
-    if (product.lote == null) return 0;
+    if (product.id_lote == null) return 0;
     try {
       Lote? lote;
-      if (product.lote is String) {
-        lote = Lote.fromJson(json.decode(product.lote!));
-      } else if (product.lote is Lote) {
-        lote = product.lote as Lote?;
-      } else if (product.lote is Map<String, dynamic>) {
-        lote = Lote.fromJson(product.lote as Map<String, dynamic>);
+      if (product.id_lote is String) {
+        lote = Lote.fromJson(json.decode(product.id_lote!));
+      } else if (product.id_lote is Lote) {
+        lote = product.id_lote as Lote?;
+      } else if (product.id_lote is Map<String, dynamic>) {
+        lote = Lote.fromJson(product.id_lote as Map<String, dynamic>);
       }
       return (lote?.quantidade as int?) ?? 0;
     } catch (e) {

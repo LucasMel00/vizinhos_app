@@ -507,32 +507,33 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         bottomNavigationBar: Container(
-          decoration: BoxDecoration(
-            color: cardBackgroundColor, // Use card background color
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 8,
-                offset: const Offset(0, -2),
-              ),
-            ],
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Container(
+            height: 60,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFbbc2c), // Same color as the app bar
+              borderRadius: BorderRadius.circular(30),
+              boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 1),
           ),
-          child: SafeArea( // Ensure content is not obscured by system UI
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildNavIcon(Icons.home_filled, 'Início', 0, context),
-                  _buildNavIcon(Icons.search, 'Buscar', 1, context),
-                  _buildNavIcon(Icons.list_alt_rounded, 'Pedidos', 2, context),
-                  _buildNavIcon(Icons.person_outline_rounded, 'Conta', 3, context),
-                ],
-              ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+          _buildNavIcon(Icons.home, 'Início', 0, context),
+          _buildNavIcon(Icons.search, 'Buscar', 1, context),
+          _buildNavIcon(Icons.list, 'Pedidos', 2, context),
+          _buildNavIcon(Icons.person, 'Conta', 3, context),
+              ],
             ),
           ),
         ),
-      ),
+      )
+
     );
   }
 
@@ -549,14 +550,14 @@ class _HomePageState extends State<HomePage> {
             Icon(
               icon,
               size: 24,
-              color: isSelected ? primaryColor : secondaryColor.withOpacity(0.7),
+              color: isSelected ? const Color.fromARGB(255, 237, 236, 233) : secondaryColor.withOpacity(0.7),
             ),
             SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
                 fontSize: 10,
-                color: isSelected ? primaryColor : secondaryColor.withOpacity(0.7),
+                color: isSelected ? const Color.fromARGB(255, 21, 21, 21) : secondaryColor.withOpacity(0.7),
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             )
