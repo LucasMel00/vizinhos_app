@@ -6,11 +6,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 import 'package:vizinhos_app/screens/User/home_page_user.dart';
 import 'package:vizinhos_app/screens/login/email_screen.dart';
-<<<<<<< HEAD
-import 'package:vizinhos_app/screens/login/code_password_page.dart';
-=======
+import 'package:vizinhos_app/screens/login/code_password_page.dart' hide ForgotPasswordPage;
 import 'package:vizinhos_app/screens/login/reset_code_page.dart';
->>>>>>> 4eb5aa33f03552674528d25fd34e22e12e4a4f34
 import 'package:vizinhos_app/screens/login/reset_password_page.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 
@@ -307,7 +304,7 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const ForgotPasswordPage(userEmail: ''),
+                  builder: (context) => ForgotPasswordPage(userEmail: widget.email),
                 ),
               );
             },
