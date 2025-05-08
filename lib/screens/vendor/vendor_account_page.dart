@@ -347,7 +347,7 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 5),
                           Row(
                             children: [
                               Expanded(
@@ -358,14 +358,7 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
                                   color: Colors.amber,
                                 ),
                               ),
-                              Expanded(
-                                child: _buildStatCard(
-                                  title: 'Visitas',
-                                  value: '0',
-                                  icon: Icons.visibility,
-                                  color: AppTheme.accentColor,
-                                ),
-                              ),
+                              
                             ],
                           ),
                           const SizedBox(height: 30),

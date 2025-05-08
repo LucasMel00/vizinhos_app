@@ -6,7 +6,7 @@ class AppTheme {
   // Cores primárias
   static const Color primaryColor = Color(0xFFFbbc2c);
   static const Color primaryLightColor = Color(0xFFFDD78C);
-  static const Color primaryDarkColor = Color(0xFFE5A718);
+  static const Color primaryDarkcColor = Color(0xFFE5A718);
 
   // Cores secundárias
   static const Color accentColor = Color(0xFF5F4A14);
@@ -21,7 +21,7 @@ class AppTheme {
   // Cores de estado
   static const Color successColor = Color(0xFF4CAF50);
   static const Color errorColor = Color(0xFFE53935);
-  static const Color infoColor = Color(0xFF2196F3);
+  static const Color infoColor = Color.fromARGB(255, 230, 202, 20);
 
   // Estilos de texto
   static const TextStyle headingStyle = TextStyle(

@@ -36,7 +36,6 @@ class MyApp extends StatelessWidget {
         primaryColor: const Color(0xFFFbbc2c),
         scaffoldBackgroundColor: Colors.white,
         visualDensity: VisualDensity.adaptivePlatformDensity,
-        // Opcional: Definir a cor de destaque para combinar com a primária
         colorScheme: ColorScheme.fromSwatch().copyWith(
           secondary: const Color(0xFFFbbc2c), // Cor de acento
         ),

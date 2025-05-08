@@ -6,6 +6,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 import 'package:vizinhos_app/screens/User/home_page_user.dart';
 import 'package:vizinhos_app/screens/login/email_screen.dart';
+import 'package:vizinhos_app/screens/login/code_password_page.dart';
+import 'package:vizinhos_app/screens/login/reset_password_page.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 
 class LoginEmailScreen extends StatefulWidget {
@@ -295,9 +297,16 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
 
   Widget _buildForgotPassword() {
     return TextButton(
-      onPressed: () {
-        // Implementar recuperação de senha
-      },
+      onPressed: _isLoading
+          ? null
+          : () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ForgotPasswordPage(userEmail: ''),
+                ),
+              );
+            },
       child: Text(
         'Esqueceu a senha?',
         style: TextStyle(
