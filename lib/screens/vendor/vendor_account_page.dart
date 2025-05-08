@@ -34,7 +34,6 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
     _userId = widget.userInfo['usuario']?['id_Usuario'] ?? '';
     _currentUserInfo = widget.userInfo;
     _loadStoreData();
-    _loadProducts();
   }
 
   Future<void> _loadStoreData() async {
@@ -70,44 +69,7 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
     }
   }
 
-  Future<void> _loadProducts() async {
-    setState(() => _isProductsLoading = true);
-    try {
-      // Extract the address ID from _currentUserInfo and validate it
-      final idEndereco = _currentUserInfo['endereco']?['id_Endereco'];
-      if (idEndereco == null) throw Exception('ID do endereço não encontrado');
 
-      // Ajuste a URL para o endpoint correto de produtos do vendedor
-      final response = await http.get(
-        Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/'
-            'GetProductsByStore?fk_id_Endereco=$idEndereco'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> productsJson = jsonDecode(response.body);
-        final products = productsJson
-            .map((json) => Product.fromJson(json as Map<String, dynamic>))
-            .toList();
-        if (!mounted) return;
-        setState(() {
-          _products = products;
-          _isProductsLoading = false;
-        });
-      } else {
-        throw Exception('Erro na API: ${response.statusCode}');
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isProductsLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao carregar produtos: $e'),
-          backgroundColor: AppTheme.errorColor,
-        ),
-      );
-    }
-  }
 
   void _navigateToEditPage() {
     Navigator.push(
@@ -199,17 +161,36 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           // Avatar da loja
-                          CircleAvatar(
+                            CircleAvatar(
                             radius: 60,
                             backgroundColor: Colors.white,
-                            child: ClipOval(
-                              child: SizedBox(
-                                width: 110,
-                                height: 110,
-                                child: storeImageWidget,
-                              ),
+                            child: storeData?['endereco'] != null &&
+                                storeData!['endereco']['id_Imagem'] != null &&
+                                storeData!['endereco']['id_Imagem']
+                                  .toString()
+                                  .isNotEmpty
+                              ? ClipOval(
+                                child: Image.network(
+                                  'https://loja-profile-pictures.s3.amazonaws.com/${storeData?['endereco']['id_Imagem']}',
+                                  width: 120,
+                                  height: 120,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => CircleAvatar(
+                                  radius: 60,
+                                  backgroundColor: Colors.grey[200],
+                                  child: Icon(Icons.store,
+                                    size: 40, color: Colors.grey),
+                                  ),
+                                ),
+                                )
+                              : ClipOval(
+                                child: SizedBox(
+                                  width: 110,
+                                  height: 110,
+                                  child: storeImageWidget,
+                                ),
+                                ),
                             ),
-                          ),
                           const SizedBox(height: 15),
                           // Nome da loja
                           Text(

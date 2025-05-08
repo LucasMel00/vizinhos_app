@@ -1,13 +1,20 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 class Characteristic {
-  final String id;
+  final String idCaracteristica;
   final String descricao;
 
-  Characteristic({required this.id, required this.descricao});
+  Characteristic({
+    required this.idCaracteristica,
+    required this.descricao,
+  });
 
   factory Characteristic.fromJson(Map<String, dynamic> json) {
     return Characteristic(
-      id: json['id_Caracteristica'],
-      descricao: json['descricao'],
+      idCaracteristica: json['id_Caracteristica'] ?? '',
+      descricao: json['descricao'] ?? '',
     );
   }
 }
+

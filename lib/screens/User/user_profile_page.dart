@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
-import 'package:vizinhos_app/screens/User/user_adress_editor_page.dart';
-import 'package:vizinhos_app/screens/User/user_profile_editor_page.dart';
-import 'package:vizinhos_app/services/auth_provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:vizinhos_app/screens/vendor/vendor_edit_page.dart';
+
+// Telas
+import 'user_address_editor_page.dart';
+import 'user_profile_editor_page.dart';
+import '../User/user_account_page.dart'; // Ajuste conforme sua estrutura
+
+// Serviços
+import '../../services/auth_provider.dart';
 
 class UserProfilePage extends StatefulWidget {
   final Map<String, dynamic>? userInfo;
@@ -98,6 +104,17 @@ class _UserProfilePageState extends State<UserProfilePage> {
                 _navigateToAddressEdit();
               },
             ),
+            // Adiciona opção de editar loja apenas para vendedores
+            if (userData?['usuario']?['Usuario_Tipo'] == 'seller' ||
+                userData?['usuario']?['Usuario_Tipo'] == 'seller_customer')
+              ListTile(
+                leading: const Icon(Icons.store),
+                title: const Text('Editar Loja'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _navigateToVendorEdit();
+                },
+              ),
           ],
         ),
       ),
@@ -136,6 +153,25 @@ class _UserProfilePageState extends State<UserProfilePage> {
     );
   }
 
+  void _navigateToVendorEdit() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => VendorEditPage(
+          userInfo: userData!['usuario'],
+          storeData: {
+            'endereco': userData!['endereco'],
+          },
+          onSave: (updatedStore) {
+            setState(() {
+              userData!['endereco'] = updatedStore;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final primaryColor = const Color(0xFFFbbc2c);
@@ -163,6 +199,31 @@ class _UserProfilePageState extends State<UserProfilePage> {
                   _buildProfileHeader(),
                   const SizedBox(height: 24),
                   _buildInfoSection(),
+                  const SizedBox(height: 24),
+                  // Botão de Atualizar
+                  Center(
+                    child: ElevatedButton.icon(
+                      onPressed: _isLoading ? null : _loadUserData,
+                      icon: Icon(
+                        _isLoading ? Icons.autorenew_rounded : Icons.refresh,
+                        color: Colors.white,
+                      ),
+                      label: Text(
+                        _isLoading ? 'Atualizando...' : 'Atualizar',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 14),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
