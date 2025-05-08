@@ -466,13 +466,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Expanded(
-                        child: TextFormField(
-                          controller: discountCtrl,
-                          decoration: dec.copyWith(labelText: 'Desconto (Produto)'),
-                          keyboardType: TextInputType.number,
-                        ),
-                      ),
+                     
                     ],
                   ),
                   const SizedBox(height: 16),
