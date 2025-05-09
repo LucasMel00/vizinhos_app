@@ -1,16 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 import 'package:vizinhos_app/services/app_theme.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
-import 'package:vizinhos_app/screens/model/product.dart'; // Contains Product and Characteristic classes now
+import 'package:vizinhos_app/screens/model/product.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_create_product_page.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_edit_product_page.dart';
-
-// Removed CharacteristicsHelper class as it's no longer needed here
-// The Product model now fetches characteristics with descriptions directly
 
 class VendorProductsPage extends StatefulWidget {
   @override
@@ -21,11 +17,7 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
   List<Product> products = [];
   bool isLoading = true;
   String? errorMessage;
-
-  // Removed _getCategoryId as it seems unused
-  // int _getCategoryId(String categoria) {
-  //   return int.tryParse(categoria) ?? 0;
-  // }
+  bool _skipDeleteConfirmation = false;
 
   @override
   void initState() {
@@ -33,13 +25,8 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
     _loadProducts();
   }
 
-  // Removed _categoryId as it seems unused
-  // int _categoryId(String c) { ... }
-
   Future<void> _toggleDisponibilidade(Product p, bool novoValor) async {
     final auth = context.read<AuthProvider>();
-
-    // Extract only IDs for the request body, as handled by Product.toJson()
     List<String> caracteristicasIDs =
         p.caracteristicas!.map((c) => c.id_Caracteristica).toList();
 
@@ -53,16 +40,12 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
       'valor_custo': p.valorCusto,
       'tamanho': p.tamanho,
       'disponivel': novoValor,
-      'caracteristicas_IDs': caracteristicasIDs, // Send only IDs
+      'caracteristicas_IDs': caracteristicasIDs,
       'id_imagem': p.imageId,
     };
 
     final String url =
         'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/UpdateProduct';
-    debugPrint('Fazendo PUT para: $url');
-    debugPrint(
-        'Headers: {"Content-Type": "application/json", "Authorization": "Bearer ${auth.accessToken}"}');
-    debugPrint('Body: ${jsonEncode(body)}');
 
     try {
       final resp = await http.put(
@@ -73,9 +56,6 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
         },
         body: jsonEncode(body),
       );
-
-      debugPrint('Response Status Code: ${resp.statusCode}');
-      debugPrint('Response Body: ${resp.body}');
 
       if (resp.statusCode == 200) {
         setState(() => p.disponivel = novoValor);
@@ -89,13 +69,12 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-                'Erro ao atualizar produto: ${resp.statusCode} - ${resp.body}'), // Added response body for better error info
+                'Erro ao atualizar produto: ${resp.statusCode} - ${resp.body}'),
             backgroundColor: AppTheme.errorColor,
           ),
         );
       }
     } catch (e) {
-      debugPrint('Erro ao atualizar disponibilidade: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Erro ao atualizar produto: $e'),
@@ -115,8 +94,6 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
 
     try {
       final auth = context.read<AuthProvider>();
-      // Removed call to CharacteristicsHelper.loadCharacteristics(auth);
-
       final enderecoId = auth.idEndereco;
       final token = auth.accessToken;
 
@@ -142,7 +119,6 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
 
         if (body.containsKey('produtos') && body['produtos'] != null) {
           final lista = body['produtos'] as List<dynamic>;
-          // Product.fromJson now handles parsing the List<Characteristic>
           final loaded = lista
               .map((item) => Product.fromJson(item as Map<String, dynamic>))
               .toList();
@@ -166,22 +142,17 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
           setState(() {
             isLoading = false;
             errorMessage =
-                'Erro ao carregar produtos: Crie um produto para poder listar'; // More specific error
+                'Erro ao carregar produtos: Crie um produto para poder listar';
           });
         }
-        debugPrint('Erro ao carregar produtos: ${response.statusCode}');
       }
     } catch (e) {
       if (mounted) {
-        // Handle specific error cases
         setState(() {
           isLoading = false;
           errorMessage = 'Nenhum produto existente: Clique em criar um produto';
-          
-           // More specific error
         });
       }
-      debugPrint('Erro ao carregar produtos: $e');
     }
   }
 
@@ -194,8 +165,7 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
     );
 
     if (result == true) {
-      await _loadProducts(); // Reload products after edit
-      // Removed redundant SnackBar, EditProductScreen likely shows one
+      await _loadProducts();
     }
   }
 
@@ -205,7 +175,106 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
       MaterialPageRoute(builder: (_) => CreateProductScreen()),
     );
     if (result == true) {
-      await _loadProducts(); // Reload products after creation
+      await _loadProducts();
+    }
+  }
+
+  Future<void> _confirmDeleteProduct(Product p) async {
+    if (_skipDeleteConfirmation) {
+      await _deleteProduct(p);
+      return;
+    }
+
+    bool localDontAskAgain = false;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text('Confirmar exclusão'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Tem certeza que deseja apagar o produto "${p.nome}"?'),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: localDontAskAgain,
+                        onChanged: (val) {
+                          setState(() {
+                            localDontAskAgain = val ?? false;
+                          });
+                        },
+                      ),
+                      Text('Não perguntar novamente'),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  child: Text('Cancelar'),
+                  onPressed: () => Navigator.of(context).pop(false),
+                ),
+                TextButton(
+                  child: Text('Apagar',
+                      style: TextStyle(color: AppTheme.errorColor)),
+                  onPressed: () => Navigator.of(context).pop(true),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result == true) {
+      if (localDontAskAgain) {
+        setState(() {
+          _skipDeleteConfirmation = true;
+        });
+      }
+      await _deleteProduct(p);
+    }
+  }
+
+  Future<void> _deleteProduct(Product p) async {
+    final auth = context.read<AuthProvider>();
+    final url =
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/DeleteProduct?id_Produto=${p.id}';
+
+    try {
+      final response = await http.delete(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer ${auth.accessToken}',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          products.removeWhere((prod) => prod.id == p.id);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Produto deletado com sucesso!'),
+              backgroundColor: AppTheme.successColor),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Erro ao deletar produto: ${response.body}'),
+              backgroundColor: AppTheme.errorColor),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Erro ao deletar produto: $e'),
+            backgroundColor: AppTheme.errorColor),
+      );
     }
   }
 
@@ -215,7 +284,7 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
       data: AppTheme.theme,
       child: Scaffold(
         appBar: AppBar(
-          title: Text('Meus Produtos'), // Changed title
+          title: Text('Meus Produtos'),
           leading: IconButton(
             icon: Icon(Icons.arrow_back),
             onPressed: () => Navigator.of(context).pop(),
@@ -351,7 +420,6 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
   }
 
   Widget _buildProductCard(Product p) {
-    // debugPrint('Exibindo produto: ${p.nome}, ID: ${p.id}, Características: ${p.caracteristicas.map((c) => c.descricao).join(', ')}');
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -362,24 +430,24 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start, // Align items top
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildProductImage(p),
                 const SizedBox(width: 16),
                 _buildProductInfo(p),
                 _buildEditButton(p),
+                _buildDeleteButton(p),
               ],
             ),
             const SizedBox(height: 12),
             Divider(height: 1),
             const SizedBox(height: 12),
-            _buildPriceAndAvailabilityRow(p), // Combined price and availability
+            _buildPriceAndAvailabilityRow(p),
             const SizedBox(height: 12),
             Row(
               children: [
                 _buildCategoryChip(p),
                 const SizedBox(width: 8),
-                // Updated to display characteristics directly from the product model
                 if (p.caracteristicas!.isNotEmpty)
                   Expanded(child: _buildCharacteristicsDisplay(p)),
               ],
@@ -392,7 +460,7 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
 
   Widget _buildProductImage(Product p) {
     return Container(
-      width: 70, // Slightly larger image
+      width: 70,
       height: 70,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
@@ -417,7 +485,6 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
                   );
                 },
                 errorBuilder: (context, error, stackTrace) {
-                  debugPrint('Erro ao carregar imagem: $error');
                   return Icon(Icons.broken_image_outlined,
                       color: AppTheme.textSecondaryColor, size: 35);
                 },
@@ -478,14 +545,20 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
 
   Widget _buildEditButton(Product p) {
     return IconButton(
-      icon: Icon(Icons.edit_outlined,
-          color: AppTheme.primaryColor), // Changed icon
+      icon: Icon(Icons.edit_outlined, color: AppTheme.primaryColor),
       onPressed: () => _handleEditProduct(p),
       tooltip: 'Editar Produto',
     );
   }
 
-  // Combined Price and Availability Row
+  Widget _buildDeleteButton(Product p) {
+    return IconButton(
+      icon: Icon(Icons.delete_outline, color: AppTheme.errorColor),
+      tooltip: 'Deletar Produto',
+      onPressed: () => _confirmDeleteProduct(p),
+    );
+  }
+
   Widget _buildPriceAndAvailabilityRow(Product p) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -541,15 +614,13 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
     );
   }
 
-  // Updated widget to display characteristics directly
   Widget _buildCharacteristicsDisplay(Product p) {
-    // Use Wrap for better layout if many characteristics exist
     return Wrap(
-      spacing: 6.0, // Horizontal space between chips
-      runSpacing: 4.0, // Vertical space between lines
+      spacing: 6.0,
+      runSpacing: 4.0,
       children: p.caracteristicas!.map((characteristic) {
         return Chip(
-          label: Text(characteristic.descricao), // Display description
+          label: Text(characteristic.descricao),
           backgroundColor:
               const Color.fromARGB(255, 233, 186, 69).withOpacity(0.1),
           labelStyle: TextStyle(

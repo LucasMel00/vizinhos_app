@@ -1,8 +1,6 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'dart:convert'; // Import for jsonDecode
+import 'dart:convert';
 
-// Define the Characteristic class
+// Classe Characteristic
 class Characteristic {
   final String id_Caracteristica;
   final String descricao;
@@ -27,6 +25,7 @@ class Characteristic {
   }
 }
 
+// Classe Product
 class Product {
   final String id;
   final String nome;
@@ -40,13 +39,22 @@ class Product {
   final String fkIdCategoria;
   final String tamanho;
   final double valorVendaDesc;
-  List<Characteristic>? caracteristicas; // Null check for characteristics
+  final List<Characteristic>? caracteristicas;
   final String? imagemUrl;
   final String? imageId;
   final double? desconto;
-  final String? id_lote; // Renomeado de lote
+  final dynamic lote; // Pode ser objeto Lote ou apenas o id_lote (String)
   final DateTime? dataFabricacao;
   final int? quantidade;
+
+  // Getter para manter compatibilidade com código antigo
+  String? get id_lote {
+    if (lote == null) return null;
+    if (lote is String) return lote as String;
+    // Se tiver a classe Lote, descomente e ajuste a linha abaixo:
+    // if (lote is Lote) return (lote as Lote).id;
+    return null;
+  }
 
   Product({
     required this.id,
@@ -61,47 +69,50 @@ class Product {
     required this.fkIdCategoria,
     required this.tamanho,
     required this.valorVendaDesc,
-    required this.caracteristicas, // Changed parameter name
+    required this.caracteristicas,
     this.imagemUrl,
     this.imageId,
     this.desconto,
-    this.id_lote, // Renomeado de lote
+    this.lote,
     this.dataFabricacao,
-    required this.quantidade,
+    this.quantidade,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
-    // Updated function to parse characteristics
     List<Characteristic> parseCharacteristics(dynamic characteristicsJson) {
       if (characteristicsJson == null) return [];
       if (characteristicsJson is List) {
         return characteristicsJson
             .where((item) => item is Map<String, dynamic>)
-            .map(
-                (item) => Characteristic.fromJson(item as Map<String, dynamic>))
+            .map((item) => Characteristic.fromJson(item as Map<String, dynamic>))
             .toList();
       }
-      // Handle if characteristicsJson is a stringified JSON array (less ideal but possible)
       if (characteristicsJson is String) {
         try {
           List<dynamic> decodedList = jsonDecode(characteristicsJson);
           return decodedList
               .where((item) => item is Map<String, dynamic>)
-              .map((item) =>
-                  Characteristic.fromJson(item as Map<String, dynamic>))
+              .map((item) => Characteristic.fromJson(item as Map<String, dynamic>))
               .toList();
-        } catch (e) {
-          print('Error decoding characteristics string: $e');
+        } catch (_) {
           return [];
         }
       }
       return [];
     }
 
+    // Lote pode ser um objeto ou apenas um id_lote
+    dynamic loteObj;
+    if (json['lote'] != null) {
+      // Se você tiver a classe Lote, descomente e ajuste a linha abaixo:
+      // loteObj = Lote.fromJson(json['lote']);
+      loteObj = json['lote']; // Caso não tenha a classe Lote
+    } else if (json['id_lote'] != null) {
+      loteObj = json['id_lote'].toString();
+    }
+
     return Product(
-      id: json['id_Produto']?.toString() ??
-          json['id_produto']?.toString() ??
-          '',
+      id: json['id_Produto']?.toString() ?? json['id_produto']?.toString() ?? '',
       nome: json['nome'] ?? '',
       descricao: json['descricao'] ?? '',
       valorVenda: _parseDouble(json['valor_venda']),
@@ -113,12 +124,11 @@ class Product {
       fkIdCategoria: json['fk_id_Categoria']?.toString() ?? '',
       tamanho: json['tamanho']?.toString() ?? '',
       valorVendaDesc: _parseDouble(json['valor_venda_desc']),
-      // Updated parsing logic for characteristics
       caracteristicas: parseCharacteristics(json['caracteristicas']),
       imagemUrl: json['imagem_url'],
       imageId: json['id_imagem']?.toString(),
       desconto: _parseDouble(json['desconto']),
-      id_lote: json["id_lote"]?.toString(), // Corrigido para ler id_lote
+      lote: loteObj,
       dataFabricacao: json['dt_fabricacao'] != null
           ? DateTime.tryParse(json['dt_fabricacao'])
           : null,
@@ -141,10 +151,8 @@ class Product {
   }
 
   Map<String, dynamic> toJson() {
-    // Convert List<Characteristic> back to List<String> (IDs only) for sending
-    // Assuming the backend expects only IDs when updating/creating
     List<String> caracteristicasIDs =
-        caracteristicas!.map((c) => c.id_Caracteristica).toList();
+        caracteristicas?.map((c) => c.id_Caracteristica).toList() ?? [];
 
     return {
       'id_Produto': id,
@@ -154,17 +162,18 @@ class Product {
       'valor_custo': valorCusto,
       'dias_vcto': diasValidade,
       'disponivel': disponivel,
-      // 'categoria': categoria, // Categoria seems to be derived info, not sent back?
       'fk_id_Endereco': fkIdEndereco,
       'fk_id_Categoria': fkIdCategoria,
       'tamanho': tamanho,
       'valor_venda_desc': valorVendaDesc,
-      'caracteristicas_IDs': caracteristicasIDs, // Sending only IDs back
+      'caracteristicas_IDs': caracteristicasIDs,
       if (imageId != null) 'id_imagem': imageId,
-      // if (desconto != null) 'desconto': desconto, // Desconto seems derived?
-      // if (lote != null) 'lote': lote, // Lote seems derived?
-      // if (dataFabricacao != null)
-      //   'dt_fabricacao': dataFabricacao!.toIso8601String().split('T')[0], // Data fabricacao seems derived?
+      if (desconto != null) 'desconto': desconto,
+      // Envia id_lote se for string, ou lote se for objeto
+      if (lote != null)
+        (lote is String ? 'id_lote' : 'lote'): lote,
+      if (dataFabricacao != null)
+        'dt_fabricacao': dataFabricacao!.toIso8601String().split('T')[0],
       'quantidade': quantidade,
     };
   }

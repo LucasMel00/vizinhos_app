@@ -1,11 +1,23 @@
-import 'package:vizinhos_app/screens/model/product.dart';
+// lib/screens/model/cart_item.dart
+
+import 'product.dart';
 
 class CartItem {
   final Product product;
-  int quantity;
+  final int quantity;
 
-  CartItem({required this.product, this.quantity = 1});
+  CartItem({
+    required this.product,
+    required this.quantity,
+  });
 
-  double get subtotal => (product.valorVenda ?? 0) * quantity;
+  Map<String, dynamic> toJson() => {
+    'product': product.toJson(),
+    'quantity': quantity,
+  };
+
+  factory CartItem.fromJson(Map<String, dynamic> json) => CartItem(
+    product: Product.fromJson(json['product']),
+    quantity: json['quantity'],
+  );
 }
-

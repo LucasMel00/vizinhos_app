@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:vizinhos_app/screens/model/cart_item.dart';
 import 'package:vizinhos_app/screens/provider/cart_provider.dart';
 import 'package:vizinhos_app/screens/model/cart_item.dart';
 import 'package:intl/intl.dart';
+
+import '../model/cart_item.dart';
 
 // Define colors (matching other screens)
 const Color primaryColor = Color(0xFFFbbc2c);
@@ -97,7 +100,7 @@ class CartScreen extends StatelessWidget {
                       // Use values.toList() to access items by index
                       final cartItem = cart.items.values.toList()[i];
                       final productId = cart.items.keys.toList()[i];
-                      return _buildCartItemCard(context, cartItem, productId);
+                      return _buildCartItemCard(context, cartItem as CartItem, productId);
                     },
                   ),
                 ),

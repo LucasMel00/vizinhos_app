@@ -1,76 +1,47 @@
-// cart_provider.dart
-import 'package:flutter/foundation.dart';
-import 'package:vizinhos_app/screens/model/cart_item.dart';
-import 'package:vizinhos_app/screens/model/lote.dart';
-import 'package:vizinhos_app/screens/model/product.dart';
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:vizinhos_app/screens/model/product.dart';
+import 'package:vizinhos_app/screens/model/lote.dart';
+import 'package:vizinhos_app/screens/model/cart_item.dart';
+
 class CartProvider with ChangeNotifier {
-  Map<String, CartItem> _items = {}; // Use product ID as key for easy access
-  Map<String, CartItem> get items => {..._items};
+  Map<String, CartItem> _items = {};
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  String? _currentStoreId; // ID da loja atual do carrinho
 
+  Map<String, CartItem> get items => _items;
   int get itemCount => _items.length;
+  double get totalAmount => _items.values.fold(0, (sum, item) => sum + (item.product.valorVenda * item.quantity));
+  String? get currentStoreId => _currentStoreId;
 
-  double get totalAmount {
-    var total = 0.0;
-    _items.forEach((key, cartItem) {
-      total += cartItem.subtotal;
-    });
-    return total;
+  CartProvider() {
+    _loadCart();
   }
 
-  // NOVO: Método público para verificar quantidade disponível
- int getAvailableQuantity(Product product) {
-  // Recupere o lote (pode ser string JSON, objeto ou map)
-  Lote? lote;
-  if (product.id_lote != null) {
-    if (product.id_lote is Lote) {
-      lote = product.id_lote as Lote;
-    } else if (product.id_lote is Map) {
-      lote = Lote.fromJson((product.id_lote as Map).cast<String, dynamic>());
-    } else if (product.id_lote is String && product.id_lote != '') {
-        try {
-          lote = Lote.fromJson(jsonDecode(product.id_lote!));
-        } catch (_) {}
+  Future<void> _loadCart() async {
+    final cartData = await _storage.read(key: 'cart');
+    final storeId = await _storage.read(key: 'cart_store_id');
+    if (cartData != null) {
+      _items = Map<String, CartItem>.from(
+        jsonDecode(cartData).map((key, value) =>
+          MapEntry(key, CartItem.fromJson(value)))
+      );
+      _currentStoreId = storeId;
+      notifyListeners();
     }
   }
-  // Converte a quantidade do lote para int
-  final String? qtdStr = lote?.quantidade;
-  final int qtdLote = int.tryParse(qtdStr ?? '') ?? 0;
-  return qtdLote;
-}
 
-int getAvailableToAdd(Product product, Map<String, CartItem> items) {
-  final totalQuantity = getAvailableQuantity(product);
-  final inCart = items[product.id]?.quantity ?? 0;
-  return totalQuantity - inCart;
-}
-
-  void addItem(Product product) {
-    final availableToAdd = getAvailableToAdd(product, _items);
-    
-    if (availableToAdd <= 0) {
-      print("Cannot add more ${product.nome}. Max quantity reached or out of stock.");
-      return;
-    }
-
-    if (_items.containsKey(product.id)) {
-      // Aumenta a quantidade se o produto já estiver no carrinho
-      _items.update(
-        product.id,
-        (existingCartItem) => CartItem(
-          product: existingCartItem.product,
-          quantity: existingCartItem.quantity + 1,
-        ),
-      );
-    } else {
-      // Adiciona novo item
-      _items.putIfAbsent(
-        product.id,
-        () => CartItem(product: product, quantity: 1),
-      );
-    }
-    notifyListeners();
+  Future<void> _saveCart() async {
+    await _storage.write(
+      key: 'cart',
+      value: jsonEncode(_items.map((key, value) => MapEntry(key, value.toJson()))),
+    );
+    await _storage.write(
+      key: 'cart_store_id',
+      value: _currentStoreId,
+    );
   }
 
   void removeSingleItem(String productId) {
@@ -78,24 +49,81 @@ int getAvailableToAdd(Product product, Map<String, CartItem> items) {
     if (_items[productId]!.quantity > 1) {
       _items.update(
         productId,
-        (existingCartItem) => CartItem(
-          product: existingCartItem.product,
-          quantity: existingCartItem.quantity - 1,
+        (existing) => CartItem(
+          product: existing.product,
+          quantity: existing.quantity - 1,
         ),
       );
     } else {
       _items.remove(productId);
+      // Se removeu o último item, limpa a loja
+      if (_items.isEmpty) _currentStoreId = null;
     }
+    _saveCart();
     notifyListeners();
+  }
+
+  int getAvailableToAdd(Product product) {
+    if (product.lote == null) return 0;
+    int loteQuantidade = 0;
+    if (product.lote is Map) {
+      loteQuantidade = int.tryParse(product.lote['quantidade'].toString()) ?? 0;
+    } else if (product.lote is Lote) {
+      loteQuantidade = (product.lote as Lote).quantidade ?? 0;
+    } else if (product.lote is String) {
+      loteQuantidade = product.quantidade ?? 0;
+    }
+    if (loteQuantidade <= 0) return 0;
+    final inCart = _items[product.id]?.quantity ?? 0;
+    return loteQuantidade - inCart;
+  }
+
+  /// Retorna true se conseguiu adicionar, false se não pôde (loja diferente)
+  bool addItem(Product product) {
+    final productStoreId = product.fkIdEndereco.toString(); // ajuste se o campo for diferente
+
+    // Bloqueia se o carrinho já tem produtos de outra loja
+    if (_currentStoreId != null && _currentStoreId != productStoreId) {
+      return false;
+    }
+
+    // Se o carrinho está vazio, define a loja
+    if (_items.isEmpty) {
+      _currentStoreId = productStoreId;
+    }
+
+    if (getAvailableToAdd(product) <= 0) return true;
+
+    if (_items.containsKey(product.id)) {
+      _items.update(
+        product.id,
+        (existing) => CartItem(
+          product: existing.product,
+          quantity: existing.quantity + 1,
+        ),
+      );
+    } else {
+      _items.putIfAbsent(
+        product.id,
+        () => CartItem(product: product, quantity: 1),
+      );
+    }
+    _saveCart();
+    notifyListeners();
+    return true;
   }
 
   void removeItem(String productId) {
     _items.remove(productId);
+    if (_items.isEmpty) _currentStoreId = null;
+    _saveCart();
     notifyListeners();
   }
 
   void clearCart() {
-    _items = {};
+    _items.clear();
+    _currentStoreId = null;
+    _saveCart();
     notifyListeners();
   }
 }

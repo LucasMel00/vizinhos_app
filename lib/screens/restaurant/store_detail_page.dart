@@ -569,79 +569,103 @@ class _AddToCartButton extends StatefulWidget {
 
 class _AddToCartButtonState extends State<_AddToCartButton> {
   bool _loading = false;
-  bool _added = false;
 
   @override
   Widget build(BuildContext context) {
     final cartProvider = Provider.of<CartProvider>(context);
-    final availableToAdd = cartProvider.getAvailableToAdd(widget.product, cartProvider.items);
     final inCart = cartProvider.items[widget.product.id]?.quantity ?? 0;
 
-    // Determine o texto do botão baseado no estado atual
-    String buttonText;
-    if (availableToAdd <= 0 && inCart == 0) {
-      buttonText = "Esgotado";
-    } else if (availableToAdd <= 0) {
-      buttonText = "Máx. no carrinho";
-    } else if (_added) {
-      buttonText = "Adicionado!";
-    } else if (inCart > 0) {
-      buttonText = "Add mais ($inCart no carrinho)";
-    } else {
-      buttonText = "Adicionar ao carrinho";
-    }
-
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        icon: _loading
-            ? SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
-              )
-            : (_added
-                ? Icon(Icons.check, color: Colors.white)
-                : Icon(Icons.add_shopping_cart, color: Colors.white)),
-        label: Text(
-          buttonText,
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: availableToAdd <= 0 ? Colors.grey : primaryColor,
-          foregroundColor: Colors.white,
-          minimumSize: Size(0, 40),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-        onPressed: (availableToAdd <= 0 || _loading || _added)
-            ? null
-            : () async {
-                setState(() {
-                  _loading = true;
-                });
-                await Future.delayed(Duration(milliseconds: 300));
-                cartProvider.addItem(widget.product);
-                setState(() {
-                  _loading = false;
-                  _added = true;
-                });
+   if (inCart == 0) {
+  // Produto ainda não está no carrinho
+  return SizedBox(
+    width: double.infinity,
+    child: ElevatedButton.icon(
+      icon: _loading
+          ? SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2,
+              ),
+            )
+          : Icon(Icons.add_shopping_cart, color: Colors.white),
+      label: Text("Adicionar ao carrinho", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
+        minimumSize: Size(0, 40),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      onPressed: _loading
+          ? null
+          : () async {
+              setState(() => _loading = true);
+              await Future.delayed(Duration(milliseconds: 300));
+              // Checa se pode adicionar da mesma loja
+              final success = cartProvider.addItem(widget.product);
+              setState(() => _loading = false);
+              if (!success) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('${widget.product.nome} adicionado ao carrinho!'),
-                    duration: Duration(seconds: 1),
+                    content: Text('Você só pode adicionar produtos da mesma loja ao carrinho.'),
                   ),
                 );
-                await Future.delayed(Duration(milliseconds: 800));
-                if (mounted) {
-                  setState(() {
-                    _added = false;
-                  });
-                }
-              },
+              }
+            },
+    ),
+  );
+} else {
+  // Produto já está no carrinho: mostra quantidade, +, -, e botão do carrinho
+  return Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      // Botão de diminuir
+      IconButton(
+  icon: Icon(Icons.remove_circle_outline, color: primaryColor),
+  onPressed: inCart > 0
+      ? () {
+          cartProvider.removeSingleItem(widget.product.id);
+        }
+      : null,
+),
+
+      // Quantidade atual
+      Text(
+        inCart.toString(),
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),
-    );
+      // Botão de aumentar
+      IconButton(
+        icon: Icon(Icons.add_circle_outline, color: primaryColor),
+        onPressed: () {
+          // Checa se pode adicionar da mesma loja
+          final success = cartProvider.addItem(widget.product);
+          if (!success) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Você só pode adicionar produtos da mesma loja ao carrinho.'),
+              ),
+            );
+          }
+        },
+      ),
+      // Botão para ir ao carrinho
+      ElevatedButton.icon(
+        icon: Icon(Icons.shopping_cart_outlined, size: 18, color: Colors.white,),
+        label: Text("Ver carrinho"),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
+          minimumSize: Size(0, 36),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        onPressed: () {
+          Navigator.of(context).pushNamed('/cart'); // Ajuste para sua rota de carrinho
+        },
+      ),
+    ],
+  );
+}
   }
 }
