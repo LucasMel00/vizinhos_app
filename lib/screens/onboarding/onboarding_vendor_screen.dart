@@ -67,7 +67,7 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen> {
             _buildFeature(
               icon: Icons.add_box_outlined,
               title: 'Cadastrar Produtos',
-              description: 'Adicione novos produtos com nome, descrição, preço, categoria, foto, validade, quantidade e características personalizadas.',
+              description: 'Adicione novos produtos com nome, descrição, preço, categoria, foto, validade, quantidade e características.',
               color: primaryColor,
             ),
             const SizedBox(height: 18),

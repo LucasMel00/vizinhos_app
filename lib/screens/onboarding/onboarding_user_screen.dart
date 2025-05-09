@@ -67,13 +67,7 @@ class _UserProfileOnboardingScreenState extends State<UserProfileOnboardingScree
               description: 'Toque no botão de edição para alterar nome, email, telefone ou endereço.',
               color: primaryColor,
             ),
-            const SizedBox(height: 18),
-            _buildFeature(
-              icon: Icons.photo_camera_outlined,
-              title: 'Mudar Foto',
-              description: 'Toque na sua foto para escolher uma nova imagem de perfil.',
-              color: Colors.teal,
-            ),
+            
             const SizedBox(height: 18),
             _buildFeature(
               icon: Icons.location_on_outlined,
