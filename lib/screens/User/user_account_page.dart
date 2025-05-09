@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:vizinhos_app/screens/User/home_page_user.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vizinhos_app/screens/User/home_page_user.dart'; // Ensure this file exists and contains the HomePageUser class
 import 'package:vizinhos_app/screens/User/user_profile_page.dart';
 import 'package:vizinhos_app/screens/login/email_screen.dart';
+import 'package:vizinhos_app/screens/onboarding/onboarding_vendor_screen.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart';
 import 'package:vizinhos_app/screens/search/search_page.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_account_page.dart';
@@ -149,14 +151,38 @@ class _UserAccountPageState extends State<UserAccountPage> {
       await _fetchUserData();
 
       if (_userInfo != null && _userInfo!['endereco'] != null) {
+        final prefs = await SharedPreferences.getInstance();
+        final dontShow = prefs.getBool('dontShowVendorOnboarding') ?? false;
+
+        if (dontShow) {
+          Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VendorAccountPage(
+            userInfo: _userInfo!,
+          ),
+        ),
+          );
+        } else {
+          final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VendorOnboardingScreen(
+            onContinue: () => Navigator.of(context).pop(true),
+          ),
+        ),
+          );
+          if (result == true) {
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => VendorAccountPage(
-              userInfo: _userInfo!,
+          userInfo: _userInfo!,
             ),
           ),
         );
+          }
+        }
       } else {
         throw Exception('Dados da loja não disponíveis');
       }
@@ -167,49 +193,68 @@ class _UserAccountPageState extends State<UserAccountPage> {
     }
   }
 
+  // Método para lidar com a seleção de itens na barra de navegação inferior
+  void _onNavItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    // Navegar para a página correspondente
+    switch (index) {
+      case 0:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => HomePage()), // Ensure HomePageUser is defined or imported correctly
+        );
+        break;
+      case 1:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => SearchPage()),
+        );
+        break;
+      case 2:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => OrdersPage()),
+        );
+        break;
+      case 3:
+        // Já estamos na página de conta do usuário
+        break;
+    }
+  }
+
   // Widget para construir cada botão da barra de navegação inferior
-  Widget _buildNavIcon(IconData icon, int index, BuildContext context) {
+   Widget _buildNavIcon(IconData icon, String label, int index, BuildContext context) {
     bool isSelected = index == _selectedIndex;
     return InkWell(
-      onTap: () {
-        setState(() {
-          _selectedIndex = index;
-        });
-        switch (index) {
-          case 0: // Home
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => HomePage()),
-              (route) => false,
-            );
-            break;
-          case 1: // Busca
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => SearchPage()),
-            );
-            break;
-          case 2: // Pedidos
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => OrdersPage()),
-            );
-            break;
-          case 3: // Perfil (já estamos aqui)
-            break;
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Icon(
-          icon,
-          size: 24,
-          color: isSelected
-              ? const Color.fromARGB(255, 255, 255, 255)
-              : const Color(0xFF3B4351),
+      onTap: () => _onNavItemTapped(index),
+      borderRadius: BorderRadius.circular(20), // Rounded tap area
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 12.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 24,
+              color: isSelected ? const Color.fromARGB(255, 237, 236, 233) : secondaryColor.withOpacity(0.7),
+            ),
+            SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                color: isSelected ? const Color.fromARGB(255, 21, 21, 21) : secondaryColor.withOpacity(0.7),
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            )
+          ],
         ),
       ),
     );
+
   }
 
   @override
@@ -418,10 +463,10 @@ class _UserAccountPageState extends State<UserAccountPage> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildNavIcon(Icons.home, 0, context),
-              _buildNavIcon(Icons.search, 1, context),
-              _buildNavIcon(Icons.list, 2, context),
-              _buildNavIcon(Icons.person, 3, context),
+            _buildNavIcon(Icons.home, 'Início', 0, context),
+          _buildNavIcon(Icons.search, 'Buscar', 1, context),
+          _buildNavIcon(Icons.list, 'Pedidos', 2, context),
+          _buildNavIcon(Icons.person, 'Conta', 3, context),
             ],
           ),
         ),

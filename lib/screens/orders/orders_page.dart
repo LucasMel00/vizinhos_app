@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vizinhos_app/screens/User/home_page_user.dart';
 
 class OrdersPage extends StatelessWidget {
   @override
@@ -25,7 +26,16 @@ class OrdersPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('Pedidos'),
-        backgroundColor: Colors.green,
+        backgroundColor: Theme.of(context).primaryColor,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+             Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => HomePage()),
+        );
+          },
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -51,7 +61,7 @@ class OrdersPage extends StatelessWidget {
                       trailing: Text(
                         order['total'],
                         style: TextStyle(
-                            color: Colors.green, fontWeight: FontWeight.bold),
+                            color: Colors.amber, fontWeight: FontWeight.bold),
                       ),
                       onTap: () {
                         // Navegar para detalhes do pedido, se aplicável

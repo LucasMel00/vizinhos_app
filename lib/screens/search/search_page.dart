@@ -1,10 +1,11 @@
-// screens/search/search_page.dart
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:vizinhos_app/screens/User/home_page_user.dart';
 import 'package:vizinhos_app/screens/model/restaurant.dart';
 import 'package:vizinhos_app/screens/restaurant/store_detail_page.dart';
+import 'package:vizinhos_app/services/app_theme.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({Key? key}) : super(key: key);
@@ -18,6 +19,8 @@ class _SearchPageState extends State<SearchPage> {
   List<Restaurant> _allRestaurants = [];
   List<Restaurant> _filtered = [];
   final TextEditingController _searchController = TextEditingController();
+
+  final String lojaImageBaseUrl = "https://loja-profile-pictures.s3.amazonaws.com/";
 
   @override
   void initState() {
@@ -65,20 +68,41 @@ class _SearchPageState extends State<SearchPage> {
     });
   }
 
+  void _goToHomePage() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => HomePage()),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Buscar Restaurantes'),
-        backgroundColor: Colors.green.shade700,
+        backgroundColor: AppTheme.primaryColor,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: _goToHomePage,
+        ),
       ),
       body: FutureBuilder<List<Restaurant>>(
         future: _futureRestaurants,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+              ),
+            );
           } else if (snapshot.hasError) {
-            return Center(child: Text('Erro: ${snapshot.error}'));
+            return Center(
+              child: Text(
+                'Erro: ${snapshot.error}',
+                style: TextStyle(color: AppTheme.errorColor),
+              ),
+            );
           }
           return Column(
             children: [
@@ -101,14 +125,29 @@ class _SearchPageState extends State<SearchPage> {
                         itemCount: _filtered.length,
                         itemBuilder: (context, index) {
                           final r = _filtered[index];
-                          final bytes = r.imageBytes;
+
+                          // Novo bloco para tratar imagem
+                          String? displayImageUrl = r.imagemUrl;
+                          if ((displayImageUrl == null || displayImageUrl.isEmpty) &&
+                              r.imageString != null &&
+                              r.imageString!.isNotEmpty) {
+                            String imageName = r.imageString!;
+                            if (imageName.startsWith("/")) {
+                              imageName = imageName.substring(1);
+                            }
+                            displayImageUrl = lojaImageBaseUrl + imageName;
+                          }
+
+                          final isValidImage = displayImageUrl != null &&
+                              displayImageUrl.trim().toLowerCase().startsWith('https://');
+
                           return GestureDetector(
                             onTap: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                              builder: (_) =>
-                          RestaurantDetailPage(restaurantId: r.idEndereco,),
+                                  builder: (_) =>
+                                      RestaurantDetailPage(restaurantId: r.idEndereco),
                                 ),
                               );
                             },
@@ -117,18 +156,27 @@ class _SearchPageState extends State<SearchPage> {
                                   horizontal: 12, vertical: 6),
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12)),
+                              elevation: 2,
                               child: Padding(
                                 padding: const EdgeInsets.all(8),
                                 child: Row(
                                   children: [
                                     ClipRRect(
                                       borderRadius: BorderRadius.circular(8),
-                                      child: bytes != null
-                                          ? Image.memory(
-                                              bytes,
+                                      child: isValidImage
+                                          ? Image.network(
+                                              displayImageUrl!,
                                               width: 80,
                                               height: 80,
                                               fit: BoxFit.cover,
+                                              errorBuilder:
+                                                  (context, error, stackTrace) =>
+                                                      Image.asset(
+                                                'assets/images/default_restaurant_image.jpg',
+                                                width: 80,
+                                                height: 80,
+                                                fit: BoxFit.cover,
+                                              ),
                                             )
                                           : Image.asset(
                                               'assets/images/default_restaurant_image.jpg',
@@ -145,41 +193,38 @@ class _SearchPageState extends State<SearchPage> {
                                         children: [
                                           Text(
                                             r.name,
-                                            style: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold),
+                                            style: AppTheme.cardTitleStyle.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
                                             r.descricao,
-                                            style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey.shade600),
+                                            style: AppTheme.secondaryTextStyle
+                                                .copyWith(fontSize: 12),
                                             maxLines: 2,
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
                                             '${r.logradouro}, ${r.numero}',
-                                            style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey.shade600),
+                                            style: AppTheme.secondaryTextStyle
+                                                .copyWith(fontSize: 12),
                                           ),
                                           if (r.complemento.isNotEmpty)
                                             Text(
                                               r.complemento,
-                                              style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.grey.shade600),
+                                              style: AppTheme.secondaryTextStyle
+                                                  .copyWith(fontSize: 12),
                                             ),
                                           const SizedBox(height: 4),
                                           Text(
                                             'Entrega: ${r.tipoEntrega}',
-                                            style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey.shade600),
+                                            style: AppTheme.secondaryTextStyle
+                                                .copyWith(fontSize: 12),
                                           ),
                                         ],
                                       ),
@@ -191,8 +236,14 @@ class _SearchPageState extends State<SearchPage> {
                           );
                         },
                       )
-                    : const Center(
-                        child: Text('Nenhum restaurante encontrado.')),
+                    : Center(
+                        child: Text(
+                          'Nenhum restaurante encontrado.',
+                          style: AppTheme.secondaryTextStyle.copyWith(
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
               ),
             ],
           );

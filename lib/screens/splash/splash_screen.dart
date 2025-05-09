@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vizinhos_app/screens/login/email_screen.dart';
-import 'package:vizinhos_app/services/auth_provider.dart';
 import 'package:vizinhos_app/screens/User/home_page_user.dart';
+import 'package:vizinhos_app/screens/onboarding/onboarding_screen.dart';
+import 'package:vizinhos_app/services/auth_provider.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -22,24 +24,43 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
     _controller = AnimationController(vsync: this);
 
-    // Ouvinte para saber quando a animação termina
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed && !_navigated) {
         _navigated = true;
-        _checkAuthStatus();
+        _checkOnboardingAndAuthStatus();
       }
     });
+  }
+
+  Future<void> _checkOnboardingAndAuthStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final onboardingComplete = prefs.getBool('onboardingComplete') ?? false;
+
+    if (!mounted) return;
+
+    if (!onboardingComplete) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OnboardingScreen(
+  onFinish: () async {
+    await prefs.setBool('onboardingComplete', true);
+    if (mounted) _checkAuthStatus();
+  },
+)
+        ),
+      );
+    } else {
+      _checkAuthStatus();
+    }
   }
 
   void _checkAuthStatus() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    // Se ainda estiver carregando, aguarde um pouco
     if (authProvider.isLoading) {
-      Future.delayed(Duration(milliseconds: 300), () {
-        if (mounted) {
-          _checkAuthStatus(); // Verifica novamente após o delay
-        }
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) _checkAuthStatus();
       });
       return;
     }

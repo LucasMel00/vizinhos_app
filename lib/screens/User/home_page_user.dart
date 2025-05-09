@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vizinhos_app/screens/User/user_account_page.dart';
+import 'package:vizinhos_app/screens/User/user_profile_page.dart';
 import 'package:vizinhos_app/screens/model/restaurant.dart';
+import 'package:vizinhos_app/screens/onboarding/onboarding_user_screen.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart';
 import 'package:vizinhos_app/screens/restaurant/store_detail_page.dart'; // Corrected import
 import 'package:vizinhos_app/screens/search/search_page.dart';
@@ -33,7 +36,9 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   final storage = const FlutterSecureStorage();
   bool _isLoading = true;
-  static const String lojaImageBaseUrl = "https://loja-profile-pictures.s3.amazonaws.com/"; // Base URL for store images
+  String _selectedCategory = 'Todas';
+  List<String> _categories = ['Todas'];
+  static const String lojaImageBaseUrl = "https://loja-profile-pictures.s3.amazonaws.com/";
 
   @override
   void initState() {
@@ -69,6 +74,8 @@ class _HomePageState extends State<HomePage> {
       }
     }
   }
+
+  
 
   Future<void> _refresh() async {
     if (!mounted) return;
@@ -153,7 +160,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _onNavItemTapped(int index) {
+  Future<void> _onNavItemTapped(int index) async {
     // Prevent navigation if already on the selected tab (index 0 = Home)
     if (index == _selectedIndex) return;
 
@@ -161,11 +168,9 @@ class _HomePageState extends State<HomePage> {
       _selectedIndex = index;
     });
 
-    // Use Navigator.pushReplacement to avoid stacking pages unnecessarily
-    // or manage state differently if you need back navigation.
     switch (index) {
       case 0: // Home - Do nothing or refresh
-         _refresh(); // Example: Refresh home page
+        _refresh(); // Example: Refresh home page
         break;
       case 1: // Search
         Navigator.pushReplacement(
@@ -180,11 +185,38 @@ class _HomePageState extends State<HomePage> {
         );
         break;
       case 3: // Account
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-              builder: (_) => UserAccountPage(userInfo: userInfo)),
-        );
+        final prefs = await SharedPreferences.getInstance();
+        final dontShow = prefs.getBool('dontShowUserProfileOnboarding') ?? false;
+
+        if (dontShow) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => UserAccountPage(
+                userInfo: userInfo ?? {},
+              ),
+            ),
+          );
+        } else {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => UserProfileOnboardingScreen(
+                onContinue: () => Navigator.of(context).pop(true),
+              ),
+            ),
+          );
+          if (result == true) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => UserAccountPage(
+                  userInfo: userInfo ?? {},
+                ),
+              ),
+            );
+          }
+        }
         break;
     }
   }
