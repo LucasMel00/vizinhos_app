@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:vizinhos_app/screens/model/restaurant.dart';
-import 'package:vizinhos_app/screens/restaurant/restaurant_detail_page.dart';
+import 'package:vizinhos_app/screens/restaurant/store_detail_page.dart';
 
 class OffersPage extends StatefulWidget {
   const OffersPage({Key? key}) : super(key: key);
