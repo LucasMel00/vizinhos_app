@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vizinhos_app/screens/login/email_screen.dart';
+import 'package:vizinhos_app/screens/onboarding/onboarding_helper.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback? onFinish;
@@ -12,6 +13,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  bool _isFinishing = false;
 
   final List<_OnboardingPageData> _pages = [
     _OnboardingPageData(
@@ -67,12 +69,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-Future<void> _finishOnboarding() async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool('onboardingComplete', true);
-  widget.onFinish?.call();
-}
+  Future<void> _finishOnboarding() async {
+    if (_isFinishing || !mounted) return;
+    _isFinishing = true;
 
+    try {
+      await OnboardingHelper.setOnboardingComplete();
+      
+      if (!mounted) return;
+      
+      if (widget.onFinish != null) {
+        widget.onFinish!();
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => EmailScreen()),
+        );
+      }
+    } finally {
+      _isFinishing = false;
+    }
+  }
 
   List<Widget> _buildPageIndicators() {
     return List.generate(_pages.length, (i) {
@@ -97,7 +113,6 @@ Future<void> _finishOnboarding() async {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Botão pular
             Padding(
               padding: const EdgeInsets.only(top: 16.0, right: 16.0),
               child: Align(
@@ -115,7 +130,6 @@ Future<void> _finishOnboarding() async {
                 ),
               ),
             ),
-            // PageView
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
@@ -161,7 +175,9 @@ Future<void> _finishOnboarding() async {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.check_circle, color: Color(0xFFFbbc2c), size: 20),
+                              const Icon(Icons.check_circle, 
+                                color: Color(0xFFFbbc2c), 
+                                size: 20),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
@@ -169,9 +185,9 @@ Future<void> _finishOnboarding() async {
                                   style: const TextStyle(
                                     fontSize: 14,
                                     color: Color(0xFF666666),
-                                  ),
                                 ),
                               ),
+                            ),
                             ],
                           ),
                         )),
@@ -181,7 +197,6 @@ Future<void> _finishOnboarding() async {
                 },
               ),
             ),
-            // Indicadores
             Padding(
               padding: const EdgeInsets.only(bottom: 24.0),
               child: Row(
@@ -189,9 +204,10 @@ Future<void> _finishOnboarding() async {
                 children: _buildPageIndicators(),
               ),
             ),
-            // Botão próximo
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 32.0, 
+                vertical: 24.0),
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Color(0xFFFbbc2c),
@@ -216,6 +232,12 @@ Future<void> _finishOnboarding() async {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 }
 
