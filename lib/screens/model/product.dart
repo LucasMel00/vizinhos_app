@@ -51,8 +51,14 @@ class Product {
   String? get id_lote {
     if (lote == null) return null;
     if (lote is String) return lote as String;
-    // Se tiver a classe Lote, descomente e ajuste a linha abaixo:
-    // if (lote is Lote) return (lote as Lote).id;
+    return null;
+  }
+
+  // Função auxiliar para obter a quantidade a partir do lote, se presente
+  static int? _getQuantidadeFromLote(dynamic lote) {
+    if (lote is Map<String, dynamic> && lote['quantidade'] != null) {
+      return _parseInt(lote['quantidade']);
+    }
     return null;
   }
 
@@ -84,7 +90,8 @@ class Product {
       if (characteristicsJson is List) {
         return characteristicsJson
             .where((item) => item is Map<String, dynamic>)
-            .map((item) => Characteristic.fromJson(item as Map<String, dynamic>))
+            .map(
+                (item) => Characteristic.fromJson(item as Map<String, dynamic>))
             .toList();
       }
       if (characteristicsJson is String) {
@@ -92,7 +99,8 @@ class Product {
           List<dynamic> decodedList = jsonDecode(characteristicsJson);
           return decodedList
               .where((item) => item is Map<String, dynamic>)
-              .map((item) => Characteristic.fromJson(item as Map<String, dynamic>))
+              .map((item) =>
+                  Characteristic.fromJson(item as Map<String, dynamic>))
               .toList();
         } catch (_) {
           return [];
@@ -112,7 +120,9 @@ class Product {
     }
 
     return Product(
-      id: json['id_Produto']?.toString() ?? json['id_produto']?.toString() ?? '',
+      id: json['id_Produto']?.toString() ??
+          json['id_produto']?.toString() ??
+          '',
       nome: json['nome'] ?? '',
       descricao: json['descricao'] ?? '',
       valorVenda: _parseDouble(json['valor_venda']),
@@ -132,7 +142,9 @@ class Product {
       dataFabricacao: json['dt_fabricacao'] != null
           ? DateTime.tryParse(json['dt_fabricacao'])
           : null,
-      quantidade: _parseInt(json['quantidade']),
+      quantidade: json['quantidade'] != null
+          ? _parseInt(json['quantidade'])
+          : _getQuantidadeFromLote(json['lote']),
     );
   }
 
@@ -170,11 +182,10 @@ class Product {
       if (imageId != null) 'id_imagem': imageId,
       if (desconto != null) 'desconto': desconto,
       // Envia id_lote se for string, ou lote se for objeto
-      if (lote != null)
-        (lote is String ? 'id_lote' : 'lote'): lote,
+      if (lote != null) (lote is String ? 'id_lote' : 'lote'): lote,
       if (dataFabricacao != null)
         'dt_fabricacao': dataFabricacao!.toIso8601String().split('T')[0],
-      'quantidade': quantidade,
+      'quantidade': quantidade ?? _getQuantidadeFromLote(lote),
     };
   }
 }

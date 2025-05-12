@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:vizinhos_app/screens/provider/orders_provider.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 import 'package:vizinhos_app/screens/splash/splash_screen.dart';
 import 'package:vizinhos_app/screens/provider/cart_provider.dart'; // Import CartProvider
@@ -17,6 +18,9 @@ void main() {
         ),
         ChangeNotifierProvider(
           create: (_) => CartProvider(), // Adiciona o CartProvider
+        ),
+        ChangeNotifierProvider(
+          create: (_) => OrdersProvider(), // Adicione esta linha
         ),
       ],
       child: const MyApp(),
@@ -47,10 +51,10 @@ class MyApp extends StatelessWidget {
       home: const SplashScreen(),
       // Adiciona as rotas
       routes: {
-        CartScreen.routeName: (ctx) => const CartScreen(), // Rota para a tela do carrinho
+        CartScreen.routeName: (ctx) =>
+            const CartScreen(), // Rota para a tela do carrinho
         // Adicione outras rotas nomeadas aqui, se houver
       },
     );
   }
 }
-

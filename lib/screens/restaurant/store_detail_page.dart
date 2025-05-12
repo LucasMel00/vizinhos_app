@@ -24,7 +24,8 @@ const Color successColor = Color(0xFF2E7D32);
 
 class RestaurantDetailPage extends StatefulWidget {
   final String restaurantId;
-  const RestaurantDetailPage({Key? key, required this.restaurantId}) : super(key: key);
+  const RestaurantDetailPage({Key? key, required this.restaurantId})
+      : super(key: key);
 
   @override
   _RestaurantDetailPageState createState() => _RestaurantDetailPageState();
@@ -50,7 +51,8 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
         final jsonResponse = json.decode(response.body);
         return Restaurant.fromJson(jsonResponse);
       } else {
-        throw Exception('Falha ao carregar detalhes da loja (HTTP ${response.statusCode})');
+        throw Exception(
+            'Falha ao carregar detalhes da loja (HTTP ${response.statusCode})');
       }
     } catch (e) {
       throw Exception('Falha ao carregar detalhes da loja: $e');
@@ -88,7 +90,8 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
                   elevation: 2,
                   iconTheme: IconThemeData(color: Colors.white),
                   flexibleSpace: FlexibleSpaceBar(
-                    titlePadding: EdgeInsetsDirectional.only(start: 16.0, bottom: 16.0),
+                    titlePadding:
+                        EdgeInsetsDirectional.only(start: 16.0, bottom: 16.0),
                     title: Align(
                       alignment: Alignment.bottomLeft,
                       child: Stack(
@@ -156,16 +159,19 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
                         children: [
                           Text(
                             restaurant.descricao,
-                            style: const TextStyle(fontSize: 15, color: secondaryTextColor),
+                            style: const TextStyle(
+                                fontSize: 15, color: secondaryTextColor),
                           ),
                           const SizedBox(height: 16),
                           _buildInfoRow(Icons.location_on_outlined,
                               '${restaurant.logradouro}, ${restaurant.numero}'),
                           if (restaurant.complemento.isNotEmpty)
-                            _buildInfoRow(Icons.home_work_outlined, restaurant.complemento),
-                          _buildInfoRow(
-                              Icons.local_shipping_outlined, 'Entrega: ${restaurant.tipoEntrega}'),
-                          _buildInfoRow(Icons.mail_outline_rounded, 'CEP: ${restaurant.cep}'),
+                            _buildInfoRow(Icons.home_work_outlined,
+                                restaurant.complemento),
+                          _buildInfoRow(Icons.local_shipping_outlined,
+                              'Entrega: ${restaurant.tipoEntrega}'),
+                          _buildInfoRow(Icons.mail_outline_rounded,
+                              'CEP: ${restaurant.cep}'),
                         ],
                       ),
                     ),
@@ -205,7 +211,8 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
                               itemBuilder: (context, index) {
                                 final product = availableProducts[index];
                                 return AnimatedOpacity(
-                                  duration: Duration(milliseconds: 300 + (index * 50)),
+                                  duration: Duration(
+                                      milliseconds: 300 + (index * 50)),
                                   opacity: 1.0,
                                   child: _buildProductCard(context, product),
                                 );
@@ -218,7 +225,8 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
               ],
             );
           } else {
-            return _buildErrorState(Exception("Nenhuma informação da loja encontrada."));
+            return _buildErrorState(
+                Exception("Nenhuma informação da loja encontrada."));
           }
         },
       ),
@@ -251,9 +259,15 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(height: 15, width: double.infinity, color: Colors.white),
+                      Container(
+                          height: 15,
+                          width: double.infinity,
+                          color: Colors.white),
                       const SizedBox(height: 8),
-                      Container(height: 15, width: double.infinity, color: Colors.white),
+                      Container(
+                          height: 15,
+                          width: double.infinity,
+                          color: Colors.white),
                       const SizedBox(height: 16),
                       Container(height: 14, width: 200, color: Colors.white),
                       const SizedBox(height: 8),
@@ -318,7 +332,8 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
                 label: Text("Tentar Novamente"),
                 onPressed: () {
                   setState(() {
-                    futureRestaurant = _fetchRestaurantDetails(widget.restaurantId);
+                    futureRestaurant =
+                        _fetchRestaurantDetails(widget.restaurantId);
                   });
                 },
                 style: ElevatedButton.styleFrom(
@@ -343,7 +358,8 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
           const SizedBox(width: 12),
           Expanded(
               child: Text(text,
-                  style: const TextStyle(fontSize: 14, color: secondaryTextColor))),
+                  style: const TextStyle(
+                      fontSize: 14, color: secondaryTextColor))),
         ],
       ),
     );
@@ -369,7 +385,8 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Center(
-        child: Icon(Icons.image_not_supported_outlined, size: 30, color: Colors.grey[400]),
+        child: Icon(Icons.image_not_supported_outlined,
+            size: 30, color: Colors.grey[400]),
       ),
     );
   }
@@ -405,7 +422,8 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
                           width: 64,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) {
-                            return _buildDefaultProductImage(height: 64, width: 64);
+                            return _buildDefaultProductImage(
+                                height: 64, width: 64);
                           },
                           loadingBuilder: (context, child, loadingProgress) {
                             if (loadingProgress == null) return child;
@@ -418,7 +436,8 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
                               ),
                               child: Center(
                                 child: CircularProgressIndicator(
-                                  value: loadingProgress.expectedTotalBytes != null
+                                  value: loadingProgress.expectedTotalBytes !=
+                                          null
                                       ? loadingProgress.cumulativeBytesLoaded /
                                           loadingProgress.expectedTotalBytes!
                                       : null,
@@ -439,21 +458,27 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
                     children: [
                       Text(product.nome,
                           style: const TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w600, color: primaryTextColor)),
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: primaryTextColor)),
                       const SizedBox(height: 4),
                       Text(formattedPrice,
                           style: TextStyle(
-                              fontSize: 14, color: successColor, fontWeight: FontWeight.w600)),
+                              fontSize: 14,
+                              color: successColor,
+                              fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
                       Text(product.descricao,
-                          style: TextStyle(fontSize: 12, color: secondaryTextColor)),
+                          style: TextStyle(
+                              fontSize: 12, color: secondaryTextColor)),
                     ],
                   ),
                 ),
               ],
             ),
             // Características
-            if (product.caracteristicas != null && product.caracteristicas!.isNotEmpty)
+            if (product.caracteristicas != null &&
+                product.caracteristicas!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 10.0),
                 child: Wrap(
@@ -462,10 +487,14 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
                   children: product.caracteristicas!
                       .map((char) => Chip(
                             label: Text(char.descricao,
-                                style: const TextStyle(fontSize: 10, color: secondaryTextColor)),
-                            padding: EdgeInsets.symmetric(horizontal: 6.0, vertical: 0),
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: VisualDensity(horizontal: 0.0, vertical: -4),
+                                style: const TextStyle(
+                                    fontSize: 10, color: secondaryTextColor)),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 6.0, vertical: 0),
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            visualDensity:
+                                VisualDensity(horizontal: 0.0, vertical: -4),
                             backgroundColor: backgroundColor,
                             side: BorderSide(color: Colors.grey[300]!),
                           ))
@@ -488,18 +517,32 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
                     } else if (product.id_lote is Lote) {
                       lote = product.id_lote as Lote?;
                     } else if (product.id_lote is Map<String, dynamic>) {
-                      lote = Lote.fromJson(product.id_lote as Map<String, dynamic>);
+                      lote = Lote.fromJson(
+                          product.id_lote as Map<String, dynamic>);
                     }
                     if (lote != null) {
                       return Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: backgroundColor,
                           borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.grey[300]!),
                         ),
-                        child: Text(
-                          "Disponível: ${lote.quantidade}",
-                          style: TextStyle(fontSize: 11, color: secondaryTextColor, fontWeight: FontWeight.w500),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.inventory_2_outlined,
+                                size: 14, color: secondaryTextColor),
+                            SizedBox(width: 4),
+                            Text(
+                              "Disponível: ${product.lote!.quantidade}",
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: secondaryTextColor,
+                                  fontWeight: FontWeight.w500),
+                            ),
+                          ],
                         ),
                       );
                     } else {
@@ -575,97 +618,107 @@ class _AddToCartButtonState extends State<_AddToCartButton> {
     final cartProvider = Provider.of<CartProvider>(context);
     final inCart = cartProvider.items[widget.product.id]?.quantity ?? 0;
 
-   if (inCart == 0) {
-  // Produto ainda não está no carrinho
-  return SizedBox(
-    width: double.infinity,
-    child: ElevatedButton.icon(
-      icon: _loading
-          ? SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 2,
-              ),
-            )
-          : Icon(Icons.add_shopping_cart, color: Colors.white),
-      label: Text("Adicionar ao carrinho", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
-        minimumSize: Size(0, 40),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      onPressed: _loading
-          ? null
-          : () async {
-              setState(() => _loading = true);
-              await Future.delayed(Duration(milliseconds: 300));
+    if (inCart == 0) {
+      // Produto ainda não está no carrinho
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          icon: _loading
+              ? SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+              : Icon(Icons.add_shopping_cart, color: Colors.white),
+          label: Text("Adicionar ao carrinho",
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: primaryColor,
+            foregroundColor: Colors.white,
+            minimumSize: Size(0, 40),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          onPressed: _loading
+              ? null
+              : () async {
+                  setState(() => _loading = true);
+                  await Future.delayed(Duration(milliseconds: 300));
+                  // Checa se pode adicionar da mesma loja
+                  final success = cartProvider.addItem(widget.product);
+                  setState(() => _loading = false);
+                  if (!success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                            'Você só pode adicionar produtos da mesma loja ao carrinho.'),
+                      ),
+                    );
+                  }
+                },
+        ),
+      );
+    } else {
+      // Produto já está no carrinho: mostra quantidade, +, -, e botão do carrinho
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Botão de diminuir
+          IconButton(
+            icon: Icon(Icons.remove_circle_outline, color: primaryColor),
+            onPressed: inCart > 0
+                ? () {
+                    cartProvider.removeSingleItem(widget.product.id);
+                  }
+                : null,
+          ),
+
+          // Quantidade atual
+          Text(
+            inCart.toString(),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          // Botão de aumentar
+          IconButton(
+            icon: Icon(Icons.add_circle_outline, color: primaryColor),
+            onPressed: () {
               // Checa se pode adicionar da mesma loja
               final success = cartProvider.addItem(widget.product);
-              setState(() => _loading = false);
               if (!success) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Você só pode adicionar produtos da mesma loja ao carrinho.'),
+                    content: Text(
+                        'Você só pode adicionar produtos da mesma loja ao carrinho.'),
                   ),
                 );
               }
             },
-    ),
-  );
-} else {
-  // Produto já está no carrinho: mostra quantidade, +, -, e botão do carrinho
-  return Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      // Botão de diminuir
-      IconButton(
-  icon: Icon(Icons.remove_circle_outline, color: primaryColor),
-  onPressed: inCart > 0
-      ? () {
-          cartProvider.removeSingleItem(widget.product.id);
-        }
-      : null,
-),
-
-      // Quantidade atual
-      Text(
-        inCart.toString(),
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-      ),
-      // Botão de aumentar
-      IconButton(
-        icon: Icon(Icons.add_circle_outline, color: primaryColor),
-        onPressed: () {
-          // Checa se pode adicionar da mesma loja
-          final success = cartProvider.addItem(widget.product);
-          if (!success) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Você só pode adicionar produtos da mesma loja ao carrinho.'),
-              ),
-            );
-          }
-        },
-      ),
-      // Botão para ir ao carrinho
-      ElevatedButton.icon(
-        icon: Icon(Icons.shopping_cart_outlined, size: 18, color: Colors.white,),
-        label: Text("Ver carrinho"),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
-          minimumSize: Size(0, 36),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-        onPressed: () {
-          Navigator.of(context).pushNamed('/cart'); // Ajuste para sua rota de carrinho
-        },
-      ),
-    ],
-  );
-}
+          ),
+          // Botão para ir ao carrinho
+          ElevatedButton.icon(
+            icon: Icon(
+              Icons.shopping_cart_outlined,
+              size: 18,
+              color: Colors.white,
+            ),
+            label: Text("Ver carrinho"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              minimumSize: Size(0, 36),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Navigator.of(context)
+                  .pushNamed('/cart'); // Ajuste para sua rota de carrinho
+            },
+          ),
+        ],
+      );
+    }
   }
 }

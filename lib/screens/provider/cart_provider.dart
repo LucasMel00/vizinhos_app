@@ -1,32 +1,36 @@
 import 'dart:convert';
-
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:vizinhos_app/screens/model/product.dart';
-import 'package:vizinhos_app/screens/model/lote.dart';
 import 'package:vizinhos_app/screens/model/cart_item.dart';
+import 'package:vizinhos_app/screens/model/lote.dart';
 
 class CartProvider with ChangeNotifier {
-  Map<String, CartItem> _items = {};
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
-  String? _currentStoreId; // ID da loja atual do carrinho
+  static const _cartKey = 'cart';
+  static const _storeKey = 'cart_store_id';
 
-  Map<String, CartItem> get items => _items;
-  int get itemCount => _items.length;
-  double get totalAmount => _items.values.fold(0, (sum, item) => sum + (item.product.valorVenda * item.quantity));
-  String? get currentStoreId => _currentStoreId;
+  Map<String, CartItem> _items = {};
+  String? _currentStoreId;
 
   CartProvider() {
     _loadCart();
   }
 
+  Map<String, CartItem> get items => {..._items};
+  List<CartItem> get itemsList => _items.values.toList();
+  int get itemCount => _items.length;
+  double get totalAmount => _items.values
+      .fold(0, (sum, ci) => sum + ci.product.valorVenda * ci.quantity);
+  String? get currentStoreId => _currentStoreId;
+
   Future<void> _loadCart() async {
-    final cartData = await _storage.read(key: 'cart');
-    final storeId = await _storage.read(key: 'cart_store_id');
-    if (cartData != null) {
-      _items = Map<String, CartItem>.from(
-        jsonDecode(cartData).map((key, value) =>
-          MapEntry(key, CartItem.fromJson(value)))
+    final cartJson = await _storage.read(key: _cartKey);
+    final storeId = await _storage.read(key: _storeKey);
+    if (cartJson != null) {
+      final Map<String, dynamic> decoded = jsonDecode(cartJson);
+      _items = decoded.map(
+        (k, v) => MapEntry(k, CartItem.fromJson(v)),
       );
       _currentStoreId = storeId;
       notifyListeners();
@@ -35,82 +39,46 @@ class CartProvider with ChangeNotifier {
 
   Future<void> _saveCart() async {
     await _storage.write(
-      key: 'cart',
-      value: jsonEncode(_items.map((key, value) => MapEntry(key, value.toJson()))),
+      key: _cartKey,
+      value: jsonEncode(_items.map((k, v) => MapEntry(k, v.toJson()))),
     );
-    await _storage.write(
-      key: 'cart_store_id',
-      value: _currentStoreId,
+    if (_currentStoreId != null) {
+      await _storage.write(key: _storeKey, value: _currentStoreId!);
+    } else {
+      await _storage.delete(key: _storeKey);
+    }
+  }
+
+  bool addItem(Product product) {
+    final storeId = product.fkIdEndereco.toString();
+    if (_currentStoreId != null && _currentStoreId != storeId) {
+      return false;
+    }
+    if (_items.isEmpty) _currentStoreId = storeId;
+    if (getAvailableToAdd(product) <= 0) return true;
+
+    _items.update(
+      product.id,
+      (ci) => CartItem(product: ci.product, quantity: ci.quantity + 1),
+      ifAbsent: () => CartItem(product: product, quantity: 1),
     );
+    _saveCart();
+    notifyListeners();
+    return true;
   }
 
   void removeSingleItem(String productId) {
     if (!_items.containsKey(productId)) return;
-    if (_items[productId]!.quantity > 1) {
-      _items.update(
-        productId,
-        (existing) => CartItem(
-          product: existing.product,
-          quantity: existing.quantity - 1,
-        ),
-      );
+    final ci = _items[productId]!;
+    if (ci.quantity > 1) {
+      _items[productId] =
+          CartItem(product: ci.product, quantity: ci.quantity - 1);
     } else {
       _items.remove(productId);
-      // Se removeu o último item, limpa a loja
       if (_items.isEmpty) _currentStoreId = null;
     }
     _saveCart();
     notifyListeners();
-  }
-
-  int getAvailableToAdd(Product product) {
-    if (product.lote == null) return 0;
-    int loteQuantidade = 0;
-    if (product.lote is Map) {
-      loteQuantidade = int.tryParse(product.lote['quantidade'].toString()) ?? 0;
-    } else if (product.lote is Lote) {
-      loteQuantidade = (product.lote as Lote).quantidade ?? 0;
-    } else if (product.lote is String) {
-      loteQuantidade = product.quantidade ?? 0;
-    }
-    if (loteQuantidade <= 0) return 0;
-    final inCart = _items[product.id]?.quantity ?? 0;
-    return loteQuantidade - inCart;
-  }
-
-  /// Retorna true se conseguiu adicionar, false se não pôde (loja diferente)
-  bool addItem(Product product) {
-    final productStoreId = product.fkIdEndereco.toString(); // ajuste se o campo for diferente
-
-    // Bloqueia se o carrinho já tem produtos de outra loja
-    if (_currentStoreId != null && _currentStoreId != productStoreId) {
-      return false;
-    }
-
-    // Se o carrinho está vazio, define a loja
-    if (_items.isEmpty) {
-      _currentStoreId = productStoreId;
-    }
-
-    if (getAvailableToAdd(product) <= 0) return true;
-
-    if (_items.containsKey(product.id)) {
-      _items.update(
-        product.id,
-        (existing) => CartItem(
-          product: existing.product,
-          quantity: existing.quantity + 1,
-        ),
-      );
-    } else {
-      _items.putIfAbsent(
-        product.id,
-        () => CartItem(product: product, quantity: 1),
-      );
-    }
-    _saveCart();
-    notifyListeners();
-    return true;
   }
 
   void removeItem(String productId) {
@@ -125,5 +93,19 @@ class CartProvider with ChangeNotifier {
     _currentStoreId = null;
     _saveCart();
     notifyListeners();
+  }
+
+  int getAvailableToAdd(Product product) {
+    int loteQtd = 0;
+    final lote = product.lote;
+    if (lote is Map) {
+      loteQtd = int.tryParse('${lote['quantidade']}') ?? 0;
+    } else if (lote is Lote) {
+      loteQtd = lote.quantidade ?? 0;
+    } else if (lote is String) {
+      loteQtd = int.tryParse(product.quantidade?.toString() ?? '') ?? 0;
+    }
+    final inCart = _items[product.id]?.quantity ?? 0;
+    return (loteQtd - inCart).clamp(0, loteQtd);
   }
 }

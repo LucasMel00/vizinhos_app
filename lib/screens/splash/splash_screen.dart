@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vizinhos_app/screens/login/email_screen.dart';
 import 'package:vizinhos_app/screens/User/home_page_user.dart';
-import 'package:vizinhos_app/screens/onboarding/onboarding_screen.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -27,32 +25,9 @@ class _SplashScreenState extends State<SplashScreen>
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed && !_navigated) {
         _navigated = true;
-        _checkOnboardingAndAuthStatus();
+        _checkAuthStatus();
       }
     });
-  }
-
-  Future<void> _checkOnboardingAndAuthStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final onboardingComplete = prefs.getBool('onboardingComplete') ?? false;
-
-    if (!mounted) return;
-
-    if (!onboardingComplete) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => OnboardingScreen(
-  onFinish: () async {
-    await prefs.setBool('onboardingComplete', true);
-    if (mounted) _checkAuthStatus();
-  },
-)
-        ),
-      );
-    } else {
-      _checkAuthStatus();
-    }
   }
 
   void _checkAuthStatus() {

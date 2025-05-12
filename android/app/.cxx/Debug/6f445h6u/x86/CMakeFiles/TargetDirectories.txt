@@ -1,0 +1,2 @@
+C:/Users/Melo/vizinhos_app-1/android/app/.cxx/Debug/6f445h6u/x86/CMakeFiles/edit_cache.dir
+C:/Users/Melo/vizinhos_app-1/android/app/.cxx/Debug/6f445h6u/x86/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,2 @@
+C:/Users/Melo/vizinhos_app-1/android/app/.cxx/RelWithDebInfo/4z602n5b/armeabi-v7a/CMakeFiles/edit_cache.dir
+C:/Users/Melo/vizinhos_app-1/android/app/.cxx/RelWithDebInfo/4z602n5b/armeabi-v7a/CMakeFiles/rebuild_cache.dir
