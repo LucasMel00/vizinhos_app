@@ -18,6 +18,7 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
   bool isLoading = true;
   String? errorMessage;
   bool _skipDeleteConfirmation = false;
+  bool _showExpiringOnly = false;
 
   @override
   void initState() {
@@ -25,65 +26,7 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
     _loadProducts();
   }
 
-  Future<void> _toggleDisponibilidade(Product p, bool novoValor) async {
-    final auth = context.read<AuthProvider>();
-    List<String> caracteristicasIDs =
-        p.caracteristicas!.map((c) => c.id_Caracteristica).toList();
-
-    final body = {
-      'id_Produto': p.id,
-      'nome': p.nome,
-      'descricao': p.descricao,
-      'fk_id_Categoria': int.parse(p.fkIdCategoria.toString()),
-      'dias_vcto': p.diasValidade,
-      'valor_venda': p.valorVenda,
-      'valor_custo': p.valorCusto,
-      'tamanho': p.tamanho,
-      'disponivel': novoValor,
-      'caracteristicas_IDs': caracteristicasIDs,
-      'id_imagem': p.imageId,
-    };
-
-    final String url =
-        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/UpdateProduct';
-
-    try {
-      final resp = await http.put(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${auth.accessToken}',
-        },
-        body: jsonEncode(body),
-      );
-
-      if (resp.statusCode == 200) {
-        setState(() => p.disponivel = novoValor);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Produto atualizado com sucesso!'),
-            backgroundColor: AppTheme.successColor,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Erro ao atualizar produto: ${resp.statusCode} - ${resp.body}'),
-            backgroundColor: AppTheme.errorColor,
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao atualizar produto: $e'),
-          backgroundColor: AppTheme.errorColor,
-        ),
-      );
-    }
-  }
-
+  // Métodos de carregamento de dados (mantidos da versão original)
   Future<void> _loadProducts() async {
     if (!mounted) return;
 
@@ -156,26 +99,141 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
     }
   }
 
-  Future<void> _handleEditProduct(Product product) async {
-    final result = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => EditProductScreen(product: product),
-      ),
-    );
+  // Métodos auxiliares (mantidos da versão original)
+  void _toggleExpiringFilter() {
+    setState(() {
+      _showExpiringOnly = !_showExpiringOnly;
+    });
+  }
 
-    if (result == true) {
-      await _loadProducts();
+  List<Product> _getFilteredProducts() {
+    if (!_showExpiringOnly) return products;
+
+    return products.where((p) {
+      final status = _getExpirationStatus(p);
+      return status['status'] == 'expiring' || status['status'] == 'expired';
+    }).toList();
+  }
+
+  Map<String, dynamic> _getExpirationStatus(Product product) {
+    if (product.dataFabricacao == null || product.diasValidade <= 0) {
+      return {'status': 'none'};
+    }
+
+    final expirationDate =
+        product.dataFabricacao!.add(Duration(days: product.diasValidade));
+    final daysUntilExpiration =
+        expirationDate.difference(DateTime.now()).inDays;
+
+    if (daysUntilExpiration < 0) {
+      return {'status': 'expired', 'days': daysUntilExpiration};
+    } else if (daysUntilExpiration <= 3) {
+      return {'status': 'expiring', 'days': daysUntilExpiration};
+    }
+    return {'status': 'valid'};
+  }
+
+  // Métodos de ação (mantidos da versão original)
+  Future<void> _toggleDisponibilidade(Product p, bool novoValor) async {
+    final auth = context.read<AuthProvider>();
+    List<String> caracteristicasIDs =
+        p.caracteristicas!.map((c) => c.id_Caracteristica).toList();
+
+    final body = {
+      'id_Produto': p.id,
+      'nome': p.nome,
+      'descricao': p.descricao,
+      'fk_id_Categoria': int.parse(p.fkIdCategoria.toString()),
+      'dias_vcto': p.diasValidade,
+      'valor_venda': p.valorVenda,
+      'valor_custo': p.valorCusto,
+      'tamanho': p.tamanho,
+      'disponivel': novoValor,
+      'caracteristicas_IDs': caracteristicasIDs,
+      'id_imagem': p.imageId,
+    };
+
+    final String url =
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/UpdateProduct';
+
+    try {
+      final resp = await http.put(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${auth.accessToken}',
+        },
+        body: jsonEncode(body),
+      );
+
+      if (resp.statusCode == 200) {
+        setState(() => p.disponivel = novoValor);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Produto atualizado com sucesso!'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Erro ao atualizar produto: ${resp.statusCode} - ${resp.body}'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao atualizar produto: $e'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
     }
   }
 
-  Future<void> _handleCreateProduct() async {
-    final result = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(builder: (_) => CreateProductScreen()),
-    );
-    if (result == true) {
-      await _loadProducts();
+  Future<void> _swapToDiscountPrice(Product product) async {
+    final auth = context.read<AuthProvider>();
+    final url =
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/UpdateProductPrice';
+
+    try {
+      final response = await http.put(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${auth.accessToken}',
+        },
+        body: jsonEncode({
+          'id_Produto': product.id,
+          'valor_venda': product.valorVendaDesc,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        await _loadProducts();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Preço atualizado para o valor de desconto!'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao atualizar preço: ${response.body}'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao atualizar preço: $e'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
     }
   }
 
@@ -278,6 +336,30 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
     }
   }
 
+  Future<void> _handleEditProduct(Product product) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditProductScreen(product: product),
+      ),
+    );
+
+    if (result == true) {
+      await _loadProducts();
+    }
+  }
+
+  Future<void> _handleCreateProduct() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => CreateProductScreen()),
+    );
+    if (result == true) {
+      await _loadProducts();
+    }
+  }
+
+  // UI Refatorada
   @override
   Widget build(BuildContext context) {
     return Theme(
@@ -285,19 +367,28 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
       child: Scaffold(
         appBar: AppBar(
           title: Text('Meus Produtos'),
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
+          actions: [
+            IconButton(
+              icon: Icon(_showExpiringOnly 
+                ? Icons.filter_alt 
+                : Icons.filter_alt_outlined),
+              onPressed: _toggleExpiringFilter,
+              tooltip: _showExpiringOnly 
+                ? 'Mostrar todos os produtos' 
+                : 'Filtrar por validade',
+            
+            ),
+          ],
         ),
         body: _buildBody(),
         floatingActionButton: FloatingActionButton(
           backgroundColor: AppTheme.primaryColor,
           child: Icon(Icons.add, color: Colors.white),
           onPressed: _handleCreateProduct,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
         ),
+      ),
       ),
     );
   }
@@ -311,146 +402,81 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
       );
     }
 
+    final filteredProducts = _getFilteredProducts();
+
     if (errorMessage != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.error_outline,
-                size: 48,
-                color: AppTheme.errorColor,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Erro ao carregar produtos',
-                style: AppTheme.subheadingStyle
-                    .copyWith(color: AppTheme.errorColor),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                errorMessage!,
-                style: AppTheme.secondaryTextStyle,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: _loadProducts,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Tentar novamente'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return _buildErrorState();
     }
 
-    if (products.isEmpty) {
-      return Center(
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.inventory_2_outlined,
-                  size: 64,
-                  color: AppTheme.primaryColor,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Nenhum produto cadastrado',
-                style: AppTheme.headingStyle.copyWith(
-                  fontSize: 22,
-                  color: AppTheme.textPrimaryColor,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Você ainda não possui produtos cadastrados. Adicione seu primeiro produto para começar a vender!',
-                style: AppTheme.secondaryTextStyle.copyWith(fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                onPressed: _handleCreateProduct,
-                icon: const Icon(Icons.add),
-                label: const Text('Adicionar primeiro produto'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+    if (filteredProducts.isEmpty) {
+      return _buildEmptyState();
     }
 
     return RefreshIndicator(
       onRefresh: _loadProducts,
       color: AppTheme.primaryColor,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: products.length,
-        itemBuilder: (context, index) {
-          final p = products[index];
-          return _buildProductCard(p);
-        },
+      child: ListView(
+        padding: EdgeInsets.all(16),
+        children: [
+          if (_showExpiringOnly) _buildExpiringHeader(),
+          ...filteredProducts.map((product) => 
+            _buildProductCard(product)).toList(),
+        ],
       ),
     );
   }
 
-  Widget _buildProductCard(Product p) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 3,
+  Widget _buildExpiringHeader() {
+    return Container(
+      padding: EdgeInsets.all(12),
+      margin: EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.orange[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange[200]!),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: Colors.orange[800]),
+          SizedBox(width: 8),
+          Text('Produtos próximos da validade',
+              style: TextStyle(
+                color: Colors.orange[800],
+                fontWeight: FontWeight.w500,
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildProductImage(p),
-                const SizedBox(width: 16),
-                _buildProductInfo(p),
-                _buildEditButton(p),
-                _buildDeleteButton(p),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Divider(height: 1),
-            const SizedBox(height: 12),
-            _buildPriceAndAvailabilityRow(p),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _buildCategoryChip(p),
-                const SizedBox(width: 8),
-                if (p.caracteristicas!.isNotEmpty)
-                  Expanded(child: _buildCharacteristicsDisplay(p)),
-              ],
+            Icon(Icons.error_outline, size: 48, color: AppTheme.errorColor),
+            SizedBox(height: 16),
+            Text('Erro ao carregar produtos',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.errorColor,
+                )),
+            SizedBox(height: 8),
+            Text(errorMessage!,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[600])),
+            SizedBox(height: 24),
+            ElevatedButton.icon(
+              icon: Icon(Icons.refresh),
+              label: Text('Tentar novamente'),
+              onPressed: _loadProducts,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+              ),
             ),
           ],
         ),
@@ -458,19 +484,274 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
     );
   }
 
-  Widget _buildProductImage(Product p) {
-    return Container(
-      width: 70,
-      height: 70,
-      decoration: BoxDecoration(
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _showExpiringOnly 
+                ? Icons.event_available 
+                : Icons.inventory_2_outlined,
+              size: 48,
+              color: Colors.grey[400],
+            ),
+            SizedBox(height: 16),
+            Text(
+              _showExpiringOnly
+                  ? 'Nenhum produto próximo da validade'
+                  : 'Nenhum produto cadastrado',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[600],
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              _showExpiringOnly
+                  ? 'Todos os seus produtos estão com a validade em dia'
+                  : 'Clique no botão + para adicionar seu primeiro produto',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[500]),
+            ),
+            SizedBox(height: 24),
+            if (_showExpiringOnly)
+              TextButton(
+                onPressed: _toggleExpiringFilter,
+                child: Text('Mostrar todos os produtos'),
+              )
+            else
+              ElevatedButton.icon(
+                icon: Icon(Icons.add),
+                label: Text('Adicionar produto'),
+                onPressed: _handleCreateProduct,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductCard(Product product) {
+    final status = _getExpirationStatus(product);
+    final isExpired = status['status'] == 'expired';
+    final isExpiring = status['status'] == 'expiring';
+    final hasDiscount = product.valorVendaDesc > 0 && 
+                       product.valorVendaDesc < product.valorVenda;
+
+    return Card(
+      margin: EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        color: AppTheme.backgroundColor,
+        side: isExpired 
+          ? BorderSide(color: Colors.red[300]!, width: 1.5)
+          : BorderSide.none,
+      ),
+      elevation: 2,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _handleEditProduct(product),
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header com imagem e título
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildProductImage(product),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                product.nome,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            if (isExpiring || isExpired)
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isExpired 
+                                    ? Colors.red[100] 
+                                    : Colors.orange[100],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  isExpired 
+                                    ? 'EXPIRADO' 
+                                    : 'VENCE EM ${status['days']} DIA${status['days'] == 1 ? '' : 'S'}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: isExpired 
+                                      ? Colors.red[800] 
+                                      : Colors.orange[800],
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          product.descricao,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 12),
+
+              // Detalhes do produto
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                children: [
+                  _buildDetailChip(
+                    icon: Icons.inventory_2_outlined,
+                    label: 'Estoque: ${product.quantidade ?? 0}',
+                  ),
+                  if (product.dataFabricacao != null)
+                    _buildDetailChip(
+                      icon: Icons.calendar_today_outlined,
+                      label: 'Fab: ${_formatDate(product.dataFabricacao)}',
+                    ),
+                  _buildDetailChip(
+                    icon: Icons.category_outlined,
+                    label: product.categoria,
+                  ),
+                ],
+              ),
+              SizedBox(height: 12),
+
+              // Preço e desconto
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (hasDiscount)
+                    Text(
+                      'De: R\$ ${product.valorVenda.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        decoration: TextDecoration.lineThrough,
+                        color: Colors.grey,
+                        fontSize: 14,
+                      ),
+                    ),
+                  Row(
+                    children: [
+                      Text(
+                        'Por: R\$ ${hasDiscount 
+                          ? product.valorVendaDesc.toStringAsFixed(2) 
+                          : product.valorVenda.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                      if (hasDiscount)
+                        Container(
+                          margin: EdgeInsets.only(left: 8),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green[50],
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.green[100]!),
+                          ),
+                          child: Text(
+                            '${((product.valorVenda - product.valorVendaDesc) / product.valorVenda * 100).toStringAsFixed(0)}% OFF',
+                            style: TextStyle(
+                              color: Colors.green[800],
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (hasDiscount)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        icon: Icon(Icons.discount_outlined, size: 18),
+                        label: Text('Aplicar desconto'),
+                        onPressed: () => _swapToDiscountPrice(product),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.green[800],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              SizedBox(height: 8),
+
+              // Disponibilidade e ações
+              Divider(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Disponível para venda',
+                    style: TextStyle(
+                      color: Colors.grey[700],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Switch.adaptive(
+                    value: product.disponivel,
+                    onChanged: (value) => _toggleDisponibilidade(product, value),
+                    activeColor: AppTheme.successColor,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductImage(Product product) {
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        color: Colors.grey[200],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: p.imagemUrl != null && p.imagemUrl!.isNotEmpty
+        borderRadius: BorderRadius.circular(8),
+        child: product.imagemUrl != null && product.imagemUrl!.isNotEmpty
             ? Image.network(
-                p.imagemUrl!,
+                product.imagemUrl!,
                 fit: BoxFit.cover,
                 loadingBuilder: (context, child, loadingProgress) {
                   if (loadingProgress == null) return child;
@@ -485,150 +766,44 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
                   );
                 },
                 errorBuilder: (context, error, stackTrace) {
-                  return Icon(Icons.broken_image_outlined,
-                      color: AppTheme.textSecondaryColor, size: 35);
+                  return Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.grey[400],
+                    size: 30,
+                  );
                 },
               )
-            : Icon(Icons.image_outlined,
-                color: AppTheme.textSecondaryColor, size: 35),
+            : Icon(
+                Icons.image_outlined,
+                color: Colors.grey[400],
+                size: 30,
+              ),
       ),
     );
   }
 
-  Widget _buildProductInfo(Product p) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildDetailChip({required IconData icon, required String label}) {
+    return Chip(
+      labelPadding: EdgeInsets.zero,
+      padding: EdgeInsets.symmetric(horizontal: 6),
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            p.nome,
-            style: AppTheme.cardTitleStyle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            p.descricao,
-            style: AppTheme.secondaryTextStyle,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 6),
-          Row(children: [
-            Icon(Icons.inventory_2_outlined,
-                size: 14, color: AppTheme.textSecondaryColor),
-            SizedBox(width: 4),
-            Text(
-              'Estoque: ${p.quantidade ?? 'N/A'}',
-              style: AppTheme.captionStyle,
-            ),
-          ]),
-          if (p.dataFabricacao != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 4.0),
-              child: Row(children: [
-                Icon(Icons.calendar_today_outlined,
-                    size: 14, color: AppTheme.textSecondaryColor),
-                SizedBox(width: 4),
-                Text(
-                  'Fab: ${p.dataFabricacao!.day.toString().padLeft(2, '0')}/'
-                  '${p.dataFabricacao!.month.toString().padLeft(2, '0')}/'
-                  '${p.dataFabricacao!.year}',
-                  style: AppTheme.captionStyle,
-                ),
-              ]),
-            ),
+          Icon(icon, size: 14, color: Colors.grey[600]),
+          SizedBox(width: 4),
+          Text(label, style: TextStyle(fontSize: 12)),
         ],
       ),
+      backgroundColor: Colors.grey[100],
+      side: BorderSide.none,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
     );
   }
 
-  Widget _buildEditButton(Product p) {
-    return IconButton(
-      icon: Icon(Icons.edit_outlined, color: AppTheme.primaryColor),
-      onPressed: () => _handleEditProduct(p),
-      tooltip: 'Editar Produto',
-    );
-  }
-
-  Widget _buildDeleteButton(Product p) {
-    return IconButton(
-      icon: Icon(Icons.delete_outline, color: AppTheme.errorColor),
-      tooltip: 'Deletar Produto',
-      onPressed: () => _confirmDeleteProduct(p),
-    );
-  }
-
-  Widget _buildPriceAndAvailabilityRow(Product p) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'R\$ ${p.valorVenda.toStringAsFixed(2)}',
-              style:
-                  AppTheme.cardTitleStyle.copyWith(fontWeight: FontWeight.bold),
-            ),
-            if (p.valorVendaDesc != p.valorVenda && p.valorVendaDesc > 0)
-              Text(
-                'Oferta: R\$ ${p.valorVendaDesc.toStringAsFixed(2)}',
-                style: AppTheme.cardTitleStyle
-                    .copyWith(fontWeight: FontWeight.normal, fontSize: 15),
-              ),
-          ],
-        ),
-        Row(
-          children: [
-            Text(
-              p.disponivel ? 'Disponível' : 'Indisponível',
-              style: TextStyle(
-                color:
-                    p.disponivel ? AppTheme.successColor : AppTheme.errorColor,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            SizedBox(width: 4),
-            Switch(
-              value: p.disponivel,
-              onChanged: (value) => _toggleDisponibilidade(p, value),
-              activeColor: AppTheme.successColor,
-              inactiveThumbColor: AppTheme.textSecondaryColor,
-              inactiveTrackColor: AppTheme.textSecondaryColor.withOpacity(0.3),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCategoryChip(Product p) {
-    return Chip(
-      label: Text(p.categoria),
-      backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-      labelStyle: TextStyle(color: AppTheme.primaryColor, fontSize: 12),
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      visualDensity: VisualDensity.compact,
-    );
-  }
-
-  Widget _buildCharacteristicsDisplay(Product p) {
-    return Wrap(
-      spacing: 6.0,
-      runSpacing: 4.0,
-      children: p.caracteristicas!.map((characteristic) {
-        return Chip(
-          label: Text(characteristic.descricao),
-          backgroundColor:
-              const Color.fromARGB(255, 233, 186, 69).withOpacity(0.1),
-          labelStyle: TextStyle(
-              color: const Color.fromARGB(255, 0, 0, 0), fontSize: 12),
-          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          visualDensity: VisualDensity.compact,
-        );
-      }).toList(),
-    );
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'N/A';
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 }
