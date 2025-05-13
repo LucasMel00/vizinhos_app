@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart'; // Para formatação de data
 import 'package:provider/provider.dart';
+import 'package:vizinhos_app/services/app_theme.dart';
 import '../model/product.dart'; // Assume que Product (com campos do lote) e Characteristic estão aqui
 // Não precisa importar Lote separadamente se os campos estão em Product
 import '../../services/auth_provider.dart';
@@ -403,16 +404,22 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Editar Produto e Lote'), // Título ajustado
-        backgroundColor: Colors.white,
+        title: const Text(
+          'Editar Produto e Lote',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold, // Deixa o título em bold
+          ),
+        ),
+        backgroundColor: AppTheme.primaryColor,
         elevation: 0.5,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: primaryColor),
+          icon: Icon(Icons.arrow_back, color: const Color.fromARGB(255, 255, 255, 255)),
           onPressed: () => Navigator.pop(context),
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(2),
-          child: Container(color: primaryColor, height: 2),
+          child: Container(color: const Color.fromARGB(255, 255, 255, 255), height: 2),
         ),
       ),
       body: Stack(

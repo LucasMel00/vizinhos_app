@@ -389,6 +389,7 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
             borderRadius: BorderRadius.circular(16),
         ),
       ),
+
       ),
     );
   }

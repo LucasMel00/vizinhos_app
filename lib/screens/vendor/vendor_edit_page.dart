@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:vizinhos_app/screens/User/user_account_page.dart';
+import 'package:vizinhos_app/services/app_theme.dart';
 
 class VendorEditPage extends StatefulWidget {
   final Map<String, dynamic> userInfo;
@@ -182,7 +183,7 @@ class _VendorEditPageState extends State<VendorEditPage> {
         title: const Text('Editar Loja'),
         backgroundColor: primaryColor,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: const IconThemeData(color: AppTheme.primaryColor),
       ),
       body: Stack(
         children: [
