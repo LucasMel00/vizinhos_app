@@ -3,7 +3,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:provider/provider.dart';
-
+import 'package:vizinhos_app/screens/provider/notification_provider.dart'; // Importar NotificationProvider
+import 'package:vizinhos_app/notifications_screen.dart'; // Importar NotificationsScreen
 import 'package:vizinhos_app/screens/splash/splash_screen.dart';
 import 'package:vizinhos_app/screens/cart/cart_screen.dart';
 import 'package:vizinhos_app/screens/provider/cart_provider.dart';
@@ -19,13 +20,16 @@ final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   print('🔔 Notificação recebida em segundo plano: ${message.messageId}');
+  // NOTA: Adicionar notificações ao SharedPreferences aqui para serem carregadas pelo Provider depois
+  // Esta parte requer uma implementação cuidadosa para comunicação entre isolates ou acesso direto ao SharedPreferences.
+  // Por simplicidade e foco no pedido principal, esta parte não será completamente implementada aqui.
+  // O ideal seria ter uma forma de o NotificationProvider ser notificado ou recarregar.
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
 
-  // Inicialização do flutter_local_notifications
   const AndroidInitializationSettings initializationSettingsAndroid =
       AndroidInitializationSettings('@mipmap/ic_launcher');
 
@@ -34,7 +38,6 @@ void main() async {
 
   await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
-  // Configura o handler para mensagens em background
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   runApp(
@@ -43,6 +46,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => OrdersProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()), 
       ],
       child: const MyApp(),
     ),
@@ -66,14 +70,11 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> _setupFCM() async {
-    // Solicita permissões no iOS
     await _messaging.requestPermission();
 
-    // Obtém e imprime o token do dispositivo
     final token = await _messaging.getToken();
     print('📲 FCM Token: $token');
 
-    // Quando o app está em primeiro plano
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       print('📩 Mensagem recebida em foreground: ${message.notification?.title}');
 
@@ -81,9 +82,13 @@ class _MyAppState extends State<MyApp> {
       AndroidNotification? android = message.notification?.android;
 
       if (notification != null && android != null) {
+        if (mounted) {
+            Provider.of<NotificationProvider>(context, listen: false).addNotification(notification.title ?? 'Sem Título', notification.body ?? 'Sem Conteúdo');
+        }
+
         const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-          'default_channel_id', // id do canal
-          'Notificações padrão', // nome do canal
+          'default_channel_id',
+          'Notificações padrão',
           channelDescription: 'Este canal é usado para notificações padrão.',
           importance: Importance.max,
           priority: Priority.high,
@@ -98,15 +103,23 @@ class _MyAppState extends State<MyApp> {
           notification.title,
           notification.body,
           platformDetails,
-          payload: 'item x', // opcional: payload para ação na notificação
+          payload: message.data['screen'], 
         );
       }
     });
 
-    // Quando o usuário clica em uma notificação (app aberto pelo clique)
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       print('📬 Notificação clicada: ${message.notification?.title}');
-      // Navegue para a tela desejada aqui se quiser
+      final notification = message.notification;
+      if (notification != null) {
+          // O context não está disponível aqui diretamente se o app foi aberto do zero.
+          // A lógica de adicionar notificação já está no onMessage e o provider carrega do storage.
+          // Se precisar de navegação específica ao abrir, usar message.data.
+      }
+      // Exemplo de navegação se a notificação tiver um payload 'screen'
+      // if (message.data['screen'] != null) {
+      //   Navigator.of(context).pushNamed(message.data['screen']);
+      // }
     });
   }
 
@@ -130,7 +143,9 @@ class _MyAppState extends State<MyApp> {
       home: const SplashScreen(),
       routes: {
         CartScreen.routeName: (ctx) => const CartScreen(),
+        NotificationsScreen.routeName: (ctx) => const NotificationsScreen(), // Rota para NotificationsScreen
       },
     );
   }
 }
+

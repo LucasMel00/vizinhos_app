@@ -127,6 +127,8 @@ class AuthProvider with ChangeNotifier {
             _userInfo['custom:is_seller']?.toString().toLowerCase() == 'true';
       }
 
+      
+
       _isAuthenticated = true;
       print('AuthProvider: login bem-sucedido, notificando listeners');
       notifyListeners();

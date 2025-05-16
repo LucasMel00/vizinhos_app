@@ -3,6 +3,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vizinhos_app/screens/provider/notification_provider.dart'; // Importar NotificationProvider
+import 'package:vizinhos_app/notifications_screen.dart'; // Importar NotificationsScreen
 import 'package:vizinhos_app/screens/User/user_account_page.dart';
 import 'package:vizinhos_app/screens/User/user_profile_page.dart';
 import 'package:vizinhos_app/screens/model/restaurant.dart';
@@ -13,7 +15,6 @@ import 'package:vizinhos_app/screens/search/search_page.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shimmer/shimmer.dart'; // Import shimmer for loading effect
-import 'package:provider/provider.dart'; // Import Provider
 import 'package:vizinhos_app/screens/provider/cart_provider.dart'; // Import CartProvider
 import 'package:vizinhos_app/screens/cart/cart_screen.dart'; // Import CartScreen
 
@@ -26,6 +27,7 @@ const Color primaryTextColor = Color(0xFF333333);
 const Color secondaryTextColor = Color(0xFF666666); // Slightly darker grey
 
 class HomePage extends StatefulWidget {
+  static const routeName = '/home';
   @override
   _HomePageState createState() => _HomePageState();
 }
@@ -46,6 +48,7 @@ class _HomePageState extends State<HomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _loadData();
+        Provider.of<NotificationProvider>(context, listen: false).loadNotifications(); // Corrigido
       }
     });
   }
@@ -53,15 +56,14 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadData() async {
     if (!mounted) return;
     setState(() {
-      _isLoading = true; // Set loading true when starting
+      _isLoading = true;
     });
     try {
       await fetchUserInfo();
-      // Fetch restaurants after user info
       final restaurants = await fetchRestaurants();
       if (mounted) {
         setState(() {
-          futureRestaurants = Future.value(restaurants); // Assign fetched data
+          futureRestaurants = Future.value(restaurants);
           _isLoading = false;
         });
       }
@@ -75,11 +77,10 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  
-
   Future<void> _refresh() async {
     if (!mounted) return;
-    await _loadData(); // Reload all data on refresh
+    await _loadData();
+    await Provider.of<NotificationProvider>(context, listen: false).loadNotifications(); // Corrigido
   }
 
   Future<void> fetchUserInfo() async {
@@ -115,7 +116,6 @@ class _HomePageState extends State<HomePage> {
         }
       } else {
         print("Erro fetchUserInfo HTTP: ${response.statusCode}");
-        // Handle error display more gracefully if needed
       }
     } catch (e) {
       print("Erro fetchUserInfo: $e");
@@ -133,10 +133,9 @@ class _HomePageState extends State<HomePage> {
 
     if (email == null) {
       print("Email não disponível para fetchRestaurants");
-      return []; // Return empty if no email
+      return [];
     }
 
-    // Assuming GetNearStores is the correct endpoint for the list
     final url = Uri.parse(
       'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetNearStores?email=$email',
     );
@@ -145,32 +144,34 @@ class _HomePageState extends State<HomePage> {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
-        // Ensure 'lojas' key exists and is a list
         List<dynamic> lojasJson = (jsonResponse is Map && jsonResponse.containsKey('lojas') && jsonResponse['lojas'] is List)
             ? jsonResponse['lojas']
             : [];
         return lojasJson.map((json) => Restaurant.fromJson(json)).toList();
       } else {
         print('Erro HTTP fetchRestaurants: ${response.statusCode}');
-        return []; // Return empty on HTTP error
+        return [];
       }
     } catch (e) {
       print('[ERRO] fetchRestaurants: $e');
-      return []; // Return empty on general error
+      return [];
     }
   }
 
   Future<void> _onNavItemTapped(int index) async {
-    // Prevent navigation if already on the selected tab (index 0 = Home)
-    if (index == _selectedIndex) return;
+    if (index == _selectedIndex && index != 0) return;
 
     setState(() {
       _selectedIndex = index;
     });
 
     switch (index) {
-      case 0: // Home - Do nothing or refresh
-        _refresh(); // Example: Refresh home page
+      case 0: // Home
+        if (ModalRoute.of(context)?.settings.name != HomePage.routeName) {
+          Navigator.pushReplacementNamed(context, HomePage.routeName);
+        } else {
+          _refresh();
+        }
         break;
       case 1: // Search
         Navigator.pushReplacement(
@@ -196,7 +197,7 @@ class _HomePageState extends State<HomePage> {
                 userInfo: userInfo ?? {},
               ),
             ),
-          );
+          ).then((_) => setState(() => _selectedIndex = 0));
         } else {
           final result = await Navigator.push(
             context,
@@ -214,7 +215,7 @@ class _HomePageState extends State<HomePage> {
                   userInfo: userInfo ?? {},
                 ),
               ),
-            );
+            ).then((_) => setState(() => _selectedIndex = 0));
           }
         }
         break;
@@ -225,12 +226,10 @@ class _HomePageState extends State<HomePage> {
     required BuildContext context,
     required Restaurant restaurant,
   }) {
-    // Construct image URL if only id_Imagem (imageString) is available
-    String? displayImageUrl = restaurant.imagemUrl; // Prefer the full URL if available
+    String? displayImageUrl = restaurant.imagemUrl;
     if ((displayImageUrl == null || displayImageUrl.isEmpty) &&
         restaurant.imageString != null &&
         restaurant.imageString!.isNotEmpty) {
-      // Remove leading slash if present before concatenating
       String imageName = restaurant.imageString!;
       if (imageName.startsWith("/")) {
         imageName = imageName.substring(1);
@@ -243,35 +242,32 @@ class _HomePageState extends State<HomePage> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            // Pass only the ID to the detail page
             builder: (context) => RestaurantDetailPage(restaurantId: restaurant.idEndereco),
           ),
         );
       },
       child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // Slightly less rounded
-        elevation: 2, // Softer elevation
-        shadowColor: Colors.black.withOpacity(0.1), // Softer shadow color
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 2,
+        shadowColor: Colors.black.withOpacity(0.1),
         color: cardBackgroundColor,
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start, // Align items to the top
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(8), // Consistent rounding
-                // Use the constructed or provided displayImageUrl
+                borderRadius: BorderRadius.circular(8),
                 child: (displayImageUrl != null && displayImageUrl.isNotEmpty)
                     ? Image.network(
                         displayImageUrl,
-                        height: 72, // Slightly smaller image
+                        height: 72,
                         width: 72,
                         fit: BoxFit.cover,
-                        // More robust error handling for images
                         errorBuilder: (context, error, stackTrace) {
                           print("Error loading image: $displayImageUrl, Error: $error");
-                          return _buildDefaultImage(height: 72, width: 72); // Show default on error
+                          return _buildDefaultImage(height: 72, width: 72);
                         },
                         loadingBuilder: (context, child, loadingProgress) {
                           if (loadingProgress == null) return child;
@@ -286,13 +282,13 @@ class _HomePageState extends State<HomePage> {
                                         loadingProgress.expectedTotalBytes!
                                     : null,
                                 strokeWidth: 2,
-                                color: primaryColor, // Use primary color for indicator
+                                color: primaryColor,
                                ),
                              ),
                           );
                         },
                       )
-                    : _buildDefaultImage(height: 72, width: 72), // Show default if no URL
+                    : _buildDefaultImage(height: 72, width: 72),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -302,8 +298,8 @@ class _HomePageState extends State<HomePage> {
                     Text(
                       restaurant.name,
                       style: const TextStyle(
-                          fontSize: 15, // Slightly smaller title
-                          fontWeight: FontWeight.w600, // Medium weight
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
                           color: primaryTextColor),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -312,7 +308,7 @@ class _HomePageState extends State<HomePage> {
                     Text(
                       restaurant.descricao,
                       style: const TextStyle(fontSize: 12, color: secondaryTextColor),
-                      maxLines: 1, // Show less description initially
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 6),
@@ -352,7 +348,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildDefaultImage({double height = 80, double width = 80}) {
-    // Ensure the default asset image exists in your project
     return Image.asset(
       'assets/images/default_restaurant_image.jpg',
       height: height,
@@ -366,7 +361,7 @@ class _HomePageState extends State<HomePage> {
       baseColor: Colors.grey[300]!,
       highlightColor: Colors.grey[100]!,
       child: ListView.builder(
-        itemCount: 5, // Show a few skeleton items
+        itemCount: 5,
         itemBuilder: (context, index) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -377,7 +372,7 @@ class _HomePageState extends State<HomePage> {
                   height: 72,
                   width: 72,
                   decoration: BoxDecoration(
-                    color: Colors.white, // Placeholder color for shimmer
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
@@ -406,7 +401,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Get user address safely
     String userAddress = 'Carregando endereço...';
     if (userInfo != null && userInfo!['endereco'] != null) {
       final endereco = userInfo!['endereco'];
@@ -414,12 +408,12 @@ class _HomePageState extends State<HomePage> {
     }
 
     return WillPopScope(
-      onWillPop: () async => false, // Prevent back navigation from home
+      onWillPop: () async => false,
       child: Scaffold(
-        backgroundColor: backgroundColor, // Apply background color
+        backgroundColor: backgroundColor,
         body: RefreshIndicator(
           onRefresh: _refresh,
-          color: primaryColor, // Indicator color
+          color: primaryColor,
           child: NestedScrollView(
             headerSliverBuilder: (context, innerBoxIsScrolled) => [
               SliverAppBar(
@@ -439,11 +433,50 @@ class _HomePageState extends State<HomePage> {
                 pinned: true,
                 floating: true,
                 snap: true,
-                elevation: 2, // Subtle elevation
-                forceElevated: innerBoxIsScrolled, // Show elevation when scrolled
+                elevation: 2,
+                forceElevated: innerBoxIsScrolled,
                 automaticallyImplyLeading: false,
                 backgroundColor: primaryColor,
                 actions: [
+                  // Notification Icon Button
+                  Consumer<NotificationProvider>(
+                    builder: (ctx, notificationProvider, child) => Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.notifications_outlined, color: Colors.white),
+                          tooltip: 'Notificações',
+                          onPressed: () {
+                            Navigator.of(context).pushNamed(NotificationsScreen.routeName);
+                          },
+                        ),
+                        if (notificationProvider.unreadNotificationsCount > 0)
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              padding: EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              constraints: BoxConstraints(
+                                minWidth: 16,
+                                minHeight: 16,
+                              ),
+                              child: Text(
+                                '${notificationProvider.unreadNotificationsCount}',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                   // Cart Icon Button
                   Consumer<CartProvider>(
                     builder: (ctx, cart, child) => Stack(
@@ -487,7 +520,7 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
             body: _isLoading
-                ? _buildSkeletonLoading() // Show shimmer skeleton while loading
+                ? _buildSkeletonLoading()
                 : FutureBuilder<List<Restaurant>>(
                     future: futureRestaurants,
                     builder: (context, snapshot) {
@@ -516,16 +549,14 @@ class _HomePageState extends State<HomePage> {
                           ),
                         );
                       } else {
-                        // Use ListView.builder for performance
                         return ListView.builder(
-                          padding: EdgeInsets.only(top: 8, bottom: 80), // Adjust bottom padding for nav bar
+                          padding: EdgeInsets.only(top: 8, bottom: 80),
                           itemCount: snapshot.data!.length,
                           itemBuilder: (context, index) {
                             final store = snapshot.data![index];
-                            // Add subtle animation to cards
                             return AnimatedOpacity(
-                              duration: Duration(milliseconds: 300 + (index * 50)), // Staggered animation
-                              opacity: 1.0, // Assuming initial opacity is 1.0
+                              duration: Duration(milliseconds: 300 + (index * 50)),
+                              opacity: 1.0,
                               child: _buildRestaurantCard(
                                 context: context,
                                 restaurant: store,
@@ -543,7 +574,7 @@ class _HomePageState extends State<HomePage> {
           child: Container(
             height: 60,
             decoration: BoxDecoration(
-              color: const Color(0xFFFbbc2c), // Same color as the app bar
+              color: const Color(0xFFFbbc2c),
               borderRadius: BorderRadius.circular(30),
               boxShadow: [
           BoxShadow(
@@ -565,7 +596,6 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       )
-
     );
   }
 
@@ -573,7 +603,7 @@ class _HomePageState extends State<HomePage> {
     bool isSelected = index == _selectedIndex;
     return InkWell(
       onTap: () => _onNavItemTapped(index),
-      borderRadius: BorderRadius.circular(20), // Rounded tap area
+      borderRadius: BorderRadius.circular(20),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 12.0),
         child: Column(
@@ -599,3 +629,4 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
+
