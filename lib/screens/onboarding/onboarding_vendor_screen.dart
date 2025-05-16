@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'mercado_pago_key_screen.dart'; // Import the new screen
 
 class VendorOnboardingScreen extends StatefulWidget {
   final VoidCallback? onContinue;
@@ -19,11 +20,15 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen> {
 
   void _finish() async {
     await _savePreference();
-    if (widget.onContinue != null) {
-      widget.onContinue!();
-    } else {
-      Navigator.of(context).pop(true);
-    }
+    // Navigate to MercadoPagoKeyScreen.
+    // The onFinish callback of MercadoPagoKeyScreen will be the original onContinue
+    // of VendorOnboardingScreen.
+    // Using pushReplacement ensures VendorOnboardingScreen is removed from the stack.
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => MercadoPagoKeyScreen(onFinish: widget.onContinue),
+      ),
+    );
   }
 
   @override
@@ -180,3 +185,4 @@ class _VendorOnboardingScreenState extends State<VendorOnboardingScreen> {
     );
   }
 }
+

@@ -183,7 +183,7 @@ class _VendorEditPageState extends State<VendorEditPage> {
         title: const Text('Editar Loja'),
         backgroundColor: primaryColor,
         elevation: 0,
-        iconTheme: const IconThemeData(color: AppTheme.primaryColor),
+        iconTheme: const IconThemeData(color: Color.fromARGB(255, 240, 240, 240)),
       ),
       body: Stack(
         children: [
@@ -205,7 +205,7 @@ class _VendorEditPageState extends State<VendorEditPage> {
                         Text(
                           'Alterar imagem',
                           style: TextStyle(
-                            color: primaryColor,
+                            color: AppTheme.primaryColor,
                             decoration: TextDecoration.underline,
                           ),
                         ),
@@ -277,7 +277,7 @@ class _VendorEditPageState extends State<VendorEditPage> {
                   child: ElevatedButton(
                     onPressed: isLoading ? null : saveData,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
+                      backgroundColor: AppTheme.primaryColor,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -291,6 +291,7 @@ class _VendorEditPageState extends State<VendorEditPage> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
                           ),
                   ),

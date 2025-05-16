@@ -586,6 +586,11 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
                                 ),
                               ),
                             ),
+                               IconButton(
+                icon: Icon(Icons.delete_outline, color: Colors.red[400]),
+                tooltip: 'Apagar produto',
+                onPressed: () => _confirmDeleteProduct(product),
+              ),
                             if (isExpiring || isExpired)
                               Container(
                                 padding: EdgeInsets.symmetric(

@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
 import 'package:vizinhos_app/screens/model/product.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_edit_page.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_orders_page.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_products_page.dart';
 import 'package:vizinhos_app/services/app_theme.dart';
+import 'package:vizinhos_app/screens/onboarding/mercado_pago_key_screen.dart'; // Import MercadoPagoKeyScreen to navigate
 
 class VendorAccountPage extends StatefulWidget {
   final Map<String, dynamic> userInfo;
@@ -16,7 +18,7 @@ class VendorAccountPage extends StatefulWidget {
   _VendorAccountPageState createState() => _VendorAccountPageState();
 }
 
-class _VendorAccountPageState extends State<VendorAccountPage> {
+class _VendorAccountPageState extends State<VendorAccountPage> with WidgetsBindingObserver { // Add WidgetsBindingObserver
   late Map<String, dynamic> _currentUserInfo = widget.userInfo;
   late final String _userId;
 
@@ -27,14 +29,50 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
   bool _isProductsLoading = true;
 
   bool _infoExpanded = true;
+  bool _mercadoPagoKeySkipped = false; // State variable for Mercado Pago key status
+  static const String mercadoPagoKeySkippedPref = 'mercadoPagoKeySkipped';
+  static const String mercadoPagoKeyPref = 'mercadoPagoKey';
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _userId = widget.userInfo['usuario']?['id_Usuario'] ?? '';
     _currentUserInfo = widget.userInfo;
     _loadStoreData();
+    _checkMercadoPagoKeyStatus(); // Check Mercado Pago key status on init
   }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkMercadoPagoKeyStatus(); // Re-check when app is resumed
+    }
+  }
+
+  Future<void> _checkMercadoPagoKeyStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Key is considered skipped if the skipped flag is true AND no key is actually stored.
+    // Or, if you prefer, just rely on the skipped flag if it's explicitly set by the user choosing 'cadastrar depois'.
+    // If a key IS present, it's not skipped, regardless of the flag.
+    final keyExists = prefs.getString(mercadoPagoKeyPref)?.isNotEmpty ?? false;
+    if (keyExists) {
+        setState(() {
+            _mercadoPagoKeySkipped = false;
+        });
+        await prefs.setBool(mercadoPagoKeySkippedPref, false); // Correct the flag if key exists
+    } else {
+        setState(() {
+            _mercadoPagoKeySkipped = prefs.getBool(mercadoPagoKeySkippedPref) ?? false;
+        });
+    }
+}
 
   Future<void> _loadStoreData() async {
     setState(() => _isLoading = true);
@@ -69,8 +107,6 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
     }
   }
 
-
-
   void _navigateToEditPage() {
     Navigator.push(
       context,
@@ -86,6 +122,16 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
         ),
       ),
     );
+  }
+
+  void _navigateToMercadoPagoKeyScreen() async {
+    // Navigate to MercadoPagoKeyScreen and wait for a potential result or state change
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const MercadoPagoKeyScreen()),
+    );
+    // Re-check the status after returning from the screen
+    _checkMercadoPagoKeyStatus();
   }
 
   @override
@@ -160,7 +206,6 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // Avatar da loja
                             CircleAvatar(
                             radius: 60,
                             backgroundColor: Colors.white,
@@ -192,7 +237,6 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
                                 ),
                             ),
                           const SizedBox(height: 15),
-                          // Nome da loja
                           Text(
                             storeName,
                             style: AppTheme.onPrimaryTextStyle.copyWith(
@@ -200,7 +244,6 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
                             ),
                           ),
                           const SizedBox(height: 5),
-                          // Descrição da loja
                           Text(
                             storeDescription,
                             textAlign: TextAlign.center,
@@ -213,13 +256,41 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
                       ),
                     ),
                     const SizedBox(height: 20),
+                    // Widget de Alerta para Chave Mercado Pago
+                    if (_mercadoPagoKeySkipped)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: InkWell(
+                          onTap: _navigateToMercadoPagoKeyScreen,
+                          child: Card(
+                            color: Colors.red[50],
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.warning_amber_rounded, color: Colors.red[700], size: 28),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Clique aqui para cadastrar e receber pagamentos.',
+                                      style: TextStyle(color: Colors.red[900], fontWeight: FontWeight.w500),
+                                    ),
+                                  ),
+                                  Icon(Icons.arrow_forward_ios, color: Colors.red[700], size: 16),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     // Conteúdo principal
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Seção de informações da loja
                           Card(
                             margin: const EdgeInsets.only(bottom: 16),
                             shape: RoundedRectangleBorder(
@@ -279,11 +350,9 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
                               ],
                             ),
                           ),
-                          // Seção de ações rápidas
                           AppTheme.buildSectionHeader(
                               'Ações Rápidas', Icons.flash_on),
                           const SizedBox(height: 15),
-                          // Botões de ação
                           Row(
                             children: [
                               Expanded(
@@ -319,12 +388,10 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
                               ),
                             ],
                           ),
-                          // Estatísticas da loja (nova seção)
                           const SizedBox(height: 25),
                           AppTheme.buildSectionHeader(
                               'Estatísticas', Icons.bar_chart),
                           const SizedBox(height: 15),
-                          // Cards de estatísticas
                           Row(
                             children: [
                               Expanded(
@@ -358,7 +425,6 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
                                   color: Colors.amber,
                                 ),
                               ),
-                              
                             ],
                           ),
                           const SizedBox(height: 30),
@@ -372,7 +438,6 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
     );
   }
 
-  // Widget para card de estatísticas
   Widget _buildStatCard({
     required String title,
     required String value,
@@ -411,3 +476,4 @@ class _VendorAccountPageState extends State<VendorAccountPage> {
     );
   }
 }
+
