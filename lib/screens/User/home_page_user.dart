@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -17,6 +18,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shimmer/shimmer.dart'; // Import shimmer for loading effect
 import 'package:vizinhos_app/screens/provider/cart_provider.dart'; // Import CartProvider
 import 'package:vizinhos_app/screens/cart/cart_screen.dart'; // Import CartScreen
+import 'package:vizinhos_app/services/fcm_service.dart'; // Import FCMService
+import 'package:vizinhos_app/screens/provider/orders_provider.dart'; // Import OrdersProvider
 
 // Define colors for consistency
 const Color primaryColor = Color(0xFFFbbc2c);
@@ -43,39 +46,75 @@ class _HomePageState extends State<HomePage> {
   static const String lojaImageBaseUrl = "https://loja-profile-pictures.s3.amazonaws.com/";
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _loadData();
-        Provider.of<NotificationProvider>(context, listen: false).loadNotifications(); // Corrigido
-      }
-    });
-  }
+void initState() {
+  super.initState();
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (mounted) {
+      _loadData();
+      Provider.of<NotificationProvider>(context, listen: false).loadNotifications();
+      
+      // Configurar listener para atualizações do token FCM
+      FirebaseMessaging.instance.onTokenRefresh.listen((String token) async {
+        print('Token FCM atualizado: $token');
+        // Salvar o novo token no secure storage
+        await storage.write(key: 'fcm_token', value: token);
+        
+        // Se o usuário já estiver logado, atualizar o token no servidor
+        if (userInfo != null && userInfo!['usuario'] != null && userInfo!['usuario']['cpf'] != null) {
+          String userCpf = userInfo!['usuario']['cpf'];
+          bool result = await FCMService.registerFCMToken(
+            cpf: userCpf,
+            fcmToken: token,
+          );
+          print('Resultado da atualização do token FCM: $result');
+        }
+      });
+    }
+  });
+}
+
 
   Future<void> _loadData() async {
-    if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-    });
-    try {
-      await fetchUserInfo();
-      final restaurants = await fetchRestaurants();
-      if (mounted) {
-        setState(() {
-          futureRestaurants = Future.value(restaurants);
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      print("Erro ao carregar dados: $e");
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+  if (!mounted) return;
+  setState(() {
+    _isLoading = true;
+  });
+  try {
+    await fetchUserInfo();
+    
+    // Registrar o token FCM se o usuário estiver logado e tiver CPF
+    if (userInfo != null && userInfo!['cpf'] != null) {
+      String userCpf = userInfo!['cpf'];
+      String? fcmToken = await FirebaseMessaging.instance.getToken();
+      if (fcmToken != null) {
+        // Usar o FCMService para registrar o token
+        bool result = await FCMService.registerFCMToken(
+          cpf: userCpf,
+          fcmToken: fcmToken,
+        );
+        
+        // Log do resultado para depuração
+        print('Resultado do registro do token FCM: $result');
       }
     }
+    
+    final restaurants = await fetchRestaurants();
+    if (mounted) {
+      setState(() {
+        futureRestaurants = Future.value(restaurants);
+        _isLoading = false;
+      });
+    }
+  } catch (e) {
+    print("Erro ao carregar dados: $e");
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
+}
+
 
   Future<void> _refresh() async {
     if (!mounted) return;
@@ -84,48 +123,83 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> fetchUserInfo() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isLoggedIn) return;
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  if (!authProvider.isLoggedIn) return;
 
-    String? email = authProvider.email ?? await storage.read(key: 'email');
-    if (email == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Email não encontrado no dispositivo')),
-        );
-      }
-      return;
+  String? email = authProvider.email ?? await storage.read(key: 'email');
+  if (email == null) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email não encontrado no dispositivo')),
+      );
     }
+    return;
+  }
 
-    final url = Uri.parse(
-      'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetUserByEmail?email=$email',
-    );
+  final url = Uri.parse(
+    'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetUserByEmail?email=$email',
+   );
 
-    try {
-      final response = await http.get(url, headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      });
+  try {
+    final response = await http.get(url, headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    } );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (mounted) {
-          setState(() {
-            userInfo = data;
-          });
-        }
-      } else {
-        print("Erro fetchUserInfo HTTP: ${response.statusCode}");
-      }
-    } catch (e) {
-      print("Erro fetchUserInfo: $e");
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro de rede ao buscar usuário: $e')),
-        );
+        setState(() {
+          userInfo = data;
+        });
+        
+        // Registrar o token FCM após obter as informações do usuário
+        if (data != null && data['usuario'] != null && data['usuario']['cpf'] != null) {
+          String userCpf = data['usuario']['cpf'];
+          print('CPF encontrado: $userCpf');
+          
+          // Obter o token FCM do secure storage
+          String? fcmToken = await storage.read(key: 'fcm_token');
+          
+          // Se não estiver no secure storage, tenta obter do Firebase
+          if (fcmToken == null) {
+            fcmToken = await FirebaseMessaging.instance.getToken();
+            // Salvar o token no secure storage para uso futuro
+            if (fcmToken != null) {
+              await storage.write(key: 'fcm_token', value: fcmToken);
+            }
+          }
+          
+          print('Token FCM: $fcmToken');
+          
+          if (fcmToken != null) {
+            // Usar o FCMService para registrar o token
+            bool result = await FCMService.registerFCMToken(
+              cpf: userCpf,
+              fcmToken: fcmToken,
+            );
+            
+            print('Resultado do registro do token FCM: $result');
+          } else {
+            print('Token FCM não encontrado');
+          }
+        } else {
+          print('CPF não encontrado na resposta: $data');
+        }
       }
+    } else {
+      print("Erro fetchUserInfo HTTP: ${response.statusCode}");
+    }
+  } catch (e) {
+    print("Erro fetchUserInfo: $e");
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro de rede ao buscar usuário: $e')),
+      );
     }
   }
+}
+
 
   Future<List<Restaurant>> fetchRestaurants() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);

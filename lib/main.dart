@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 import 'package:vizinhos_app/screens/provider/notification_provider.dart'; // Importar NotificationProvider
 import 'package:vizinhos_app/notifications_screen.dart'; // Importar NotificationsScreen
@@ -74,7 +75,13 @@ class _MyAppState extends State<MyApp> {
 
     final token = await _messaging.getToken();
     print('📲 FCM Token: $token');
-
+    final secureStorage = FlutterSecureStorage();
+    await secureStorage.write(key: 'fcmToken', value: token);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final fcmToken = await secureStorage.read(key: 'fcmToken');
+    if (fcmToken != null) {
+      authProvider.setFcmToken(fcmToken);
+    }
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       print('📩 Mensagem recebida em foreground: ${message.notification?.title}');
 
@@ -112,14 +119,7 @@ class _MyAppState extends State<MyApp> {
       print('📬 Notificação clicada: ${message.notification?.title}');
       final notification = message.notification;
       if (notification != null) {
-          // O context não está disponível aqui diretamente se o app foi aberto do zero.
-          // A lógica de adicionar notificação já está no onMessage e o provider carrega do storage.
-          // Se precisar de navegação específica ao abrir, usar message.data.
       }
-      // Exemplo de navegação se a notificação tiver um payload 'screen'
-      // if (message.data['screen'] != null) {
-      //   Navigator.of(context).pushNamed(message.data['screen']);
-      // }
     });
   }
 
@@ -143,7 +143,7 @@ class _MyAppState extends State<MyApp> {
       home: const SplashScreen(),
       routes: {
         CartScreen.routeName: (ctx) => const CartScreen(),
-        NotificationsScreen.routeName: (ctx) => const NotificationsScreen(), // Rota para NotificationsScreen
+        NotificationsScreen.routeName: (ctx) => const NotificationsScreen(),
       },
     );
   }

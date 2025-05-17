@@ -15,6 +15,7 @@ class AuthProvider with ChangeNotifier {
   Map<String, dynamic>? _storeInfo;
   String? _email;
   String? _idEndereco; // Nova propriedade
+  String? _fcmToken;
 
   // Constantes para evitar erros de digitação nas chaves
   static const String KEY_ACCESS_TOKEN = 'accessToken';
@@ -22,6 +23,9 @@ class AuthProvider with ChangeNotifier {
   static const String KEY_REFRESH_TOKEN = 'refreshToken';
   static const String KEY_EXPIRES_IN = 'expiresIn';
   static const String KEY_EMAIL = 'email';
+  static const String KEY_STORE_INFO = 'storeInfo';
+  static const String KEY_ID_ENDERECO = 'idEndereco';
+  static const String KEY_FCM_TOKEN = 'fcmToken';
 
   final _storage = FlutterSecureStorage();
 
@@ -37,6 +41,7 @@ class AuthProvider with ChangeNotifier {
   Map<String, dynamic>? get storeInfo => _storeInfo;
   String? get email => _email;
   String? get idEndereco => _idEndereco;
+  String? get fcmToken => _fcmToken;
 
   AuthProvider() {
     _initAuth();
@@ -63,6 +68,19 @@ class AuthProvider with ChangeNotifier {
   Future<void> setIdEndereco(String idEndereco) async {
     _idEndereco = idEndereco;
     await _storage.write(key: 'idEndereco', value: idEndereco);
+    notifyListeners();
+  }
+
+  // Recupera o fcmToken do storage
+  Future<void> loadFcmToken() async {
+    _fcmToken = await
+        _storage.read(key: KEY_FCM_TOKEN);
+    notifyListeners();
+  }
+  // Atualiza o fcmToken e armazena no storage
+  Future<void> setFcmToken(String fcmToken) async {
+    _fcmToken = fcmToken;
+    await _storage.write(key: KEY_FCM_TOKEN, value: fcmToken);
     notifyListeners();
   }
 

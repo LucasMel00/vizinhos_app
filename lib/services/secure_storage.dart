@@ -11,6 +11,7 @@ class SecureStorage {
   static const String _expiresInKey = 'expires_in';
   static const String _storeInfoKey = 'store_info';
   static const String _idEnderecoKey = 'id_Endereco';
+  static const String _fcmTokenKey = 'fcm_token';
 
   // Token methods
   Future<void> setAccessToken(String token) async {
@@ -20,6 +21,16 @@ class SecureStorage {
   Future<String?> getAccessToken() async {
     return await _storage.read(key: _accessTokenKey);
   }
+
+  Future<void> setFcmToken(String token) async {
+    await _storage.write(key: _fcmTokenKey, value: token);
+  }
+
+  Future<String?> getFcmToken() async {
+    return await _storage.read(key: _fcmTokenKey);
+  }
+
+
 
   Future<void> setIdToken(String token) async {
     await _storage.write(key: _idTokenKey, value: token);
@@ -51,6 +62,7 @@ class SecureStorage {
     await _storage.delete(key: _idTokenKey);
     await _storage.delete(key: _refreshTokenKey);
     await _storage.delete(key: _expiresInKey);
+    await _storage.delete(key: _fcmTokenKey);
   }
 
   // Store info methods
@@ -65,7 +77,7 @@ class SecureStorage {
     }
     return null;
   }
-
+  
   Future<void> deleteStoreInfo() async {
     await _storage.delete(key: _storeInfoKey);
   }
