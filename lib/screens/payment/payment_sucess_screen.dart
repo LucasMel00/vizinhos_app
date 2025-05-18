@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,26 +7,25 @@ import 'package:intl/intl.dart';
 import 'package:vizinhos_app/screens/User/home_page_user.dart';
 
 class PaymentSuccessScreen extends StatelessWidget {
-  final Map<String, dynamic> paymentData;
-  final double totalAmount;
-
+  final Map<String, dynamic> orderData;
+  // Removi totalAmount do construtor pois vamos usar o valor da API diretamente
   const PaymentSuccessScreen({
     super.key,
-    required this.paymentData,
-    required this.totalAmount,
+    required this.orderData, required double totalAmount,
   });
 
   @override
   Widget build(BuildContext context) {
-    final pixCode = paymentData['qr_code'] ??
-        paymentData['point_of_interaction']?['transaction_data']?['qr_code'];
+    // Extrair dados do pagamento da resposta da API
+    final paymentData = orderData['pagamento'] ?? {};
+    final transactionAmount = (paymentData['transaction_ammount'] ?? 0).toDouble();
 
-    final pixImageBase64 = paymentData['qr_code_base64'] ??
-        paymentData['point_of_interaction']?['transaction_data']
-            ?['qr_code_base64'];
-
-    final status = paymentData['status'] ?? 'pending';
-    final paymentId = paymentData['id']?.toString() ?? '';
+    final pixCode = paymentData['qr_code'] ?? '';
+    final pixImageBase64 = paymentData['qr_code_base64'] ?? '';
+    final status = orderData['status_pedido'] ?? 'pending';
+    final paymentId = paymentData['payment_id']?.toString() ?? '';
+    final orderId = orderData['id_Pedido'] ?? '';
+    final tipoEntrega = orderData['tipo_entrega'] ?? 'Retirada';
 
     return Scaffold(
       appBar: AppBar(
@@ -40,7 +40,7 @@ class PaymentSuccessScreen extends StatelessWidget {
             const Icon(Icons.check_circle, color: Colors.green, size: 80),
             const SizedBox(height: 16),
             const Text(
-              'Pagamento gerado com sucesso!',
+              'Pedido gerado com sucesso!',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
@@ -55,11 +55,24 @@ class PaymentSuccessScreen extends StatelessWidget {
             ),
             const SizedBox(height: 30),
 
+            // Card com resumo do pedido
+            _buildInfoCard(
+              title: 'Resumo do Pedido',
+              children: [
+                _buildInfoRow('Número do Pedido:', orderId),
+                _buildInfoRow('Valor total:', _formatCurrency(transactionAmount)),
+                _buildInfoRow('Status:', _getStatusText(status)),
+                _buildInfoRow('Data:', _formatDate(orderData['data_pedido'] ?? '')),
+                _buildInfoRow('Tipo de entrega:', tipoEntrega),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+
             // Card com resumo do pagamento
             _buildInfoCard(
-              title: 'Resumo do Pagamento',
+              title: 'Dados do Pagamento',
               children: [
-                _buildInfoRow('Valor total:', _formatCurrency(totalAmount)),
                 _buildInfoRow('ID da transação:', paymentId),
                 _buildInfoRow('Método:', 'PIX'),
                 _buildInfoRow('Status:', _getStatusText(status)),
@@ -69,7 +82,7 @@ class PaymentSuccessScreen extends StatelessWidget {
             const SizedBox(height: 25),
 
             // Seção do QR Code
-            if (pixImageBase64 != null || pixCode != null)
+            if (pixImageBase64.isNotEmpty || pixCode.isNotEmpty)
               _buildPixSection(context, pixImageBase64, pixCode),
 
             const SizedBox(height: 30),
@@ -111,7 +124,7 @@ class PaymentSuccessScreen extends StatelessWidget {
       BuildContext context, String? pixImageBase64, String? pixCode) {
     Uint8List? pixImageBytes;
 
-    if (pixImageBase64 != null) {
+    if (pixImageBase64 != null && pixImageBase64.isNotEmpty) {
       try {
         // Remove o cabeçalho data:image/png;base64, se existir
         final base64String = pixImageBase64.replaceFirst(
@@ -156,7 +169,7 @@ class PaymentSuccessScreen extends StatelessWidget {
                   const Icon(Icons.error_outline, size: 50, color: Colors.red),
             ),
           )
-        else if (pixCode != null)
+        else if (pixCode != null && pixCode.isNotEmpty)
           const Text(
             'QR Code não disponível',
             style: TextStyle(color: Colors.red),
@@ -165,7 +178,7 @@ class PaymentSuccessScreen extends StatelessWidget {
         const SizedBox(height: 25),
 
         // Código PIX
-        if (pixCode != null)
+        if (pixCode != null && pixCode.isNotEmpty)
           Column(
             children: [
               const Text(
@@ -271,12 +284,23 @@ class PaymentSuccessScreen extends StatelessWidget {
   String _formatCurrency(double value) {
     return NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(value);
   }
+  
+  String _formatDate(String dateStr) {
+    if (dateStr.isEmpty) return 'N/A';
+    try {
+      final date = DateTime.parse(dateStr);
+      return DateFormat('dd/MM/yyyy HH:mm').format(date);
+    } catch (e) {
+      return dateStr;
+    }
+  }
 
   String _getStatusText(String status) {
     switch (status) {
       case 'approved':
         return 'Aprovado';
       case 'pending':
+      case 'Pendente':
         return 'Pendente';
       case 'rejected':
         return 'Rejeitado';

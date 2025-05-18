@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
 import 'package:vizinhos_app/screens/model/product.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_edit_page.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_orders_page.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_products_page.dart';
 import 'package:vizinhos_app/services/app_theme.dart';
-import 'package:vizinhos_app/screens/onboarding/mercado_pago_key_screen.dart'; // Import MercadoPagoKeyScreen to navigate
+import 'package:vizinhos_app/screens/onboarding/mercado_pago_key_screen.dart';
+import 'package:vizinhos_app/services/secure_storage.dart';
 
 class VendorAccountPage extends StatefulWidget {
   final Map<String, dynamic> userInfo;
@@ -18,7 +18,7 @@ class VendorAccountPage extends StatefulWidget {
   _VendorAccountPageState createState() => _VendorAccountPageState();
 }
 
-class _VendorAccountPageState extends State<VendorAccountPage> with WidgetsBindingObserver { // Add WidgetsBindingObserver
+class _VendorAccountPageState extends State<VendorAccountPage> with WidgetsBindingObserver {
   late Map<String, dynamic> _currentUserInfo = widget.userInfo;
   late final String _userId;
 
@@ -29,9 +29,9 @@ class _VendorAccountPageState extends State<VendorAccountPage> with WidgetsBindi
   bool _isProductsLoading = true;
 
   bool _infoExpanded = true;
-  bool _mercadoPagoKeySkipped = false; // State variable for Mercado Pago key status
-  static const String mercadoPagoKeySkippedPref = 'mercadoPagoKeySkipped';
-  static const String mercadoPagoKeyPref = 'mercadoPagoKey';
+  bool _mercadoPagoKeyMissing = false;
+  
+  final SecureStorage _secureStorage = SecureStorage();
 
   @override
   void initState() {
@@ -40,7 +40,6 @@ class _VendorAccountPageState extends State<VendorAccountPage> with WidgetsBindi
     _userId = widget.userInfo['usuario']?['id_Usuario'] ?? '';
     _currentUserInfo = widget.userInfo;
     _loadStoreData();
-    _checkMercadoPagoKeyStatus(); // Check Mercado Pago key status on init
   }
 
   @override
@@ -52,33 +51,18 @@ class _VendorAccountPageState extends State<VendorAccountPage> with WidgetsBindi
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _checkMercadoPagoKeyStatus(); // Re-check when app is resumed
+      _loadStoreData();
     }
   }
-
-  Future<void> _checkMercadoPagoKeyStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    // Key is considered skipped if the skipped flag is true AND no key is actually stored.
-    // Or, if you prefer, just rely on the skipped flag if it's explicitly set by the user choosing 'cadastrar depois'.
-    // If a key IS present, it's not skipped, regardless of the flag.
-    final keyExists = prefs.getString(mercadoPagoKeyPref)?.isNotEmpty ?? false;
-    if (keyExists) {
-        setState(() {
-            _mercadoPagoKeySkipped = false;
-        });
-        await prefs.setBool(mercadoPagoKeySkippedPref, false); // Correct the flag if key exists
-    } else {
-        setState(() {
-            _mercadoPagoKeySkipped = prefs.getBool(mercadoPagoKeySkippedPref) ?? false;
-        });
-    }
-}
 
   Future<void> _loadStoreData() async {
     setState(() => _isLoading = true);
     try {
       final idEndereco = _currentUserInfo['endereco']?['id_Endereco'];
       if (idEndereco == null) throw Exception('ID do endereço não encontrado');
+
+      // Salvar o ID do endereço no SecureStorage para uso posterior
+      await _secureStorage.setEnderecoId(idEndereco.toString());
 
       final response = await http.get(
         Uri.parse(
@@ -88,10 +72,25 @@ class _VendorAccountPageState extends State<VendorAccountPage> with WidgetsBindi
 
       if (response.statusCode == 200) {
         if (!mounted) return;
+        
+        final responseData = jsonDecode(response.body);
+        
+        // Verificar se o access_token está presente na resposta da API
+        final hasAccessToken = responseData['endereco'] != null && 
+                              responseData['endereco']['access_token'] != null && 
+                              responseData['endereco']['access_token'].toString().isNotEmpty;
+        
         setState(() {
-          storeData = jsonDecode(response.body);
+          storeData = responseData;
+          _mercadoPagoKeyMissing = !hasAccessToken;
           _isLoading = false;
         });
+        
+        // Se o token estiver presente na API, podemos salvá-lo no SecureStorage para uso futuro
+        if (hasAccessToken) {
+          await _secureStorage.setMercadoPagoToken(responseData['endereco']['access_token']);
+          await _secureStorage.setMercadoPagoSkipped(false);
+        }
       } else {
         throw Exception('Erro na API: ${response.statusCode}');
       }
@@ -130,8 +129,8 @@ class _VendorAccountPageState extends State<VendorAccountPage> with WidgetsBindi
       context,
       MaterialPageRoute(builder: (context) => const MercadoPagoKeyScreen()),
     );
-    // Re-check the status after returning from the screen
-    _checkMercadoPagoKeyStatus();
+    // Re-check the status after returning from the screen by reloading store data
+    _loadStoreData();
   }
 
   @override
@@ -256,8 +255,8 @@ class _VendorAccountPageState extends State<VendorAccountPage> with WidgetsBindi
                       ),
                     ),
                     const SizedBox(height: 20),
-                    // Widget de Alerta para Chave Mercado Pago
-                    if (_mercadoPagoKeySkipped)
+                    // Widget de Alerta para Chave Mercado Pago - exibido apenas se o access_token estiver ausente na API
+                    if (_mercadoPagoKeyMissing)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         child: InkWell(
@@ -274,7 +273,7 @@ class _VendorAccountPageState extends State<VendorAccountPage> with WidgetsBindi
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      'Clique aqui para cadastrar e receber pagamentos.',
+                                      'Clique aqui para cadastrar seu token do Mercado Pago e receber pagamentos.',
                                       style: TextStyle(color: Colors.red[900], fontWeight: FontWeight.w500),
                                     ),
                                   ),
@@ -388,46 +387,29 @@ class _VendorAccountPageState extends State<VendorAccountPage> with WidgetsBindi
                               ),
                             ],
                           ),
-                          const SizedBox(height: 25),
-                          AppTheme.buildSectionHeader(
-                              'Estatísticas', Icons.bar_chart),
-                          const SizedBox(height: 15),
+                          const SizedBox(height: 10),
                           Row(
                             children: [
                               Expanded(
-                                child: _buildStatCard(
-                                  title: 'Vendas',
-                                  value: '0',
-                                  icon: Icons.shopping_cart,
-                                  color: AppTheme.primaryColor,
+                                child: AppTheme.buildActionButton(
+                                  label: 'Configurações',
+                                  icon: Icons.settings,
+                                  onPressed: () {
+                                    // Navegar para configurações
+                                  },
                                 ),
                               ),
+                              const SizedBox(width: 10),
                               Expanded(
-                                child: _buildStatCard(
-                                  title: 'Produtos',
-                                  value: _isProductsLoading
-                                      ? '...'
-                                      : _products.length.toString(),
-                                  icon: Icons.inventory,
-                                  color: AppTheme.infoColor,
+                                child: AppTheme.buildActionButton(
+                                  label: 'Mercado Pago',
+                                  icon: Icons.payment,
+                                  onPressed: _navigateToMercadoPagoKeyScreen,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 5),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildStatCard(
-                                  title: 'Avaliação',
-                                  value: '5.0',
-                                  icon: Icons.star,
-                                  color: Colors.amber,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 30),
+                          const SizedBox(height: 20),
                         ],
                       ),
                     ),
@@ -437,43 +419,4 @@ class _VendorAccountPageState extends State<VendorAccountPage> with WidgetsBindi
       ),
     );
   }
-
-  Widget _buildStatCard({
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.all(5),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 28),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: AppTheme.captionStyle,
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
-

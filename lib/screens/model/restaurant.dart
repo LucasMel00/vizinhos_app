@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'product.dart'; // Import Product model
+import 'product.dart';
 
 class Restaurant {
   final String idEndereco;
@@ -11,9 +11,9 @@ class Restaurant {
   final String descricao;
   final String name;
   final String cep;
-  final String? imageString; // Corresponds to id_Imagem
-  final String? imagemUrl; // Corresponds to imagem_url (store profile image)
-  final List<Product> produtos; // List of products
+  final String? imageString;
+  final String? imagemUrl;
+  final List<Product> produtos;
 
   Restaurant({
     required this.idEndereco,
@@ -46,18 +46,13 @@ class Restaurant {
       cep: json['cep'] ?? '',
       imageString: json['id_Imagem'] as String?,
       imagemUrl: json['imagem_url'],
-      produtos: productData, // Assign the parsed product list
+      produtos: productData,
     );
   }
 
-  /// Returns a decoded image as Uint8List, or null if none.
-  /// This likely refers to id_Imagem, not imagem_url which is a direct URL.
   Uint8List? get imageBytes {
     if (imageString == null || imageString!.isEmpty) return null;
     try {
-      // Assuming id_Imagem might be base64, though it looks like a filename.
-      // If it's just a filename, this getter might not be useful unless combined with a base URL.
-      // Let's keep it for now, but be aware it might need adjustment based on how id_Imagem is used.
       return Base64Decoder().convert(imageString!);
     } catch (_) {
       return null;

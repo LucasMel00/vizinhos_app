@@ -16,6 +16,7 @@ class AuthProvider with ChangeNotifier {
   String? _email;
   String? _idEndereco; // Nova propriedade
   String? _fcmToken;
+  String? _cpf;
 
   // Constantes para evitar erros de digitação nas chaves
   static const String KEY_ACCESS_TOKEN = 'accessToken';
@@ -26,6 +27,7 @@ class AuthProvider with ChangeNotifier {
   static const String KEY_STORE_INFO = 'storeInfo';
   static const String KEY_ID_ENDERECO = 'idEndereco';
   static const String KEY_FCM_TOKEN = 'fcmToken';
+  static const String KEY_CPF = 'cpf';
 
   final _storage = FlutterSecureStorage();
 
@@ -42,6 +44,7 @@ class AuthProvider with ChangeNotifier {
   String? get email => _email;
   String? get idEndereco => _idEndereco;
   String? get fcmToken => _fcmToken;
+  String? get cpf => _cpf;
 
   AuthProvider() {
     _initAuth();
@@ -70,6 +73,21 @@ class AuthProvider with ChangeNotifier {
     await _storage.write(key: 'idEndereco', value: idEndereco);
     notifyListeners();
   }
+
+  // Recupera o cpf do storage
+  Future<void> loadCpf() async {
+    _cpf = await _storage.read(key: KEY_CPF);
+    notifyListeners();
+  }
+
+  // Atualiza o cpf e armazena no storage
+  Future<void> setCpf(String cpf) async {
+    _cpf = cpf;
+    await _storage.write(key: KEY_CPF, value: cpf);
+    notifyListeners();
+  }
+
+  
 
   // Recupera o fcmToken do storage
   Future<void> loadFcmToken() async {
@@ -226,6 +244,15 @@ class AuthProvider with ChangeNotifier {
   }
 
   void refreshUserData() {
+    notifyListeners();
+  }
+
+  void updateCpf(cpf) {
+    if (_userInfo.containsKey('custom:cpf')) {
+      _userInfo['custom:cpf'] = cpf;
+    } else {
+      _userInfo['custom:cpf'] = cpf;
+    }
     notifyListeners();
   }
 }

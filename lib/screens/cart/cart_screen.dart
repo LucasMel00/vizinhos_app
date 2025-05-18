@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:vizinhos_app/screens/model/cart_item.dart';
 import 'package:vizinhos_app/screens/payment/payment_sucess_screen.dart';
 import 'package:vizinhos_app/screens/provider/cart_provider.dart';
+// Adicione o import do AuthProvider quando estiver disponível
+// import 'package:vizinhos_app/screens/provider/auth_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 
@@ -303,6 +305,31 @@ class CartScreen extends StatelessWidget {
     );
   }
 
+  // Método para obter o tipo de entrega da loja
+  Future<String> _getDeliveryType(int storeId) async {
+    // Aqui você deve implementar a lógica para obter o tipo de entrega da loja
+    // Isso pode ser feito através de uma chamada à API ou de dados já carregados
+    
+    // Por enquanto, retornamos um valor padrão
+    return 'Retirada';
+    
+    // Exemplo de implementação futura:
+    // try {
+    //   final response = await http.get(
+    //     Uri.parse('https://sua-api.com/stores/$storeId'),
+    //     headers: {'Content-Type': 'application/json'},
+    //   );
+    //
+    //   if (response.statusCode == 200) {
+    //     final storeData = json.decode(response.body);
+    //     return storeData['delivery_type'] ?? 'Retirada';
+    //   }
+    // } catch (e) {
+    //   debugPrint('Erro ao obter tipo de entrega: $e');
+    // }
+    // return 'Retirada';
+  }
+
   Future<void> _confirmAndProcessPayment(BuildContext context) async {
     final cart = Provider.of<CartProvider>(context, listen: false);
 
@@ -332,33 +359,72 @@ class CartScreen extends StatelessWidget {
           const SnackBar(content: Text('Processando pagamento...')),
         );
 
-        final paymentResult = await _processPayment(
-          context: context,
-          total: cart.totalAmount,
-          items: cart.itemsList,
+        // Obter dados do usuário
+        final storage = const FlutterSecureStorage();
+        final email = await storage.read(key: 'email') ?? '';
+        
+        // Tentar obter CPF do AuthProvider quando estiver disponível
+        String? cpf;
+        
+        // Comentado até que o AuthProvider esteja disponível
+        // try {
+        //   final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        //   cpf = authProvider.user?.cpf;
+        // } catch (e) {
+        //   debugPrint('AuthProvider não disponível: $e');
+        // }
+        
+        // Se não conseguir do AuthProvider, tenta do storage
+        if (cpf == null || cpf.isEmpty) {
+          cpf = await storage.read(key: 'cpf');
+        }
+        
+        if (email.isEmpty) {
+          throw Exception('Email não encontrado. Faça login novamente.');
+        }
+
+        // Obter o ID da loja a partir do carrinho
+        final storeId = int.tryParse(cart.currentStoreId ?? '0') ?? 0;
+        if (storeId <= 0) {
+          throw Exception('ID da loja inválido.');
+        }
+        
+        // Obter o tipo de entrega da loja
+        final deliveryType = await _getDeliveryType(storeId);
+
+        // Preparar dados do pedido usando o método do provider
+        final orderData = cart.prepareOrderData(
+          tipoEntrega: deliveryType,
+          idLoja: storeId,
+          userCpf: cpf,
         );
 
-        // Verifica se temos dados do PIX (qr_code ou qr_code_base64)
-        final hasPixData = paymentResult['qr_code'] != null ||
-            paymentResult['qr_code_base64'] != null ||
-            paymentResult['point_of_interaction'] != null;
+        // Processar pagamento com a nova API
+        final orderResponse = await _processOrderAndPayment(
+          orderData: orderData,
+          email: email,
+        );
+
+        // Verificar se temos dados do PIX
+        final hasPixData = orderResponse['pagamento']?['qr_code'] != null ||
+            orderResponse['pagamento']?['qr_code_base64'] != null;
 
         if (hasPixData) {
-          debugPrint('Pagamento processado - QR Code gerado com sucesso');
+          debugPrint('Pedido e pagamento processados com sucesso');
           cart.clearCart();
 
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (context) => PaymentSuccessScreen(
-                paymentData: paymentResult,
+                orderData: orderResponse,
                 totalAmount: cart.totalAmount,
               ),
             ),
           );
         } else {
           throw Exception(
-              paymentResult['message'] ?? 'Falha ao gerar pagamento');
+              orderResponse['message'] ?? 'Falha ao gerar pagamento');
         }
       } catch (e) {
         debugPrint('Erro no processamento: $e');
@@ -369,60 +435,26 @@ class CartScreen extends StatelessWidget {
     }
   }
 
-  Future<Map<String, dynamic>> _processPayment({
-    required BuildContext context,
-    required double total,
-    required List<CartItem> items,
+  Future<Map<String, dynamic>> _processOrderAndPayment({
+    required Map<String, dynamic> orderData,
+    required String email,
   }) async {
     const apiUrl =
-        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/ProcessPixPayment';
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/CreateOrder';
 
-    // Debug 1: Verificar conteúdo do carrinho
-    _debugPrintCartContents(items);
-    debugPrint('Total a pagar: $total');
-
-    final storage = const FlutterSecureStorage();
-    final email = await storage.read(key: 'email');
-
-    // Debug 2: Verificar email obtido
-    debugPrint('Email obtido do storage: $email');
-
-    if (email == null) {
-      debugPrint('Erro: Email não encontrado no storage');
-      throw Exception('Email não encontrado.');
-    }
-
-    // Preparar payload com verificação
-    final payload = {
-      'email': email,
-      'preco': total,
-      'products': items.map((item) {
-        final productData = {
-          'id': item.product.id,
-          'title': item.product.nome,
-          'description': item.product.descricao ?? 'Sem descrição',
-          'quantity': item.quantity,
-          'unit_price': item.product.valorVenda,
-        };
-
-        // Debug 3: Verificar cada produto no payload
-        debugPrint('Produto no payload: ${productData['title']}');
-        return productData;
-      }).toList(),
-    };
-
-    // Debug 4: Verificar payload completo
-    debugPrint('Payload completo: ${jsonEncode(payload)}');
+    // Debug: Verificar payload
+    debugPrint('Payload do pedido: ${jsonEncode(orderData)}');
 
     try {
       final response = await http.post(
         Uri.parse(apiUrl),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode(payload),
+        body: json.encode(orderData),
       );
 
-      // Debug 5: Verificar resposta da API
-      debugPrint('Status code: ${response.statusCode}');
+      // Debug: Verificar resposta da API
+      debugPrint('Request da  API: ${response.request}');
+            debugPrint('Status code: ${response.statusCode}');
       debugPrint('Resposta da API: ${response.body}');
 
       if (response.statusCode != 200) {
@@ -431,10 +463,6 @@ class CartScreen extends StatelessWidget {
       }
 
       final responseData = json.decode(response.body);
-
-      // Debug 6: Verificar status do pagamento
-      debugPrint('Status do pagamento: ${responseData['status']}');
-
       return responseData;
     } catch (e) {
       debugPrint('Erro durante o processamento: $e');

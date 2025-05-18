@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:vizinhos_app/screens/model/lote.dart';
+
 // Classe Characteristic
 class Characteristic {
   final String id_Caracteristica;
@@ -20,6 +22,7 @@ class Characteristic {
   Map<String, dynamic> toJson() {
     return {
       'id_Caracteristica': id_Caracteristica,
+
       'descricao': descricao,
     };
   }
@@ -46,13 +49,23 @@ class Product {
   final dynamic lote; // Pode ser objeto Lote ou apenas o id_lote (String)
   final DateTime? dataFabricacao;
   final int? quantidade;
+  final bool flagOferta; // Adicionado campo para flag de oferta
 
   // Getter para manter compatibilidade com código antigo
-  String? get id_lote {
-    if (lote == null) return null;
-    if (lote is String) return lote as String;
-    return null;
+ String? get id_lote {
+  if (lote == null) return null;
+  if (lote is String) return lote as String;
+  if (lote is Map<String, dynamic> && lote['id'] != null) {
+    return lote['id']?.toString();
   }
+  if (lote is Map<String, dynamic> && lote['id_Lote'] != null) {
+    return lote['id_Lote']?.toString();
+  }
+  if (lote is Lote) {
+    return lote.idLote;
+  }
+  return null;
+}
 
   // Função auxiliar para obter a quantidade a partir do lote, se presente
   static int? _getQuantidadeFromLote(dynamic lote) {
@@ -82,6 +95,7 @@ class Product {
     this.lote,
     this.dataFabricacao,
     this.quantidade,
+    this.flagOferta = false, // Valor padrão false
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -111,13 +125,16 @@ class Product {
 
     // Lote pode ser um objeto ou apenas um id_lote
     dynamic loteObj;
-    if (json['lote'] != null) {
-      // Se você tiver a classe Lote, descomente e ajuste a linha abaixo:
-      // loteObj = Lote.fromJson(json['lote']);
-      loteObj = json['lote']; // Caso não tenha a classe Lote
-    } else if (json['id_lote'] != null) {
-      loteObj = json['id_lote'].toString();
-    }
+    
+   if (json['lote'] != null) {
+  // Se for um Map, tenta converter para Lote
+  if (json['lote'] is Map<String, dynamic>) {
+    loteObj = Lote.fromJson(json['lote']);
+  } else {
+    loteObj = json['lote']; // Caso não seja um Map
+  }
+}
+
 
     return Product(
       id: json['id_Produto']?.toString() ??
@@ -145,6 +162,7 @@ class Product {
       quantidade: json['quantidade'] != null
           ? _parseInt(json['quantidade'])
           : _getQuantidadeFromLote(json['lote']),
+      flagOferta: json['flag_oferta'] ?? false, // Mapeamento da flag de oferta
     );
   }
 
@@ -186,6 +204,7 @@ class Product {
       if (dataFabricacao != null)
         'dt_fabricacao': dataFabricacao!.toIso8601String().split('T')[0],
       'quantidade': quantidade ?? _getQuantidadeFromLote(lote),
+      'flag_oferta': flagOferta, // Incluir flag de oferta no JSON
     };
   }
 }

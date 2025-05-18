@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart'; // Import url_launcher
+import 'package:url_launcher/url_launcher.dart';
+import 'package:vizinhos_app/services/secure_storage.dart';
+import 'package:http/http.dart' as http;
 
 class MercadoPagoKeyScreen extends StatefulWidget {
   final VoidCallback? onFinish;
@@ -13,32 +15,117 @@ class MercadoPagoKeyScreen extends StatefulWidget {
 class _MercadoPagoKeyScreenState extends State<MercadoPagoKeyScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _mercadoPagoKeyController = TextEditingController();
-  static const String mercadoPagoKeyPref = 'mercadoPagoKey'; // Changed to access_token for clarity
-  static const String mercadoPagoKeySkippedPref = 'mercadoPagoKeySkipped';
+  final SecureStorage _secureStorage = SecureStorage();
+  bool _isLoading = false;
 
   Future<void> _saveMercadoPagoKey(String key) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(mercadoPagoKeyPref, key);
-    await prefs.setBool(mercadoPagoKeySkippedPref, false);
+    await _secureStorage.setMercadoPagoToken(key);
+    // Quando um token é salvo, automaticamente marcamos como não pulado
+    // Isso já é feito internamente no método setMercadoPagoToken
   }
 
   Future<void> _setSkippedPreference(bool skipped) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(mercadoPagoKeySkippedPref, skipped);
+    await _secureStorage.setMercadoPagoSkipped(skipped);
   }
 
   void _submitKey() async {
     if (_formKey.currentState!.validate()) {
-      await _saveMercadoPagoKey(_mercadoPagoKeyController.text);
-      print('Chave (Access Token) Mercado Pago salva: ${_mercadoPagoKeyController.text}');
+      setState(() {
+        _isLoading = true;
+      });
       
-      if (widget.onFinish != null) {
-        widget.onFinish!();
-      } else {
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
+      try {
+        await _saveMercadoPagoKey(_mercadoPagoKeyController.text);
+        print('Chave (Access Token) Mercado Pago salva: ${_mercadoPagoKeyController.text}');
+        
+        // Enviar token para a API
+        final result = await _sendTokenToApi(_mercadoPagoKeyController.text);
+        
+        if (result) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Token do Mercado Pago salvo com sucesso!')),
+          );
+          
+          if (widget.onFinish != null) {
+            widget.onFinish!();
+          } else {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+          }
+        } else {
+          // Se falhou, mostra mensagem mas não impede de continuar
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erro ao enviar token para o servidor. Você pode tentar novamente mais tarde.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 5),
+            ),
+          );
+          
+          if (widget.onFinish != null) {
+            widget.onFinish!();
+          } else {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+          }
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
         }
       }
+    }
+  }
+
+  Future<bool> _sendTokenToApi(String token) async {
+    try {
+      final idEndereco = await _secureStorage.getEnderecoId();
+      if (idEndereco == null) {
+        print('Erro: id_Loja não encontrado');
+        return false;
+      }
+      
+      // Construir o corpo da requisição conforme a API
+      final requestBody = {
+        'id_Loja': idEndereco,
+        'access_token': token
+      };
+      
+      // Fazer a chamada POST para a API
+      final response = await http.patch(
+        Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/InsertStoreAccessToken'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode(requestBody),
+
+      );
+      
+      print('Requisição: ${json.encode(requestBody)}');
+      print('Resposta: ${response.body}');
+      // Verificar a resposta
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        print('Token enviado com sucesso: ${responseData['message']}');
+        return true;
+      } else {
+        print('Erro ao enviar token: ${response.statusCode} - ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('Erro ao enviar token para API: $e');
+      return false;
     }
   }
 
@@ -79,7 +166,7 @@ class _MercadoPagoKeyScreenState extends State<MercadoPagoKeyScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Access Token Mercado Pago'), // Updated title
+        title: const Text('Access Token Mercado Pago'),
         backgroundColor: primaryColor,
         elevation: 0,
       ),
@@ -125,8 +212,7 @@ class _MercadoPagoKeyScreenState extends State<MercadoPagoKeyScreen> {
                       borderRadius: BorderRadius.circular(10),
                       borderSide: BorderSide(color: primaryColor, width: 2),
                     ),
-                    prefixIcon:                 Icon(Icons.vpn_key_outlined, size: 20, color: primaryColor),
-
+                    prefixIcon: Icon(Icons.vpn_key_outlined, size: 20, color: primaryColor),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -155,7 +241,7 @@ class _MercadoPagoKeyScreenState extends State<MercadoPagoKeyScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _submitKey,
+                    onPressed: _isLoading ? null : _submitKey,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryColor,
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -163,21 +249,46 @@ class _MercadoPagoKeyScreenState extends State<MercadoPagoKeyScreen> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    child: const Text(
-                      'Salvar Access Token',
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black),
-                    ),
+                    child: _isLoading
+                        ? Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              SizedBox(width: 10),
+                              Text(
+                                'Salvando...',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black),
+                              ),
+                            ],
+                          )
+                        : const Text(
+                            'Salvar Access Token',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextButton(
-                  onPressed: _skipAndFinish,
+                  onPressed: _isLoading ? null : _skipAndFinish,
                   child: Text(
                     'Cadastrar depois',
-                    style: TextStyle(color: primaryColor, fontSize: 14),
+                    style: TextStyle(
+                      color: _isLoading ? Colors.grey : primaryColor, 
+                      fontSize: 14
+                    ),
                   ),
                 )
               ],
@@ -188,4 +299,3 @@ class _MercadoPagoKeyScreenState extends State<MercadoPagoKeyScreen> {
     );
   }
 }
-

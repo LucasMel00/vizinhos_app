@@ -196,18 +196,18 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
   Future<void> _swapToDiscountPrice(Product product) async {
     final auth = context.read<AuthProvider>();
     final url =
-        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/UpdateProductPrice';
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/ApplyPromoPrice';
 
     try {
-      final response = await http.put(
+      final response = await http.patch(
         Uri.parse(url),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${auth.accessToken}',
         },
         body: jsonEncode({
-          'id_Produto': product.id,
-          'valor_venda': product.valorVendaDesc,
+          'id_produto': product.id,
+          'valor_promocao': product.valorVendaDesc,
         }),
       );
 

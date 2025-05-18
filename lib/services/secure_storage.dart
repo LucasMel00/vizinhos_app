@@ -12,6 +12,11 @@ class SecureStorage {
   static const String _storeInfoKey = 'store_info';
   static const String _idEnderecoKey = 'id_Endereco';
   static const String _fcmTokenKey = 'fcm_token';
+  static const String _cpf = 'cpf';
+  
+  // Mercado Pago keys
+  static const String _mercadoPagoTokenKey = 'mercado_pago_token';
+  static const String _mercadoPagoSkippedKey = 'mercado_pago_skipped';
 
   // Token methods
   Future<void> setAccessToken(String token) async {
@@ -30,7 +35,13 @@ class SecureStorage {
     return await _storage.read(key: _fcmTokenKey);
   }
 
+  Future<void> setCpf(String cpf) async {
+    await _storage.write(key: _cpf, value: cpf);
+  }
 
+  Future<String?> getCpf() async {
+    return await _storage.read(key: _cpf);
+  }
 
   Future<void> setIdToken(String token) async {
     await _storage.write(key: _idTokenKey, value: token);
@@ -63,6 +74,7 @@ class SecureStorage {
     await _storage.delete(key: _refreshTokenKey);
     await _storage.delete(key: _expiresInKey);
     await _storage.delete(key: _fcmTokenKey);
+    await _storage.delete(key: _cpf);
   }
 
   // Store info methods
@@ -92,6 +104,31 @@ class SecureStorage {
 
   Future<void> deleteEnderecoId() async {
     await _storage.delete(key: _idEnderecoKey);
+  }
+
+  // Mercado Pago methods
+  Future<void> setMercadoPagoToken(String token) async {
+    await _storage.write(key: _mercadoPagoTokenKey, value: token);
+    // Quando um token é salvo, automaticamente marcamos como não pulado
+    await setMercadoPagoSkipped(false);
+  }
+
+  Future<String?> getMercadoPagoToken() async {
+    return await _storage.read(key: _mercadoPagoTokenKey);
+  }
+
+  Future<void> setMercadoPagoSkipped(bool skipped) async {
+    await _storage.write(key: _mercadoPagoSkippedKey, value: skipped.toString());
+  }
+
+  Future<bool> getMercadoPagoSkipped() async {
+    final value = await _storage.read(key: _mercadoPagoSkippedKey);
+    return value == 'true';
+  }
+
+  Future<void> deleteMercadoPagoData() async {
+    await _storage.delete(key: _mercadoPagoTokenKey);
+    await _storage.delete(key: _mercadoPagoSkippedKey);
   }
 
   // Utilitário geral

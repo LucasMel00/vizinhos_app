@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:vizinhos_app/screens/User/user_account_page.dart';
@@ -25,6 +26,7 @@ class _VendorEditPageState extends State<VendorEditPage> {
   late final Map<String, dynamic> storeData;
   final TextEditingController nameController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
+  final TextEditingController accessTokenController = TextEditingController();
   String selectedDeliveryType = 'Delivery';
   String? newImageBase64;
   bool isLoading = false;
@@ -35,18 +37,59 @@ class _VendorEditPageState extends State<VendorEditPage> {
     super.initState();
     // Clona o map para não mexer no original direto
     storeData = Map<String, dynamic>.from(widget.storeData);
-
+    
+    // Logs para depuração da estrutura
+    print('Estrutura completa do storeData: $storeData');
+    
     // Atualiza os controllers com valores vindos de storeData
     nameController.text = storeData['endereco']['nome_Loja'] ?? '';
     descriptionController.text = storeData['endereco']['descricao_Loja'] ?? '';
     selectedDeliveryType =
         storeData['endereco']['tipo_Entrega'] as String? ?? 'Delivery';
+    
+    // Verificar onde o token está na estrutura
+    if (storeData.containsKey('access_token')) {
+      print('Token encontrado na raiz: ${storeData['access_token']}');
+      accessTokenController.text = storeData['access_token'];
+    } else if (storeData['endereco'] != null && storeData['endereco'].containsKey('access_token')) {
+      print('Token encontrado em endereco: ${storeData['endereco']['access_token']}');
+      accessTokenController.text = storeData['endereco']['access_token'];
+    } else {
+      print('Token não encontrado na estrutura esperada');
+      // Buscar o token diretamente da API
+      _fetchAccessToken(storeData['endereco']['id_Endereco'].toString());
+    }
+  }
+
+  // Função para buscar o token diretamente da API
+  Future<void> _fetchAccessToken(String idEndereco) async {
+    try {
+      final url = Uri.parse(
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetAddressById?id_Endereco=$idEndereco',
+      );
+      final resp = await http.get(url);
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        print('Resposta da API: $data');
+        if (data['endereco'] != null && data['endereco']['access_token'] != null) {
+          setState(() {
+            accessTokenController.text = data['endereco']['access_token'];
+            // Atualiza também no storeData para uso posterior
+            storeData['endereco']['access_token'] = data['endereco']['access_token'];
+          });
+          print('Token buscado da API: ${data['endereco']['access_token']}');
+        }
+      }
+    } catch (e) {
+      print('Erro ao buscar token: $e');
+    }
   }
 
   @override
   void dispose() {
     nameController.dispose();
     descriptionController.dispose();
+    accessTokenController.dispose();
     super.dispose();
   }
 
@@ -92,6 +135,9 @@ class _VendorEditPageState extends State<VendorEditPage> {
     setState(() => isLoading = true);
 
    try {
+      // Usa o valor do token que foi buscado da API ou encontrado na estrutura
+      final accessToken = accessTokenController.text;
+      
       final updatedBody = {
       'id_Endereco': int.parse(storeData['endereco']['id_Endereco'].toString()),
       'cep': storeData['endereco']['cep'] ?? '',
@@ -102,9 +148,11 @@ class _VendorEditPageState extends State<VendorEditPage> {
       'descricao_Loja': descriptionController.text,
       'tipo_Entrega': selectedDeliveryType,
       'id_Imagem': storeData['endereco']['id_Imagem'] ?? '',
+      'access_token': accessToken, // Usa o valor do controller que foi preenchido corretamente
       'Usuario_Tipo': 'seller',
       };
 
+      print('Enviando dados para atualização: $updatedBody');
 
       final resp = await http.put(
         Uri.parse(
@@ -268,6 +316,49 @@ class _VendorEditPageState extends State<VendorEditPage> {
                             setState(() => selectedDeliveryType = v);
                           }
                         },
+                ),
+                const SizedBox(height: 16),
+
+                // Campo para exibir o access token (somente leitura)
+                Text('Access Token', style: textTheme.bodyLarge),
+                const SizedBox(height: 4),
+                TextFormField(
+                  controller: accessTokenController,
+                  readOnly: true, // Impede edição
+                  enabled: false, // Desabilita o campo visualmente
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    fillColor: Colors.grey[200],
+                    filled: true,
+                    suffixIcon: IconButton(
+                      icon: Icon(Icons.copy, color: AppTheme.primaryColor),
+                      onPressed: () {
+                        // Copia o token para a área de transferência
+                        final token = accessTokenController.text;
+                        if (token.isNotEmpty) {
+                          Clipboard.setData(ClipboardData(text: token));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Token copiado para a área de transferência')),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Token não disponível para cópia')),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Este token é somente para visualização e não pode ser editado.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
                 const SizedBox(height: 32),
 

@@ -259,14 +259,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
       'disponivel': widget.product.disponivel,
       'caracteristicas_IDs': selectedCharIds,
       'id_imagem': finalImageId ?? '', // Envia string vazia se for nulo (backend exige)
-      // Inclui o desconto GERAL do produto
       'desconto': _toNum(discountCtrl.text),
-      // !! IMPORTANTE: Se o backend /UpdateProduct também precisar dos campos do lote
-      //    (quantidade, dt_fabricacao, valor_venda_desc), adicione-os aqui também
-      //    com as chaves snake_case corretas.
-      // 'quantidade': int.tryParse(batchQuantityCtrl.text) ?? 0,
-      // 'dt_fabricacao': _selectedManufactureDate != null ? DateFormat('yyyy-MM-dd').format(_selectedManufactureDate!) : null,
-      // 'valor_venda_desc': _toNum(batchDiscountPriceCtrl.text), // <<<=== Use a chave correta esperada pelo backend
+      'flag_oferta': false,
     };
 
     // Remove o desconto se for zero ou negativo (opcional, depende do backend)

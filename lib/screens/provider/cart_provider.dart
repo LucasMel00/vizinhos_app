@@ -5,6 +5,12 @@ import 'package:vizinhos_app/screens/model/product.dart';
 import 'package:vizinhos_app/screens/model/cart_item.dart';
 import 'package:vizinhos_app/screens/model/lote.dart';
 
+enum AddItemResult {
+  success,           // Item adicionado com sucesso
+  differentStore,    // Item de loja diferente, precisa de confirmação
+  unavailable        // Item indisponível
+}
+
 class CartProvider with ChangeNotifier {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   static const _cartKey = 'cart';
@@ -49,14 +55,36 @@ class CartProvider with ChangeNotifier {
     }
   }
 
-  bool addItem(Product product) {
+  // Método modificado para verificar se o produto é de uma loja diferente
+  AddItemResult checkItemStore(Product product) {
     final storeId = product.fkIdEndereco.toString();
     if (_currentStoreId != null && _currentStoreId != storeId) {
-      return false;
+      return AddItemResult.differentStore;
     }
-    if (_items.isEmpty) _currentStoreId = storeId;
-    if (getAvailableToAdd(product) <= 0) return true;
+    if (getAvailableToAdd(product) <= 0) {
+      return AddItemResult.unavailable;
+    }
+    return AddItemResult.success;
+  }
 
+  // Método original modificado para retornar um enum em vez de boolean
+  AddItemResult addItem(Product product) {
+    final storeId = product.fkIdEndereco.toString();
+    
+    // Verifica se o produto é de uma loja diferente
+    if (_currentStoreId != null && _currentStoreId != storeId) {
+      return AddItemResult.differentStore;
+    }
+    
+    // Verifica disponibilidade
+    if (getAvailableToAdd(product) <= 0) {
+      return AddItemResult.unavailable;
+    }
+    
+    // Se o carrinho estiver vazio, define a loja atual
+    if (_items.isEmpty) _currentStoreId = storeId;
+    
+    // Adiciona o item ao carrinho
     _items.update(
       product.id,
       (ci) => CartItem(product: ci.product, quantity: ci.quantity + 1),
@@ -64,7 +92,19 @@ class CartProvider with ChangeNotifier {
     );
     _saveCart();
     notifyListeners();
-    return true;
+    return AddItemResult.success;
+  }
+
+  // Novo método para adicionar produto de outra loja, limpando o carrinho atual
+  void addItemFromDifferentStore(Product product) {
+    // Limpa o carrinho atual
+    _items.clear();
+    _currentStoreId = product.fkIdEndereco.toString();
+    
+    // Adiciona o novo produto
+    _items[product.id] = CartItem(product: product, quantity: 1);
+    _saveCart();
+    notifyListeners();
   }
 
   void removeSingleItem(String productId) {
@@ -107,5 +147,37 @@ class CartProvider with ChangeNotifier {
     }
     final inCart = _items[product.id]?.quantity ?? 0;
     return (loteQtd - inCart).clamp(0, loteQtd);
+  }
+
+  // Método para preparar os dados do pedido no formato esperado pela nova API
+  Map<String, dynamic> prepareOrderData({
+    required String tipoEntrega,
+    required int idLoja,
+    String? userCpf,
+  }) {
+    // Preparar itens do pedido
+    final itemPedido = itemsList.map((item) {
+      return {
+        'fk_id_Lote': item.product.id_lote, // usa o getter para pegar o id do lote        'quantidade_item': item.quantity,
+        'preco_unitario': item.product.valorVenda,
+        'quantidade_item': item.quantity,
+      };
+    }).toList();
+
+    // Montar objeto de pedido
+    final orderData = {
+      'id_Loja': idLoja,
+      'valor': totalAmount,
+      'tipo_entrega': tipoEntrega,
+      'item_pedido': itemPedido,
+      
+    };
+    
+    // Adicionar CPF apenas se disponível
+    if (userCpf != null && userCpf.isNotEmpty) {
+      orderData['fk_Usuario_cpf'] = userCpf;
+    }
+    
+    return orderData;
   }
 }

@@ -148,6 +148,13 @@ void initState() {
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
+      final cpf = data['usuario']?['cpf'];
+      if (cpf != null) {
+        print('CPF encontrado: $cpf');
+        await storage.write(key: 'cpf', value: cpf);
+        authProvider.setCpf(cpf);
+        
+      }
       if (mounted) {
         setState(() {
           userInfo = data;
