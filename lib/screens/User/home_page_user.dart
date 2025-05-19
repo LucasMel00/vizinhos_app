@@ -3,7 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shimmer/shimmer.dart'; // Import shimmer for loading effect
+import 'package:vizinhos_app/screens/provider/cart_provider.dart'; // Import CartProvider
+import 'package:vizinhos_app/screens/cart/cart_screen.dart'; // Import CartScreen
+import 'package:vizinhos_app/services/fcm_service.dart'; // Import FCMService
+import 'package:vizinhos_app/screens/provider/orders_provider.dart'; // Import OrdersProvider
 import 'package:vizinhos_app/screens/provider/notification_provider.dart'; // Importar NotificationProvider
 import 'package:vizinhos_app/notifications_screen.dart'; // Importar NotificationsScreen
 import 'package:vizinhos_app/screens/User/user_account_page.dart';
@@ -14,12 +19,6 @@ import 'package:vizinhos_app/screens/orders/orders_page.dart';
 import 'package:vizinhos_app/screens/restaurant/store_detail_page.dart'; // Corrected import
 import 'package:vizinhos_app/screens/search/search_page.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:shimmer/shimmer.dart'; // Import shimmer for loading effect
-import 'package:vizinhos_app/screens/provider/cart_provider.dart'; // Import CartProvider
-import 'package:vizinhos_app/screens/cart/cart_screen.dart'; // Import CartScreen
-import 'package:vizinhos_app/services/fcm_service.dart'; // Import FCMService
-import 'package:vizinhos_app/screens/provider/orders_provider.dart'; // Import OrdersProvider
 
 // Define colors for consistency
 const Color primaryColor = Color(0xFFFbbc2c);
@@ -239,68 +238,47 @@ void initState() {
     }
   }
 
-  Future<void> _onNavItemTapped(int index) async {
-    if (index == _selectedIndex && index != 0) return;
-
+  void _onNavItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
 
+    // Navegar para a página correspondente
     switch (index) {
-      case 0: // Home
-        if (ModalRoute.of(context)?.settings.name != HomePage.routeName) {
-          Navigator.pushReplacementNamed(context, HomePage.routeName);
-        } else {
-          _refresh();
-        }
-        break;
-      case 1: // Search
+      case 0:
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => SearchPage()),
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => HomePage(),
+            transitionDuration: const Duration(milliseconds: 300),
+            transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+          ),
         );
         break;
-      case 2: // Orders
+      case 1:
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => SearchPage(),
+            transitionDuration: const Duration(milliseconds: 300),
+            transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+          ),
+        );
+        break;
+     case 2: // Orders
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         final cpf = authProvider.cpf ?? '';
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => OrdersPage(cpf: cpf)),
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => OrdersPage(cpf: cpf),
+            transitionDuration: const Duration(milliseconds: 300),
+            transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+          ),
         );
         break;
-      case 3: // Account
-        final prefs = await SharedPreferences.getInstance();
-        final dontShow = prefs.getBool('dontShowUserProfileOnboarding') ?? false;
-
-        if (dontShow) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => UserAccountPage(
-                userInfo: userInfo ?? {},
-              ),
-            ),
-          ).then((_) => setState(() => _selectedIndex = 0));
-        } else {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => UserProfileOnboardingScreen(
-                onContinue: () => Navigator.of(context).pop(true),
-              ),
-            ),
-          );
-          if (result == true) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => UserAccountPage(
-                  userInfo: userInfo ?? {},
-                ),
-              ),
-            ).then((_) => setState(() => _selectedIndex = 0));
-          }
-        }
+      case 3:
+        // Já estamos na página de conta do usuário
         break;
     }
   }

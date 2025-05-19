@@ -202,15 +202,23 @@ class _UserAccountPageState extends State<UserAccountPage> {
     // Navegar para a página correspondente
     switch (index) {
       case 0:
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => HomePage()), // Ensure HomePageUser is defined or imported correctly
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => HomePage(),
+            transitionDuration: const Duration(milliseconds: 300),
+            transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+          ),
         );
         break;
       case 1:
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => SearchPage()),
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => SearchPage(),
+            transitionDuration: const Duration(milliseconds: 300),
+            transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+          ),
         );
         break;
      case 2: // Orders
@@ -218,7 +226,11 @@ class _UserAccountPageState extends State<UserAccountPage> {
         final cpf = authProvider.cpf ?? '';
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => OrdersPage(cpf: cpf)),
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => OrdersPage(cpf: cpf),
+            transitionDuration: const Duration(milliseconds: 300),
+            transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+          ),
         );
         break;
       case 3:
