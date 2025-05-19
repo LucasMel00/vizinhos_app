@@ -216,7 +216,7 @@ class _UserAccountPageState extends State<UserAccountPage> {
       case 2:
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => OrdersPage()),
+         MaterialPageRoute(builder: (_) => OrdersPage(cpf: _userInfo?['usuario']?['cpf'] ?? '')), // Ensure OrdersPage is defined or imported correctly
         );
         break;
       case 3:

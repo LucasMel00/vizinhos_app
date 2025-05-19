@@ -263,7 +263,7 @@ void initState() {
       case 2: // Orders
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => OrdersPage()),
+          MaterialPageRoute(builder: (_) => OrdersPage(cpf: userInfo?['usuario']?['cpf'] ?? userInfo?['cpf'] ?? '')),
         );
         break;
       case 3: // Account

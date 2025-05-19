@@ -8,9 +8,6 @@ class OrdersProvider with ChangeNotifier {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   static const _ordersKey = 'user_orders';
   List<Order> _orders = [];
-  final MercadoPagoService _mercadoPago = MercadoPagoService(
-      'TEST-1356231261866648-051013-0d2ef2167a37e823d733d05ec30379f0-2430273423');
-
   List<Order> get orders => [..._orders];
 
   OrdersProvider() {
@@ -55,13 +52,12 @@ class OrdersProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+  
 
   Future<void> checkPaymentStatus(Order order) async {
     if (order.paymentId == null) return;
 
     try {
-      final paymentData = await _mercadoPago.getPayment(order.paymentId!);
-      await updateOrderStatus(order.id, paymentData['status']);
     } catch (e) {
       debugPrint('Erro ao verificar status: $e');
     }
