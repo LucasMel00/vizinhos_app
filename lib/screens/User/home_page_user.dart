@@ -261,9 +261,11 @@ void initState() {
         );
         break;
       case 2: // Orders
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final cpf = authProvider.cpf ?? '';
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => OrdersPage(cpf: userInfo?['usuario']?['cpf'] ?? userInfo?['cpf'] ?? '')),
+          MaterialPageRoute(builder: (_) => OrdersPage(cpf: cpf)),
         );
         break;
       case 3: // Account
@@ -498,6 +500,7 @@ void initState() {
           child: NestedScrollView(
             headerSliverBuilder: (context, innerBoxIsScrolled) => [
               SliverAppBar(
+                automaticallyImplyLeading: false, // Hide back button
                 title: Row(
                   children: [
                     const Icon(Icons.location_on, size: 18, color: Colors.white),
@@ -516,7 +519,6 @@ void initState() {
                 snap: true,
                 elevation: 2,
                 forceElevated: innerBoxIsScrolled,
-                automaticallyImplyLeading: false,
                 backgroundColor: primaryColor,
                 actions: [
                   // Notification Icon Button
@@ -693,7 +695,7 @@ void initState() {
             Icon(
               icon,
               size: 24,
-              color: isSelected ? const Color.fromARGB(255, 237, 236, 233) : secondaryColor.withOpacity(0.7),
+              color: isSelected ? const Color.fromARGB(255, 237, 236, 233) : const Color.fromRGBO(59, 67, 81, 1).withOpacity(0.7),
             ),
             SizedBox(height: 2),
             Text(

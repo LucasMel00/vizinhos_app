@@ -307,27 +307,26 @@ class CartScreen extends StatelessWidget {
 
   // Método para obter o tipo de entrega da loja
   Future<String> _getDeliveryType(int storeId) async {
-    // Aqui você deve implementar a lógica para obter o tipo de entrega da loja
-    // Isso pode ser feito através de uma chamada à API ou de dados já carregados
-    
-    // Por enquanto, retornamos um valor padrão
+  final url = 'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetStoreInfo?id_loja=$storeId';
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final storeData = json.decode(response.body);
+        final deliveryType = storeData['tipo_Entrega'];
+        if (deliveryType is String && deliveryType.isNotEmpty) {
+          return deliveryType;
+        }
+      } else {
+        debugPrint('Erro ao buscar delivery type: status ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Erro ao obter tipo de entrega: $e');
+    }
     return 'Retirada';
-    
-    // Exemplo de implementação futura:
-    // try {
-    //   final response = await http.get(
-    //     Uri.parse('https://sua-api.com/stores/$storeId'),
-    //     headers: {'Content-Type': 'application/json'},
-    //   );
-    //
-    //   if (response.statusCode == 200) {
-    //     final storeData = json.decode(response.body);
-    //     return storeData['delivery_type'] ?? 'Retirada';
-    //   }
-    // } catch (e) {
-    //   debugPrint('Erro ao obter tipo de entrega: $e');
-    // }
-    // return 'Retirada';
   }
 
   Future<void> _confirmAndProcessPayment(BuildContext context) async {

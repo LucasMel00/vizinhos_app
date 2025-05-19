@@ -1560,9 +1560,7 @@ class _AddToCartButtonState extends State<_AddToCartButton> {
                       // Adiciona o produto normalmente
                       cartProvider.addItem(widget.product);
                       widget.onProductAdded();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Produto adicionado ao carrinho')),
-                      );
+                  
                       break;
                       
                     case AddItemResult.differentStore:
