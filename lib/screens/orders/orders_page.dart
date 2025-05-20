@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:vizinhos_app/screens/User/home_page_user.dart';
+import 'package:vizinhos_app/screens/user/home_page_user.dart';
 import 'package:vizinhos_app/screens/search/search_page.dart';
-import 'package:vizinhos_app/screens/User/user_account_page.dart';
+import 'package:vizinhos_app/screens/user/user_account_page.dart';
 import '../model/order_models.dart';
 import '../provider/order_service.dart';
 
@@ -29,7 +29,8 @@ class _OrdersPageState extends State<OrdersPage> {
     _ordersFuture = _fetchOrders();
   }
 
-  Future<OrdersResponse> _fetchOrders() => _ordersService.getOrdersByUser(widget.cpf);
+  Future<OrdersResponse> _fetchOrders() =>
+      _ordersService.getOrdersByUser(widget.cpf);
 
   String _formatDate(String dateString) {
     try {
@@ -39,34 +40,44 @@ class _OrdersPageState extends State<OrdersPage> {
     }
   }
 
-  String _formatCurrency(double value) => 
+  String _formatCurrency(double value) =>
       NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(value);
 
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
-      case 'aprovado': return Colors.green;
-      case 'pendente': return Colors.orange;
-      case 'aguardando pagamento': return Colors.blue;
-      case 'cancelado': return Colors.red;
-      default: return Colors.grey[800]!;
+      case 'aprovado':
+        return Colors.green;
+      case 'pendente':
+        return Colors.orange;
+      case 'aguardando pagamento':
+        return Colors.blue;
+      case 'cancelado':
+        return Colors.red;
+      default:
+        return Colors.grey[800]!;
     }
   }
 
   IconData _getStatusIcon(String status) {
     switch (status.toLowerCase()) {
-      case 'aprovado': return Icons.check_circle;
-      case 'pendente': return Icons.pending_actions;
-      case 'aguardando pagamento': return Icons.payment;
-      case 'cancelado': return Icons.cancel;
-      default: return Icons.info;
+      case 'aprovado':
+        return Icons.check_circle;
+      case 'pendente':
+        return Icons.pending_actions;
+      case 'aguardando pagamento':
+        return Icons.payment;
+      case 'cancelado':
+        return Icons.cancel;
+      default:
+        return Icons.info;
     }
   }
 
   Future<void> _updateOrderStatus(String idPedido) async {
     setState(() => _updatingStatus[idPedido] = true);
-    
+
     final success = await _ordersService.updateOrderStatus(idPedido);
-    
+
     if (success) {
       setState(() => _ordersFuture = _fetchOrders());
       ScaffoldMessenger.of(context).showSnackBar(
@@ -83,41 +94,58 @@ class _OrdersPageState extends State<OrdersPage> {
         ),
       );
     }
-    
+
     setState(() => _updatingStatus.remove(idPedido));
   }
 
   void _onNavItemTapped(int index) {
-    if (index == _selectedIndex && index != 0) return;
     setState(() {
       _selectedIndex = index;
     });
+
+    // Navegar para a página correspondente
     switch (index) {
-      case 0: // Home
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => HomePage()),
-          (route) => false,
-        );
-        break;
-      case 1: // Search
+      case 0:
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => SearchPage()),
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => HomePage(),
+            transitionDuration: const Duration(milliseconds: 300),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
+          ),
         );
         break;
-      case 2: // Orders (current)
-        break;
-      case 3: // Account
+      case 1:
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => UserAccountPage(userInfo: {})),
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => SearchPage(),
+            transitionDuration: const Duration(milliseconds: 300),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
+          ),
+        );
+        break;
+      case 2: // Orders
+        break; // Already on this page
+        break;
+      case 3:
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => UserAccountPage(),
+            transitionDuration: const Duration(milliseconds: 300),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
+          ),
         );
         break;
     }
   }
 
-  Widget _buildNavIcon(IconData icon, String label, int index, BuildContext context) {
+  Widget _buildNavIcon(
+      IconData icon, String label, int index, BuildContext context) {
     bool isSelected = index == _selectedIndex;
     return InkWell(
       onTap: () => _onNavItemTapped(index),
@@ -130,14 +158,18 @@ class _OrdersPageState extends State<OrdersPage> {
             Icon(
               icon,
               size: 24,
-              color: isSelected ? const Color.fromARGB(255, 237, 236, 233) : const Color.fromRGBO(59, 67, 81, 1).withOpacity(0.7),
+              color: isSelected
+                  ? const Color.fromARGB(255, 237, 236, 233)
+                  : const Color.fromRGBO(59, 67, 81, 1).withOpacity(0.7),
             ),
             SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
                 fontSize: 10,
-                color: isSelected ? const Color.fromARGB(255, 21, 21, 21) : const Color.fromRGBO(59, 67, 81, 1).withOpacity(0.7),
+                color: isSelected
+                    ? const Color.fromARGB(255, 21, 21, 21)
+                    : const Color.fromRGBO(59, 67, 81, 1).withOpacity(0.7),
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             )
@@ -160,7 +192,8 @@ class _OrdersPageState extends State<OrdersPage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          automaticallyImplyLeading: false, // Hide back button when navigating via navbar
+          automaticallyImplyLeading:
+              false, // Hide back button when navigating via navbar
           backgroundColor: const Color(0xFFFbbc2c),
           title: const Text('Meus Pedidos'),
           centerTitle: true,
@@ -168,12 +201,14 @@ class _OrdersPageState extends State<OrdersPage> {
         body: LayoutBuilder(
           builder: (context, constraints) {
             return RefreshIndicator.adaptive(
-              onRefresh: () async => setState(() => _ordersFuture = _fetchOrders()),
+              onRefresh: () async =>
+                  setState(() => _ordersFuture = _fetchOrders()),
               child: FutureBuilder<OrdersResponse>(
                 future: _ordersFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator.adaptive());
+                    return const Center(
+                        child: CircularProgressIndicator.adaptive());
                   }
 
                   if (snapshot.hasError) {
@@ -194,15 +229,16 @@ class _OrdersPageState extends State<OrdersPage> {
 
                   return ConstrainedBox(
                     constraints: BoxConstraints(
-                      maxWidth: constraints.maxWidth > 600 ? 600 : double.infinity
-                    ),
+                        maxWidth:
+                            constraints.maxWidth > 600 ? 600 : double.infinity),
                     child: ListView.separated(
                       padding: const EdgeInsets.all(16),
                       itemCount: orders.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 12),
                       itemBuilder: (context, index) => _OrderCard(
                         order: orders[index],
-                        updating: _updatingStatus[orders[index].idPedido] ?? false,
+                        updating:
+                            _updatingStatus[orders[index].idPedido] ?? false,
                         onUpdateStatus: _updateOrderStatus,
                         formatDate: _formatDate,
                         formatCurrency: _formatCurrency,
@@ -262,21 +298,31 @@ class _OrderCard extends StatelessWidget {
 
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
-      case 'aprovado': return Colors.green;
-      case 'pendente': return Colors.orange;
-      case 'aguardando pagamento': return Colors.blue;
-      case 'cancelado': return Colors.red;
-      default: return Colors.grey[800]!;
+      case 'aprovado':
+        return Colors.green;
+      case 'pendente':
+        return Colors.orange;
+      case 'aguardando pagamento':
+        return Colors.blue;
+      case 'cancelado':
+        return Colors.red;
+      default:
+        return Colors.grey[800]!;
     }
   }
 
   IconData _getStatusIcon(String status) {
     switch (status.toLowerCase()) {
-      case 'aprovado': return Icons.check_circle;
-      case 'pendente': return Icons.pending_actions;
-      case 'aguardando pagamento': return Icons.payment;
-      case 'cancelado': return Icons.cancel;
-      default: return Icons.info;
+      case 'aprovado':
+        return Icons.check_circle;
+      case 'pendente':
+        return Icons.pending_actions;
+      case 'aguardando pagamento':
+        return Icons.payment;
+      case 'cancelado':
+        return Icons.cancel;
+      default:
+        return Icons.info;
     }
   }
 
@@ -421,7 +467,8 @@ class _OrderCard extends StatelessWidget {
   void _copyQrCode(BuildContext context, String qrCode) {
     Clipboard.setData(ClipboardData(text: qrCode));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Código QR copiado para a área de transferência')),
+      const SnackBar(
+          content: Text('Código QR copiado para a área de transferência')),
     );
   }
 }
@@ -452,7 +499,8 @@ class _ProductItem extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Text('${product.quantidade}x ${formatCurrency(product.valorUnitario)}'),
+          Text(
+              '${product.quantidade}x ${formatCurrency(product.valorUnitario)}'),
           Text(
             formatCurrency(product.quantidade * product.valorUnitario),
             style: const TextStyle(fontWeight: FontWeight.bold),
@@ -541,8 +589,7 @@ class _EmptyOrdersView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.shopping_bag_outlined,
-              size: 80, color: Colors.grey[400]),
+          Icon(Icons.shopping_bag_outlined, size: 80, color: Colors.grey[400]),
           const SizedBox(height: 20),
           Text(
             'Nenhum pedido encontrado',

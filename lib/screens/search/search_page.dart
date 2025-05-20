@@ -3,8 +3,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
-import 'package:vizinhos_app/screens/User/home_page_user.dart';
-import 'package:vizinhos_app/screens/User/user_account_page.dart';
+import 'package:vizinhos_app/screens/user/home_page_user.dart';
+import 'package:vizinhos_app/screens/user/user_account_page.dart';
 import 'package:vizinhos_app/screens/model/restaurant.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart';
 import 'package:vizinhos_app/screens/restaurant/store_detail_page.dart';
@@ -24,7 +24,8 @@ class _SearchPageState extends State<SearchPage> {
   List<Restaurant> _filtered = [];
   final TextEditingController _searchController = TextEditingController();
 
-  final String lojaImageBaseUrl = "https://loja-profile-pictures.s3.amazonaws.com/";
+  final String lojaImageBaseUrl =
+      "https://loja-profile-pictures.s3.amazonaws.com/";
 
   // Filtros e ordenação
   String _selectedTipoEntrega = 'Todos';
@@ -81,9 +82,11 @@ class _SearchPageState extends State<SearchPage> {
         .where((r) => r.name.toLowerCase().contains(query))
         .toList();
     if (_selectedTipoEntrega != 'Todos') {
-      filtered = filtered.where((r) =>
-        r.tipoEntrega.toLowerCase().contains(_selectedTipoEntrega.toLowerCase())
-      ).toList();
+      filtered = filtered
+          .where((r) => r.tipoEntrega
+              .toLowerCase()
+              .contains(_selectedTipoEntrega.toLowerCase()))
+          .toList();
     }
     if (_selectedOrder == 'A-Z') {
       filtered.sort((a, b) => a.name.compareTo(b.name));
@@ -103,39 +106,64 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  void _onNavItemTapped(int index) async {
-    if (index == _selectedIndex && index != 0) return;
+  void _onNavItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
+
+    // Navegar para a página correspondente
     switch (index) {
-      case 0: // Home
-        Navigator.pushAndRemoveUntil(
+      case 0:
+        Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => HomePage()),
-          (route) => false,
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => HomePage(),
+            transitionDuration: const Duration(milliseconds: 300),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
+          ),
         );
         break;
-      case 1: // Search (current)
-        break; // Orders
+      case 1:
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => SearchPage(),
+            transitionDuration: const Duration(milliseconds: 300),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
+          ),
+        );
+        break;
       case 2: // Orders
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         final cpf = authProvider.cpf ?? '';
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => OrdersPage(cpf: cpf)),
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => OrdersPage(cpf: cpf),
+            transitionDuration: const Duration(milliseconds: 300),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
+          ),
         );
         break;
-      case 3: // Account
+      case 3:
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => UserAccountPage(userInfo: {})),
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => UserAccountPage(),
+            transitionDuration: const Duration(milliseconds: 300),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
+          ),
         );
         break;
     }
   }
 
-  Widget _buildNavIcon(IconData icon, String label, int index, BuildContext context) {
+  Widget _buildNavIcon(
+      IconData icon, String label, int index, BuildContext context) {
     bool isSelected = index == _selectedIndex;
     return InkWell(
       onTap: () => _onNavItemTapped(index),
@@ -148,14 +176,18 @@ class _SearchPageState extends State<SearchPage> {
             Icon(
               icon,
               size: 24,
-              color: isSelected ? const Color.fromARGB(255, 237, 236, 233) : const Color.fromRGBO(59, 67, 81, 1).withOpacity(0.7),
+              color: isSelected
+                  ? const Color.fromARGB(255, 237, 236, 233)
+                  : const Color.fromRGBO(59, 67, 81, 1).withOpacity(0.7),
             ),
             SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
                 fontSize: 10,
-                color: isSelected ? const Color.fromARGB(255, 21, 21, 21) : const Color.fromRGBO(59, 67, 81, 1).withOpacity(0.7),
+                color: isSelected
+                    ? const Color.fromARGB(255, 21, 21, 21)
+                    : const Color.fromRGBO(59, 67, 81, 1).withOpacity(0.7),
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             )
@@ -171,32 +203,37 @@ class _SearchPageState extends State<SearchPage> {
       child: Row(
         children: [
           ..._tiposEntrega.map((tipo) => Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: ChoiceChip(
-              label: Text(tipo),
-              selected: _selectedTipoEntrega == tipo,
-              selectedColor: AppTheme.primaryColor.withOpacity(0.2),
-              onSelected: (selected) {
-                setState(() {
-                  _selectedTipoEntrega = tipo;
-                });
-                _applyFilters();
-              },
-              labelStyle: TextStyle(
-                color: _selectedTipoEntrega == tipo ? AppTheme.primaryColor : Colors.black87,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          )),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: ChoiceChip(
+                  label: Text(tipo),
+                  selected: _selectedTipoEntrega == tipo,
+                  selectedColor: AppTheme.primaryColor.withOpacity(0.2),
+                  onSelected: (selected) {
+                    setState(() {
+                      _selectedTipoEntrega = tipo;
+                    });
+                    _applyFilters();
+                  },
+                  labelStyle: TextStyle(
+                    color: _selectedTipoEntrega == tipo
+                        ? AppTheme.primaryColor
+                        : Colors.black87,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              )),
           const SizedBox(width: 12),
           DropdownButton<String>(
             value: _selectedOrder,
             underline: Container(),
-            style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87),
-            items: _orderOptions.map((order) => DropdownMenuItem(
-              value: order,
-              child: Text(order),
-            )).toList(),
+            style: const TextStyle(
+                fontWeight: FontWeight.w600, color: Colors.black87),
+            items: _orderOptions
+                .map((order) => DropdownMenuItem(
+                      value: order,
+                      child: Text(order),
+                    ))
+                .toList(),
             onChanged: (value) {
               if (value != null) {
                 setState(() {
@@ -286,14 +323,16 @@ class _SearchPageState extends State<SearchPage> {
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: AppTheme.primaryColor.withOpacity(0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             r.tipoEntrega,
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                                fontSize: 11, fontWeight: FontWeight.w600),
                           ),
                         ),
                       ],
@@ -308,12 +347,14 @@ class _SearchPageState extends State<SearchPage> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        const Icon(Icons.location_on, size: 16, color: Colors.grey),
+                        const Icon(Icons.location_on,
+                            size: 16, color: Colors.grey),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             '${r.logradouro}, ${r.numero}',
-                            style: AppTheme.secondaryTextStyle.copyWith(fontSize: 13),
+                            style: AppTheme.secondaryTextStyle
+                                .copyWith(fontSize: 13),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -325,17 +366,20 @@ class _SearchPageState extends State<SearchPage> {
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
                           r.complemento,
-                          style: AppTheme.secondaryTextStyle.copyWith(fontSize: 12, color: Colors.grey[600]),
+                          style: AppTheme.secondaryTextStyle
+                              .copyWith(fontSize: 12, color: Colors.grey[600]),
                         ),
                       ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        const Icon(Icons.delivery_dining, size: 16, color: Colors.green),
+                        const Icon(Icons.delivery_dining,
+                            size: 16, color: Colors.green),
                         const SizedBox(width: 4),
                         Text(
                           'Entrega: ${r.tipoEntrega}',
-                          style: AppTheme.secondaryTextStyle.copyWith(fontSize: 13),
+                          style: AppTheme.secondaryTextStyle
+                              .copyWith(fontSize: 13),
                         ),
                       ],
                     ),
@@ -362,7 +406,8 @@ class _SearchPageState extends State<SearchPage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          automaticallyImplyLeading: false, // Hide back button when navigating via navbar
+          automaticallyImplyLeading:
+              false, // Hide back button when navigating via navbar
           title: const Text('Buscar Lojas'),
           centerTitle: true,
 
@@ -380,7 +425,7 @@ class _SearchPageState extends State<SearchPage> {
             } else if (snapshot.hasError) {
               return Center(
                 child: Text(
-                    'Erro: ${snapshot.error}',
+                  'Erro: ${snapshot.error}',
                   style: TextStyle(color: AppTheme.errorColor),
                 ),
               );
@@ -411,7 +456,8 @@ class _SearchPageState extends State<SearchPage> {
                   child: _filtered.isNotEmpty
                       ? ListView.builder(
                           itemCount: _filtered.length,
-                          itemBuilder: (context, index) => _buildRestaurantCard(_filtered[index]),
+                          itemBuilder: (context, index) =>
+                              _buildRestaurantCard(_filtered[index]),
                         )
                       : Center(
                           child: Text(

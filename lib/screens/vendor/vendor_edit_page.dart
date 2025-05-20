@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
-import 'package:vizinhos_app/screens/User/user_account_page.dart';
+import 'package:vizinhos_app/screens/user/user_account_page.dart';
 import 'package:vizinhos_app/services/app_theme.dart';
 
 class VendorEditPage extends StatefulWidget {
@@ -37,22 +37,24 @@ class _VendorEditPageState extends State<VendorEditPage> {
     super.initState();
     // Clona o map para não mexer no original direto
     storeData = Map<String, dynamic>.from(widget.storeData);
-    
+
     // Logs para depuração da estrutura
     print('Estrutura completa do storeData: $storeData');
-    
+
     // Atualiza os controllers com valores vindos de storeData
     nameController.text = storeData['endereco']['nome_Loja'] ?? '';
     descriptionController.text = storeData['endereco']['descricao_Loja'] ?? '';
     selectedDeliveryType =
         storeData['endereco']['tipo_Entrega'] as String? ?? 'Delivery';
-    
+
     // Verificar onde o token está na estrutura
     if (storeData.containsKey('access_token')) {
       print('Token encontrado na raiz: ${storeData['access_token']}');
       accessTokenController.text = storeData['access_token'];
-    } else if (storeData['endereco'] != null && storeData['endereco'].containsKey('access_token')) {
-      print('Token encontrado em endereco: ${storeData['endereco']['access_token']}');
+    } else if (storeData['endereco'] != null &&
+        storeData['endereco'].containsKey('access_token')) {
+      print(
+          'Token encontrado em endereco: ${storeData['endereco']['access_token']}');
       accessTokenController.text = storeData['endereco']['access_token'];
     } else {
       print('Token não encontrado na estrutura esperada');
@@ -71,11 +73,13 @@ class _VendorEditPageState extends State<VendorEditPage> {
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
         print('Resposta da API: $data');
-        if (data['endereco'] != null && data['endereco']['access_token'] != null) {
+        if (data['endereco'] != null &&
+            data['endereco']['access_token'] != null) {
           setState(() {
             accessTokenController.text = data['endereco']['access_token'];
             // Atualiza também no storeData para uso posterior
-            storeData['endereco']['access_token'] = data['endereco']['access_token'];
+            storeData['endereco']['access_token'] =
+                data['endereco']['access_token'];
           });
           print('Token buscado da API: ${data['endereco']['access_token']}');
         }
@@ -134,22 +138,24 @@ class _VendorEditPageState extends State<VendorEditPage> {
   Future<void> saveData() async {
     setState(() => isLoading = true);
 
-   try {
+    try {
       // Usa o valor do token que foi buscado da API ou encontrado na estrutura
       final accessToken = accessTokenController.text;
-      
+
       final updatedBody = {
-      'id_Endereco': int.parse(storeData['endereco']['id_Endereco'].toString()),
-      'cep': storeData['endereco']['cep'] ?? '',
-      'logradouro': storeData['endereco']['logradouro'] ?? '',
-      'numero': storeData['endereco']['numero'] ?? '',
-      'complemento': storeData['endereco']['complemento'] ?? '',
-      'nome_Loja': nameController.text,
-      'descricao_Loja': descriptionController.text,
-      'tipo_Entrega': selectedDeliveryType,
-      'id_Imagem': storeData['endereco']['id_Imagem'] ?? '',
-      'access_token': accessToken, // Usa o valor do controller que foi preenchido corretamente
-      'Usuario_Tipo': 'seller',
+        'id_Endereco':
+            int.parse(storeData['endereco']['id_Endereco'].toString()),
+        'cep': storeData['endereco']['cep'] ?? '',
+        'logradouro': storeData['endereco']['logradouro'] ?? '',
+        'numero': storeData['endereco']['numero'] ?? '',
+        'complemento': storeData['endereco']['complemento'] ?? '',
+        'nome_Loja': nameController.text,
+        'descricao_Loja': descriptionController.text,
+        'tipo_Entrega': selectedDeliveryType,
+        'id_Imagem': storeData['endereco']['id_Imagem'] ?? '',
+        'access_token':
+            accessToken, // Usa o valor do controller que foi preenchido corretamente
+        'Usuario_Tipo': 'seller',
       };
 
       print('Enviando dados para atualização: $updatedBody');
@@ -198,8 +204,7 @@ class _VendorEditPageState extends State<VendorEditPage> {
     }
     final idImg = storeData['endereco']['id_Imagem'];
     if (idImg != null && idImg.toString().isNotEmpty) {
-      final url =
-          'https://loja-profile-pictures.s3.amazonaws.com/$idImg';
+      final url = 'https://loja-profile-pictures.s3.amazonaws.com/$idImg';
       return ClipOval(
         child: Image.network(
           url,
@@ -231,7 +236,8 @@ class _VendorEditPageState extends State<VendorEditPage> {
         title: const Text('Editar Loja'),
         backgroundColor: primaryColor,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Color.fromARGB(255, 240, 240, 240)),
+        iconTheme:
+            const IconThemeData(color: Color.fromARGB(255, 240, 240, 240)),
       ),
       body: Stack(
         children: [
@@ -340,11 +346,15 @@ class _VendorEditPageState extends State<VendorEditPage> {
                         if (token.isNotEmpty) {
                           Clipboard.setData(ClipboardData(text: token));
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Token copiado para a área de transferência')),
+                            const SnackBar(
+                                content: Text(
+                                    'Token copiado para a área de transferência')),
                           );
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Token não disponível para cópia')),
+                            const SnackBar(
+                                content:
+                                    Text('Token não disponível para cópia')),
                           );
                         }
                       },
@@ -390,7 +400,6 @@ class _VendorEditPageState extends State<VendorEditPage> {
               ],
             ),
           ),
-
           if (isLoading)
             Container(
               color: Colors.black.withOpacity(0.3),

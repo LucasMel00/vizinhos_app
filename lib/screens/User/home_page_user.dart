@@ -11,8 +11,8 @@ import 'package:vizinhos_app/services/fcm_service.dart'; // Import FCMService
 import 'package:vizinhos_app/screens/provider/orders_provider.dart'; // Import OrdersProvider
 import 'package:vizinhos_app/screens/provider/notification_provider.dart'; // Importar NotificationProvider
 import 'package:vizinhos_app/notifications_screen.dart'; // Importar NotificationsScreen
-import 'package:vizinhos_app/screens/User/user_account_page.dart';
-import 'package:vizinhos_app/screens/User/user_profile_page.dart';
+import 'package:vizinhos_app/screens/user/user_account_page.dart';
+import 'package:vizinhos_app/screens/user/user_profile_page.dart';
 import 'package:vizinhos_app/screens/model/restaurant.dart';
 import 'package:vizinhos_app/screens/onboarding/onboarding_user_screen.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart';
@@ -42,170 +42,173 @@ class _HomePageState extends State<HomePage> {
   bool _isLoading = true;
   String _selectedCategory = 'Todas';
   List<String> _categories = ['Todas'];
-  static const String lojaImageBaseUrl = "https://loja-profile-pictures.s3.amazonaws.com/";
+  static const String lojaImageBaseUrl =
+      "https://loja-profile-pictures.s3.amazonaws.com/";
 
   @override
-void initState() {
-  super.initState();
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (mounted) {
-      _loadData();
-      Provider.of<NotificationProvider>(context, listen: false).loadNotifications();
-      
-      // Configurar listener para atualizações do token FCM
-      FirebaseMessaging.instance.onTokenRefresh.listen((String token) async {
-        print('Token FCM atualizado: $token');
-        // Salvar o novo token no secure storage
-        await storage.write(key: 'fcm_token', value: token);
-        
-        // Se o usuário já estiver logado, atualizar o token no servidor
-        if (userInfo != null && userInfo!['usuario'] != null && userInfo!['usuario']['cpf'] != null) {
-          String userCpf = userInfo!['usuario']['cpf'];
-          bool result = await FCMService.registerFCMToken(
-            cpf: userCpf,
-            fcmToken: token,
-          );
-          print('Resultado da atualização do token FCM: $result');
-        }
-      });
-    }
-  });
-}
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadData();
+        Provider.of<NotificationProvider>(context, listen: false)
+            .loadNotifications();
 
+        // Configurar listener para atualizações do token FCM
+        FirebaseMessaging.instance.onTokenRefresh.listen((String token) async {
+          print('Token FCM atualizado: $token');
+          // Salvar o novo token no secure storage
+          await storage.write(key: 'fcm_token', value: token);
+
+          // Se o usuário já estiver logado, atualizar o token no servidor
+          if (userInfo != null &&
+              userInfo!['usuario'] != null &&
+              userInfo!['usuario']['cpf'] != null) {
+            String userCpf = userInfo!['usuario']['cpf'];
+            bool result = await FCMService.registerFCMToken(
+              cpf: userCpf,
+              fcmToken: token,
+            );
+            print('Resultado da atualização do token FCM: $result');
+          }
+        });
+      }
+    });
+  }
 
   Future<void> _loadData() async {
-  if (!mounted) return;
-  setState(() {
-    _isLoading = true;
-  });
-  try {
-    await fetchUserInfo();
-    
-    // Registrar o token FCM se o usuário estiver logado e tiver CPF
-    if (userInfo != null && userInfo!['cpf'] != null) {
-      String userCpf = userInfo!['cpf'];
-      String? fcmToken = await FirebaseMessaging.instance.getToken();
-      if (fcmToken != null) {
-        // Usar o FCMService para registrar o token
-        bool result = await FCMService.registerFCMToken(
-          cpf: userCpf,
-          fcmToken: fcmToken,
-        );
-        
-        // Log do resultado para depuração
-        print('Resultado do registro do token FCM: $result');
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      await fetchUserInfo();
+
+      // Registrar o token FCM se o usuário estiver logado e tiver CPF
+      if (userInfo != null && userInfo!['cpf'] != null) {
+        String userCpf = userInfo!['cpf'];
+        String? fcmToken = await FirebaseMessaging.instance.getToken();
+        if (fcmToken != null) {
+          // Usar o FCMService para registrar o token
+          bool result = await FCMService.registerFCMToken(
+            cpf: userCpf,
+            fcmToken: fcmToken,
+          );
+
+          // Log do resultado para depuração
+          print('Resultado do registro do token FCM: $result');
+        }
+      }
+
+      final restaurants = await fetchRestaurants();
+      if (mounted) {
+        setState(() {
+          futureRestaurants = Future.value(restaurants);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print("Erro ao carregar dados: $e");
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
-    
-    final restaurants = await fetchRestaurants();
-    if (mounted) {
-      setState(() {
-        futureRestaurants = Future.value(restaurants);
-        _isLoading = false;
-      });
-    }
-  } catch (e) {
-    print("Erro ao carregar dados: $e");
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
   }
-}
-
 
   Future<void> _refresh() async {
     if (!mounted) return;
     await _loadData();
-    await Provider.of<NotificationProvider>(context, listen: false).loadNotifications(); // Corrigido
+    await Provider.of<NotificationProvider>(context, listen: false)
+        .loadNotifications(); // Corrigido
   }
 
   Future<void> fetchUserInfo() async {
-  final authProvider = Provider.of<AuthProvider>(context, listen: false);
-  if (!authProvider.isLoggedIn) return;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isLoggedIn) return;
 
-  String? email = authProvider.email ?? await storage.read(key: 'email');
-  if (email == null) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email não encontrado no dispositivo')),
-      );
-    }
-    return;
-  }
-
-  final url = Uri.parse(
-    'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetUserByEmail?email=$email',
-   );
-
-  try {
-    final response = await http.get(url, headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    } );
-
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      final cpf = data['usuario']?['cpf'];
-      if (cpf != null) {
-        print('CPF encontrado: $cpf');
-        await storage.write(key: 'cpf', value: cpf);
-        authProvider.setCpf(cpf);
-        
-      }
+    String? email = authProvider.email ?? await storage.read(key: 'email');
+    if (email == null) {
       if (mounted) {
-        setState(() {
-          userInfo = data;
-        });
-        
-        // Registrar o token FCM após obter as informações do usuário
-        if (data != null && data['usuario'] != null && data['usuario']['cpf'] != null) {
-          String userCpf = data['usuario']['cpf'];
-          print('CPF encontrado: $userCpf');
-          
-          // Obter o token FCM do secure storage
-          String? fcmToken = await storage.read(key: 'fcm_token');
-          
-          // Se não estiver no secure storage, tenta obter do Firebase
-          if (fcmToken == null) {
-            fcmToken = await FirebaseMessaging.instance.getToken();
-            // Salvar o token no secure storage para uso futuro
-            if (fcmToken != null) {
-              await storage.write(key: 'fcm_token', value: fcmToken);
-            }
-          }
-          
-          print('Token FCM: $fcmToken');
-          
-          if (fcmToken != null) {
-            // Usar o FCMService para registrar o token
-            bool result = await FCMService.registerFCMToken(
-              cpf: userCpf,
-              fcmToken: fcmToken,
-            );
-            
-            print('Resultado do registro do token FCM: $result');
-          } else {
-            print('Token FCM não encontrado');
-          }
-        } else {
-          print('CPF não encontrado na resposta: $data');
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Email não encontrado no dispositivo')),
+        );
       }
-    } else {
-      print("Erro fetchUserInfo HTTP: ${response.statusCode}");
+      return;
     }
-  } catch (e) {
-    print("Erro fetchUserInfo: $e");
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro de rede ao buscar usuário: $e')),
-      );
+
+    final url = Uri.parse(
+      'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetUserByEmail?email=$email',
+    );
+
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      });
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final cpf = data['usuario']?['cpf'];
+        if (cpf != null) {
+          print('CPF encontrado: $cpf');
+          await storage.write(key: 'cpf', value: cpf);
+          authProvider.setCpf(cpf);
+        }
+        if (mounted) {
+          setState(() {
+            userInfo = data;
+          });
+
+          // Registrar o token FCM após obter as informações do usuário
+          if (data != null &&
+              data['usuario'] != null &&
+              data['usuario']['cpf'] != null) {
+            String userCpf = data['usuario']['cpf'];
+            print('CPF encontrado: $userCpf');
+
+            // Obter o token FCM do secure storage
+            String? fcmToken = await storage.read(key: 'fcm_token');
+
+            // Se não estiver no secure storage, tenta obter do Firebase
+            if (fcmToken == null) {
+              fcmToken = await FirebaseMessaging.instance.getToken();
+              // Salvar o token no secure storage para uso futuro
+              if (fcmToken != null) {
+                await storage.write(key: 'fcm_token', value: fcmToken);
+              }
+            }
+
+            print('Token FCM: $fcmToken');
+
+            if (fcmToken != null) {
+              // Usar o FCMService para registrar o token
+              bool result = await FCMService.registerFCMToken(
+                cpf: userCpf,
+                fcmToken: fcmToken,
+              );
+
+              print('Resultado do registro do token FCM: $result');
+            } else {
+              print('Token FCM não encontrado');
+            }
+          } else {
+            print('CPF não encontrado na resposta: $data');
+          }
+        }
+      } else {
+        print("Erro fetchUserInfo HTTP: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Erro fetchUserInfo: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro de rede ao buscar usuário: $e')),
+        );
+      }
     }
   }
-}
-
 
   Future<List<Restaurant>> fetchRestaurants() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -224,7 +227,9 @@ void initState() {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
-        List<dynamic> lojasJson = (jsonResponse is Map && jsonResponse.containsKey('lojas') && jsonResponse['lojas'] is List)
+        List<dynamic> lojasJson = (jsonResponse is Map &&
+                jsonResponse.containsKey('lojas') &&
+                jsonResponse['lojas'] is List)
             ? jsonResponse['lojas']
             : [];
         return lojasJson.map((json) => Restaurant.fromJson(json)).toList();
@@ -251,7 +256,8 @@ void initState() {
           PageRouteBuilder(
             pageBuilder: (_, __, ___) => HomePage(),
             transitionDuration: const Duration(milliseconds: 300),
-            transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
           ),
         );
         break;
@@ -261,11 +267,12 @@ void initState() {
           PageRouteBuilder(
             pageBuilder: (_, __, ___) => SearchPage(),
             transitionDuration: const Duration(milliseconds: 300),
-            transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
           ),
         );
         break;
-     case 2: // Orders
+      case 2: // Orders
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         final cpf = authProvider.cpf ?? '';
         Navigator.pushReplacement(
@@ -273,12 +280,21 @@ void initState() {
           PageRouteBuilder(
             pageBuilder: (_, __, ___) => OrdersPage(cpf: cpf),
             transitionDuration: const Duration(milliseconds: 300),
-            transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
           ),
         );
         break;
       case 3:
-        // Já estamos na página de conta do usuário
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => UserAccountPage(),
+            transitionDuration: const Duration(milliseconds: 300),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
+          ),
+        );
         break;
     }
   }
@@ -302,8 +318,12 @@ void initState() {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (context) => RestaurantDetailPage(restaurantId: restaurant.idEndereco),
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) =>
+                RestaurantDetailPage(restaurantId: restaurant.idEndereco),
+            transitionDuration: const Duration(milliseconds: 100),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
           ),
         );
       },
@@ -327,25 +347,27 @@ void initState() {
                         width: 72,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
-                          print("Error loading image: $displayImageUrl, Error: $error");
+                          print(
+                              "Error loading image: $displayImageUrl, Error: $error");
                           return _buildDefaultImage(height: 72, width: 72);
                         },
                         loadingBuilder: (context, child, loadingProgress) {
                           if (loadingProgress == null) return child;
                           return Container(
-                             height: 72,
-                             width: 72,
-                             color: Colors.grey[200],
-                             child: Center(
-                               child: CircularProgressIndicator(
-                                value: loadingProgress.expectedTotalBytes != null
+                            height: 72,
+                            width: 72,
+                            color: Colors.grey[200],
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                value: loadingProgress.expectedTotalBytes !=
+                                        null
                                     ? loadingProgress.cumulativeBytesLoaded /
                                         loadingProgress.expectedTotalBytes!
                                     : null,
                                 strokeWidth: 2,
                                 color: primaryColor,
-                               ),
-                             ),
+                              ),
+                            ),
                           );
                         },
                       )
@@ -368,33 +390,38 @@ void initState() {
                     const SizedBox(height: 4),
                     Text(
                       restaurant.descricao,
-                      style: const TextStyle(fontSize: 12, color: secondaryTextColor),
+                      style: const TextStyle(
+                          fontSize: 12, color: secondaryTextColor),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        Icon(Icons.location_on, size: 14, color: secondaryTextColor),
+                        Icon(Icons.location_on,
+                            size: 14, color: secondaryTextColor),
                         SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             '${restaurant.logradouro}, ${restaurant.numero}',
-                            style: const TextStyle(fontSize: 11, color: secondaryTextColor),
-                             maxLines: 1,
-                             overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 11, color: secondaryTextColor),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
-                     Row(
+                    Row(
                       children: [
-                        Icon(Icons.local_shipping, size: 14, color: secondaryTextColor),
+                        Icon(Icons.local_shipping,
+                            size: 14, color: secondaryTextColor),
                         SizedBox(width: 4),
                         Text(
                           'Entrega: ${restaurant.tipoEntrega}',
-                          style: const TextStyle(fontSize: 11, color: secondaryTextColor),
+                          style: const TextStyle(
+                              fontSize: 11, color: secondaryTextColor),
                         ),
                       ],
                     ),
@@ -469,198 +496,227 @@ void initState() {
     }
 
     return WillPopScope(
-      onWillPop: () async => false,
-      child: Scaffold(
-        backgroundColor: backgroundColor,
-        body: RefreshIndicator(
-          onRefresh: _refresh,
-          color: primaryColor,
-          child: NestedScrollView(
-            headerSliverBuilder: (context, innerBoxIsScrolled) => [
-              SliverAppBar(
-                automaticallyImplyLeading: false, // Hide back button
-                title: Row(
-                  children: [
-                    const Icon(Icons.location_on, size: 18, color: Colors.white),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        userAddress,
-                        style: const TextStyle(color: Colors.white, fontSize: 15),
-                        overflow: TextOverflow.ellipsis,
+        onWillPop: () async => false,
+        child: Scaffold(
+          backgroundColor: backgroundColor,
+          body: RefreshIndicator(
+            onRefresh: _refresh,
+            color: primaryColor,
+            child: NestedScrollView(
+              headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                SliverAppBar(
+                  automaticallyImplyLeading: false, // Hide back button
+                  title: Row(
+                    children: [
+                      const Icon(Icons.location_on,
+                          size: 18, color: Colors.white),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          userAddress,
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 15),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  pinned: true,
+                  floating: true,
+                  snap: true,
+                  elevation: 2,
+                  forceElevated: innerBoxIsScrolled,
+                  backgroundColor: primaryColor,
+                  actions: [
+                    // Notification Icon Button
+                    Consumer<NotificationProvider>(
+                      builder: (ctx, notificationProvider, child) => Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.notifications_outlined,
+                                color: Colors.white),
+                            tooltip: 'Notificações',
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                PageRouteBuilder(
+                                  pageBuilder: (_, __, ___) =>
+                                      NotificationsScreen(),
+                                  transitionDuration:
+                                      const Duration(milliseconds: 140),
+                                  transitionsBuilder:
+                                      (_, animation, __, child) =>
+                                          FadeTransition(
+                                              opacity: animation, child: child),
+                                ),
+                              );
+                            },
+                          ),
+                          if (notificationProvider.unreadNotificationsCount > 0)
+                            Positioned(
+                              right: 8,
+                              top: 8,
+                              child: Container(
+                                padding: EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                constraints: BoxConstraints(
+                                  minWidth: 16,
+                                  minHeight: 16,
+                                ),
+                                child: Text(
+                                  '${notificationProvider.unreadNotificationsCount}',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    // Cart Icon Button
+                    Consumer<CartProvider>(
+                      builder: (ctx, cart, child) => Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.shopping_cart_outlined,
+                                color: Colors.white),
+                            tooltip: 'Carrinho',
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                PageRouteBuilder(
+                                  pageBuilder: (_, __, ___) => CartScreen(),
+                                  transitionDuration:
+                                      const Duration(milliseconds: 140),
+                                  transitionsBuilder:
+                                      (_, animation, __, child) =>
+                                          FadeTransition(
+                                              opacity: animation, child: child),
+                                ),
+                              );
+                            },
+                          ),
+                          if (cart.itemCount > 0)
+                            Positioned(
+                              right: 8,
+                              top: 8,
+                              child: Container(
+                                padding: EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                constraints: BoxConstraints(
+                                  minWidth: 16,
+                                  minHeight: 16,
+                                ),
+                                child: Text(
+                                  '${cart.itemCount}',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-                pinned: true,
-                floating: true,
-                snap: true,
-                elevation: 2,
-                forceElevated: innerBoxIsScrolled,
-                backgroundColor: primaryColor,
-                actions: [
-                  // Notification Icon Button
-                  Consumer<NotificationProvider>(
-                    builder: (ctx, notificationProvider, child) => Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.notifications_outlined, color: Colors.white),
-                          tooltip: 'Notificações',
-                          onPressed: () {
-                            Navigator.of(context).pushNamed(NotificationsScreen.routeName);
-                          },
-                        ),
-                        if (notificationProvider.unreadNotificationsCount > 0)
-                          Positioned(
-                            right: 8,
-                            top: 8,
-                            child: Container(
-                              padding: EdgeInsets.all(2),
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              constraints: BoxConstraints(
-                                minWidth: 16,
-                                minHeight: 16,
-                              ),
+              ],
+              body: _isLoading
+                  ? _buildSkeletonLoading()
+                  : FutureBuilder<List<Restaurant>>(
+                      future: futureRestaurants,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                                ConnectionState.waiting &&
+                            !_isLoading) {
+                          return _buildSkeletonLoading();
+                        } else if (snapshot.hasError) {
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
                               child: Text(
-                                '${notificationProvider.unreadNotificationsCount}',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                ),
+                                'Erro ao carregar lojas: ${snapshot.error}',
                                 textAlign: TextAlign.center,
+                                style: TextStyle(color: secondaryTextColor),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  // Cart Icon Button
-                  Consumer<CartProvider>(
-                    builder: (ctx, cart, child) => Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.shopping_cart_outlined, color: Colors.white),
-                          tooltip: 'Carrinho',
-                          onPressed: () {
-                            Navigator.of(context).pushNamed(CartScreen.routeName);
-                          },
-                        ),
-                        if (cart.itemCount > 0)
-                          Positioned(
-                            right: 8,
-                            top: 8,
-                            child: Container(
-                              padding: EdgeInsets.all(2),
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              constraints: BoxConstraints(
-                                minWidth: 16,
-                                minHeight: 16,
-                              ),
+                          );
+                        } else if (!snapshot.hasData ||
+                            snapshot.data!.isEmpty) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16.0),
                               child: Text(
-                                '${cart.itemCount}',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                ),
+                                'Nenhuma loja encontrada perto de você.',
                                 textAlign: TextAlign.center,
+                                style: TextStyle(color: secondaryTextColor),
                               ),
                             ),
-                          ),
-                      ],
+                          );
+                        } else {
+                          return ListView.builder(
+                            padding: EdgeInsets.only(top: 8, bottom: 80),
+                            itemCount: snapshot.data!.length,
+                            itemBuilder: (context, index) {
+                              final store = snapshot.data![index];
+                              return AnimatedOpacity(
+                                duration:
+                                    Duration(milliseconds: 300 + (index * 50)),
+                                opacity: 1.0,
+                                child: _buildRestaurantCard(
+                                  context: context,
+                                  restaurant: store,
+                                ),
+                              );
+                            },
+                          );
+                        }
+                      },
                     ),
+            ),
+          ),
+          bottomNavigationBar: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Container(
+              height: 60,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFbbc2c),
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 1),
                   ),
                 ],
               ),
-            ],
-            body: _isLoading
-                ? _buildSkeletonLoading()
-                : FutureBuilder<List<Restaurant>>(
-                    future: futureRestaurants,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting && !_isLoading) {
-                        return _buildSkeletonLoading();
-                      } else if (snapshot.hasError) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Text(
-                              'Erro ao carregar lojas: ${snapshot.error}',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: secondaryTextColor),
-                            ),
-                          ),
-                        );
-                      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                        return const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: Text(
-                              'Nenhuma loja encontrada perto de você.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: secondaryTextColor),
-                            ),
-                          ),
-                        );
-                      } else {
-                        return ListView.builder(
-                          padding: EdgeInsets.only(top: 8, bottom: 80),
-                          itemCount: snapshot.data!.length,
-                          itemBuilder: (context, index) {
-                            final store = snapshot.data![index];
-                            return AnimatedOpacity(
-                              duration: Duration(milliseconds: 300 + (index * 50)),
-                              opacity: 1.0,
-                              child: _buildRestaurantCard(
-                                context: context,
-                                restaurant: store,
-                              ),
-                            );
-                          },
-                        );
-                      }
-                    },
-                  ),
-          ),
-        ),
-        bottomNavigationBar: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Container(
-            height: 60,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFbbc2c),
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 1),
-          ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-          _buildNavIcon(Icons.home, 'Início', 0, context),
-          _buildNavIcon(Icons.search, 'Buscar', 1, context),
-          _buildNavIcon(Icons.list, 'Pedidos', 2, context),
-          _buildNavIcon(Icons.person, 'Conta', 3, context),
-              ],
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildNavIcon(Icons.home, 'Início', 0, context),
+                  _buildNavIcon(Icons.search, 'Buscar', 1, context),
+                  _buildNavIcon(Icons.list, 'Pedidos', 2, context),
+                  _buildNavIcon(Icons.person, 'Conta', 3, context),
+                ],
+              ),
             ),
           ),
-        ),
-      )
-    );
+        ));
   }
 
-  Widget _buildNavIcon(IconData icon, String label, int index, BuildContext context) {
+  Widget _buildNavIcon(
+      IconData icon, String label, int index, BuildContext context) {
     bool isSelected = index == _selectedIndex;
     return InkWell(
       onTap: () => _onNavItemTapped(index),
@@ -673,14 +729,18 @@ void initState() {
             Icon(
               icon,
               size: 24,
-              color: isSelected ? const Color.fromARGB(255, 237, 236, 233) : const Color.fromRGBO(59, 67, 81, 1).withOpacity(0.7),
+              color: isSelected
+                  ? const Color.fromARGB(255, 237, 236, 233)
+                  : const Color.fromRGBO(59, 67, 81, 1).withOpacity(0.7),
             ),
             SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
                 fontSize: 10,
-                color: isSelected ? const Color.fromARGB(255, 21, 21, 21) : secondaryColor.withOpacity(0.7),
+                color: isSelected
+                    ? const Color.fromARGB(255, 21, 21, 21)
+                    : secondaryColor.withOpacity(0.7),
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             )
@@ -690,4 +750,3 @@ void initState() {
     );
   }
 }
-

@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vizinhos_app/screens/User/home_page_user.dart'; // Ensure this file exists and contains the HomePageUser class
-import 'package:vizinhos_app/screens/User/user_profile_page.dart';
+import 'package:vizinhos_app/screens/user/home_page_user.dart'; // Ensure this file exists and contains the HomePageUser class
+import 'package:vizinhos_app/screens/user/user_profile_page.dart';
 import 'package:vizinhos_app/screens/login/email_screen.dart';
 import 'package:vizinhos_app/screens/onboarding/onboarding_vendor_screen.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart';
@@ -133,18 +133,9 @@ class _UserAccountPageState extends State<UserAccountPage> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     // Mostra loading enquanto carrega
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            CircularProgressIndicator(color: Colors.white),
-            SizedBox(width: 10),
-            Text('Carregando dados da loja...'),
-          ],
-        ),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
       // Força uma atualização dos dados antes de navegar
@@ -156,31 +147,33 @@ class _UserAccountPageState extends State<UserAccountPage> {
 
         if (dontShow) {
           Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => VendorAccountPage(
-            userInfo: _userInfo!,
-          ),
-        ),
-          );
+              context,
+              PageRouteBuilder(
+                pageBuilder: (_, __, ___) => VendorAccountPage(
+                  userInfo: _userInfo!,
+                ),
+                transitionDuration: const Duration(milliseconds: 300),
+                transitionsBuilder: (_, animation, __, child) =>
+                    FadeTransition(opacity: animation, child: child),
+              ));
         } else {
           final result = await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => VendorOnboardingScreen(
-            onContinue: () => Navigator.of(context).pop(true),
-          ),
-        ),
+            context,
+            MaterialPageRoute(
+              builder: (context) => VendorOnboardingScreen(
+                onContinue: () => Navigator.of(context).pop(true),
+              ),
+            ),
           );
           if (result == true) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => VendorAccountPage(
-          userInfo: _userInfo!,
-            ),
-          ),
-        );
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => VendorAccountPage(
+                  userInfo: _userInfo!,
+                ),
+              ),
+            );
           }
         }
       } else {
@@ -207,7 +200,8 @@ class _UserAccountPageState extends State<UserAccountPage> {
           PageRouteBuilder(
             pageBuilder: (_, __, ___) => HomePage(),
             transitionDuration: const Duration(milliseconds: 300),
-            transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
           ),
         );
         break;
@@ -217,11 +211,12 @@ class _UserAccountPageState extends State<UserAccountPage> {
           PageRouteBuilder(
             pageBuilder: (_, __, ___) => SearchPage(),
             transitionDuration: const Duration(milliseconds: 300),
-            transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
           ),
         );
         break;
-     case 2: // Orders
+      case 2: // Orders
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         final cpf = authProvider.cpf ?? '';
         Navigator.pushReplacement(
@@ -229,18 +224,28 @@ class _UserAccountPageState extends State<UserAccountPage> {
           PageRouteBuilder(
             pageBuilder: (_, __, ___) => OrdersPage(cpf: cpf),
             transitionDuration: const Duration(milliseconds: 300),
-            transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
           ),
         );
         break;
       case 3:
-        // Já estamos na página de conta do usuário
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => UserAccountPage(),
+            transitionDuration: const Duration(milliseconds: 300),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
+          ),
+        );
         break;
     }
   }
 
   // Widget para construir cada botão da barra de navegação inferior
-   Widget _buildNavIcon(IconData icon, String label, int index, BuildContext context) {
+  Widget _buildNavIcon(
+      IconData icon, String label, int index, BuildContext context) {
     bool isSelected = index == _selectedIndex;
     return InkWell(
       onTap: () => _onNavItemTapped(index),
@@ -253,14 +258,18 @@ class _UserAccountPageState extends State<UserAccountPage> {
             Icon(
               icon,
               size: 24,
-              color: isSelected ? const Color.fromARGB(255, 237, 236, 233) : secondaryColor.withOpacity(0.7),
+              color: isSelected
+                  ? const Color.fromARGB(255, 237, 236, 233)
+                  : secondaryColor.withOpacity(0.7),
             ),
             SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
                 fontSize: 10,
-                color: isSelected ? const Color.fromARGB(255, 21, 21, 21) : secondaryColor.withOpacity(0.7),
+                color: isSelected
+                    ? const Color.fromARGB(255, 21, 21, 21)
+                    : secondaryColor.withOpacity(0.7),
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             )
@@ -268,7 +277,6 @@ class _UserAccountPageState extends State<UserAccountPage> {
         ),
       ),
     );
-
   }
 
   @override
@@ -477,10 +485,10 @@ class _UserAccountPageState extends State<UserAccountPage> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-            _buildNavIcon(Icons.home, 'Início', 0, context),
-          _buildNavIcon(Icons.search, 'Buscar', 1, context),
-          _buildNavIcon(Icons.list, 'Pedidos', 2, context),
-          _buildNavIcon(Icons.person, 'Conta', 3, context),
+              _buildNavIcon(Icons.home, 'Início', 0, context),
+              _buildNavIcon(Icons.search, 'Buscar', 1, context),
+              _buildNavIcon(Icons.list, 'Pedidos', 2, context),
+              _buildNavIcon(Icons.person, 'Conta', 3, context),
             ],
           ),
         ),

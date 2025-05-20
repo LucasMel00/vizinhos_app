@@ -8,7 +8,7 @@ import 'package:vizinhos_app/screens/vendor/vendor_edit_page.dart';
 // Telas
 import 'user_address_editor_page.dart';
 import 'user_profile_editor_page.dart';
-import '../User/user_account_page.dart'; // Ajuste conforme sua estrutura
+import 'user_account_page.dart'; // Ajuste conforme sua estrutura
 
 // Serviços
 import '../../services/auth_provider.dart';

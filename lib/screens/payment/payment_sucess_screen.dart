@@ -4,21 +4,23 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:vizinhos_app/screens/User/home_page_user.dart';
+import 'package:vizinhos_app/screens/user/home_page_user.dart';
 
 class PaymentSuccessScreen extends StatelessWidget {
   final Map<String, dynamic> orderData;
   // Removi totalAmount do construtor pois vamos usar o valor da API diretamente
   const PaymentSuccessScreen({
     super.key,
-    required this.orderData, required double totalAmount,
+    required this.orderData,
+    required double totalAmount,
   });
 
   @override
   Widget build(BuildContext context) {
     // Extrair dados do pagamento da resposta da API
     final paymentData = orderData['pagamento'] ?? {};
-    final transactionAmount = (paymentData['transaction_ammount'] ?? 0).toDouble();
+    final transactionAmount =
+        (paymentData['transaction_ammount'] ?? 0).toDouble();
 
     final pixCode = paymentData['qr_code'] ?? '';
     final pixImageBase64 = paymentData['qr_code_base64'] ?? '';
@@ -60,9 +62,11 @@ class PaymentSuccessScreen extends StatelessWidget {
               title: 'Resumo do Pedido',
               children: [
                 _buildInfoRow('Número do Pedido:', orderId),
-                _buildInfoRow('Valor total:', _formatCurrency(transactionAmount)),
+                _buildInfoRow(
+                    'Valor total:', _formatCurrency(transactionAmount)),
                 _buildInfoRow('Status:', _getStatusText(status)),
-                _buildInfoRow('Data:', _formatDate(orderData['data_pedido'] ?? '')),
+                _buildInfoRow(
+                    'Data:', _formatDate(orderData['data_pedido'] ?? '')),
                 _buildInfoRow('Tipo de entrega:', tipoEntrega),
               ],
             ),
@@ -284,7 +288,7 @@ class PaymentSuccessScreen extends StatelessWidget {
   String _formatCurrency(double value) {
     return NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(value);
   }
-  
+
   String _formatDate(String dateStr) {
     if (dateStr.isEmpty) return 'N/A';
     try {

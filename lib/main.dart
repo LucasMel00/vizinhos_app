@@ -47,7 +47,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => OrdersProvider()),
-        ChangeNotifierProvider(create: (_) => NotificationProvider()), 
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
       child: const MyApp(),
     ),
@@ -83,17 +83,21 @@ class _MyAppState extends State<MyApp> {
       authProvider.setFcmToken(fcmToken);
     }
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-      print('📩 Mensagem recebida em foreground: ${message.notification?.title}');
+      print(
+          '📩 Mensagem recebida em foreground: ${message.notification?.title}');
 
       RemoteNotification? notification = message.notification;
       AndroidNotification? android = message.notification?.android;
 
       if (notification != null && android != null) {
         if (mounted) {
-            Provider.of<NotificationProvider>(context, listen: false).addNotification(notification.title ?? 'Sem Título', notification.body ?? 'Sem Conteúdo');
+          Provider.of<NotificationProvider>(context, listen: false)
+              .addNotification(notification.title ?? 'Sem Título',
+                  notification.body ?? 'Sem Conteúdo');
         }
 
-        const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+        const AndroidNotificationDetails androidDetails =
+            AndroidNotificationDetails(
           'default_channel_id',
           'Notificações padrão',
           channelDescription: 'Este canal é usado para notificações padrão.',
@@ -110,7 +114,7 @@ class _MyAppState extends State<MyApp> {
           notification.title,
           notification.body,
           platformDetails,
-          payload: message.data['screen'], 
+          payload: message.data['screen'],
         );
       }
     });
@@ -118,8 +122,7 @@ class _MyAppState extends State<MyApp> {
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       print('📬 Notificação clicada: ${message.notification?.title}');
       final notification = message.notification;
-      if (notification != null) {
-      }
+      if (notification != null) {}
     });
   }
 
@@ -148,4 +151,3 @@ class _MyAppState extends State<MyApp> {
     );
   }
 }
-

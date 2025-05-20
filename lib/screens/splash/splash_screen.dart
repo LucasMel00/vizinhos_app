@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 import 'package:vizinhos_app/screens/login/email_screen.dart';
-import 'package:vizinhos_app/screens/User/home_page_user.dart';
+import 'package:vizinhos_app/screens/user/home_page_user.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 
 class SplashScreen extends StatefulWidget {
