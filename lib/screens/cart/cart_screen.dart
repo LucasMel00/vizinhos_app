@@ -410,6 +410,23 @@ class CartScreen extends StatelessWidget {
 
         if (hasPixData) {
           debugPrint('Pedido e pagamento processados com sucesso');
+          // Enviar notificação ao vendedor para cada item vendido
+          try {
+            for (var cartItem in cart.items.values) {
+              final notifyBody = jsonEncode({
+                'sellerId': storeId.toString(),
+                'productId': cartItem.product.id,
+              });
+              final notifyResponse = await http.post(
+                Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/SendNotificationSeller'),
+                headers: {'Content-Type': 'application/json'},
+                body: notifyBody,
+              );
+              debugPrint('[DEBUG] Notification response: status=${notifyResponse.statusCode}, body=${notifyResponse.body}');
+            }
+          } catch (e) {
+            debugPrint('Erro ao enviar notificação ao vendedor: $e');
+          }
           cart.clearCart();
 
           Navigator.pushReplacement(

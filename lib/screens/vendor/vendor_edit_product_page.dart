@@ -4,11 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_masked_text2/flutter_masked_text2.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart'; // Para formatação de data
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:vizinhos_app/services/app_theme.dart';
-import '../model/product.dart'; // Assume que Product (com campos do lote) e Characteristic estão aqui
-// Não precisa importar Lote separadamente se os campos estão em Product
+import '../model/product.dart'; 
 import '../../services/auth_provider.dart';
 
 const primaryColor = Color(0xFFFbbc2c);
@@ -55,6 +54,12 @@ class _EditProductScreenState extends State<EditProductScreen> {
   @override
   void initState() {
     super.initState();
+    // Debug: print incoming product details including lote
+    debugPrint("[DEBUG] Opening EditProductScreen with product: ${jsonEncode(widget.product.toJson())}");
+    debugPrint("[DEBUG] Raw lote object: ${widget.product.lote}");
+    debugPrint("[DEBUG] Computed id_lote: ${widget.product.id_lote}");
+    debugPrint("[DEBUG] quantidade (widget.product.quantidade): ${widget.product.quantidade}");
+    debugPrint("[DEBUG] dataFabricacao: ${widget.product.dataFabricacao}");
     _initializeControllers(); // Inicializa todos os controllers
     _fetchCaracteristicas();
   }
@@ -289,20 +294,18 @@ class _EditProductScreenState extends State<EditProductScreen> {
        formattedDate = DateFormat('yyyy-MM-dd').format(_selectedManufactureDate!);
     }
 
-    // Corpo da requisição para /UpdateBatch (usa snake_case para as chaves)
+    // Corpo da requisição para /UpdateBatch (usa snake_case para as chaves corretas)
     final body = <String, dynamic>{
-      'id_Lote': batchId,
+      'id_lote': batchId,  // corrigido para id_lote
       'quantidade': int.tryParse(batchQuantityCtrl.text) ?? 0,
-      // !! IMPORTANTE: Confirme a chave correta que a API /UpdateBatch espera
-      //    para o preço com desconto do lote. Usando 'valor_venda_desc' como placeholder.
-      'valor_venda_desc': _toNum(batchDiscountPriceCtrl.text), // <<<=== CONFIRME ESTA CHAVE
-      'dt_fabricacao': formattedDate, // Envia a data formatada ou null
+      'valor_venda_desc': _toNum(batchDiscountPriceCtrl.text),
+      'dt_fabricacao': formattedDate,
     };
 
-    print("Enviando atualização do lote: ${jsonEncode(body)}");
+    debugPrint("[DEBUG] Enviando atualização do lote com body: ${jsonEncode(body)}");
 
-    // <<=== SUBSTITUA PELA SUA URL REAL PARA ATUALIZAR LOTE
-    return await http.put(
+    // Envia requisição para atualizar lote
+    final response = await http.put(
       Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/UpdateBatch'),
       headers: {
         'Content-Type': 'application/json',
@@ -310,6 +313,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
       },
       body: jsonEncode(body),
     );
+    debugPrint("[DEBUG] Resposta UpdateBatch: status=${response.statusCode}, body=${response.body}");
+    return response;
   }
 
   // Função auxiliar para converter valor monetário mascarado para double
@@ -526,13 +531,12 @@ class _EditProductScreenState extends State<EditProductScreen> {
                   const SizedBox(height: 32),
 
                   // --- Seção de Informações do Lote ---
-                  // Só mostra se o produto TEM um ID de lote associado
-                  if (widget.product.id_lote != null && widget.product.id_lote!.isNotEmpty) ...[
-                    const Text('Informações do Lote', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 16),
-                    // Não precisa mais de loading aqui, pois os dados vêm do Product
-                    Column(
-                      children: [
+                  // Mostra seção de lote sempre que há quantidade retornada (mesmo sem id_lote)
+                  if (widget.product.quantidade != null) ...[
+                   const Text('Informações do Lote', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                   const SizedBox(height: 16),
+                   Column(
+                     children: [
                         TextFormField(
                           controller: batchQuantityCtrl,
                           decoration: dec.copyWith(labelText: 'Quantidade no Lote'),
@@ -542,7 +546,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: batchDiscountPriceCtrl,
-                          decoration: dec.copyWith(labelText: 'Preço Venda c/ Desconto (Lote)'), // <<<=== AJUSTE O LABEL SE NECESSÁRIO
+                          decoration: dec.copyWith(labelText: 'Preço Venda c/ Desconto (Lote)'),
                           keyboardType: TextInputType.number,
                           // Validação opcional
                         ),
@@ -560,9 +564,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
                           onTap: () => _selectManufactureDate(context),
                           validator: (v) => v == null || v.isEmpty ? 'Informe a data de fabricação' : null,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
+                     ],
+                   ),
+                   const SizedBox(height: 32),
                   ],
 
                   // --- Botão Salvar ---
