@@ -3,11 +3,11 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
+import 'package:vizinhos_app/screens/store/store_detail_page.dart';
 import 'package:vizinhos_app/screens/user/home_page_user.dart';
 import 'package:vizinhos_app/screens/user/user_account_page.dart';
 import 'package:vizinhos_app/screens/model/restaurant.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart';
-import 'package:vizinhos_app/screens/restaurant/store_detail_page.dart';
 import 'package:vizinhos_app/services/app_theme.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 

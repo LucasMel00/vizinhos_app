@@ -87,14 +87,12 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  
-
   // Recupera o fcmToken do storage
   Future<void> loadFcmToken() async {
-    _fcmToken = await
-        _storage.read(key: KEY_FCM_TOKEN);
+    _fcmToken = await _storage.read(key: KEY_FCM_TOKEN);
     notifyListeners();
   }
+
   // Atualiza o fcmToken e armazena no storage
   Future<void> setFcmToken(String fcmToken) async {
     _fcmToken = fcmToken;
@@ -163,8 +161,6 @@ class AuthProvider with ChangeNotifier {
             _userInfo['custom:is_seller']?.toString().toLowerCase() == 'true';
       }
 
-      
-
       _isAuthenticated = true;
       print('AuthProvider: login bem-sucedido, notificando listeners');
       notifyListeners();
@@ -188,6 +184,9 @@ class AuthProvider with ChangeNotifier {
     _storeInfo = null;
     _email = null;
     _isAuthenticated = false;
+    _fcmToken = null;
+    _cpf = null;
+    _idEndereco = null;
 
     notifyListeners();
   }

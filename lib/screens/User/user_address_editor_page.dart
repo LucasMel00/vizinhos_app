@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'dart:convert';
+import 'package:flutter/services.dart';
 
 class UserAddressEditorPage extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -22,6 +23,7 @@ class _UserAddressEditorPageState extends State<UserAddressEditorPage> {
   late TextEditingController _logradouroController;
   late TextEditingController _numeroController;
   late TextEditingController _complementoController;
+  late TextEditingController _accessTokenController;
 
   bool _isLoading = false;
   final _cepMask = MaskTextInputFormatter(mask: '#####-###');
@@ -31,18 +33,55 @@ class _UserAddressEditorPageState extends State<UserAddressEditorPage> {
     super.initState();
 
     final endereco = widget.userData?['endereco'] ?? {};
-    final usuario = widget.userData?['usuario'] ?? {};
-    final userType = usuario['Usuario_Tipo'] ?? 'customer';
 
-    // Inicializa apenas os campos de endereço
     _cepController = TextEditingController(text: endereco['cep'] ?? '');
     _logradouroController =
         TextEditingController(text: endereco['logradouro'] ?? '');
     _numeroController = TextEditingController(text: endereco['numero'] ?? '');
     _complementoController =
         TextEditingController(text: endereco['complemento'] ?? '');
+    _accessTokenController = TextEditingController();
 
     _cepController.addListener(_onCepChanged);
+
+    // Se for vendedor, buscar o access_token
+    if (((widget.userData?['usuario'] ?? {})['Usuario_Tipo'] ?? 'customer') !=
+        'customer') {
+      _initAccessToken(widget.userData ?? {});
+    }
+  }
+
+  void _initAccessToken(Map<String, dynamic> storeData) async {
+    if (storeData.containsKey('access_token')) {
+      _accessTokenController.text = storeData['access_token'];
+    } else if (storeData['endereco'] != null &&
+        storeData['endereco'].containsKey('access_token')) {
+      _accessTokenController.text = storeData['endereco']['access_token'];
+    } else if (storeData['endereco'] != null &&
+        storeData['endereco']['id_Endereco'] != null) {
+      await _fetchAccessToken(storeData['endereco']['id_Endereco'].toString());
+    }
+  }
+
+  Future<void> _fetchAccessToken(String idEndereco) async {
+    try {
+      final url = Uri.parse(
+          'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetAddressById?id_Endereco=$idEndereco');
+      final resp = await http.get(url);
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        if (data['endereco'] != null &&
+            data['endereco']['access_token'] != null) {
+          setState(() {
+            _accessTokenController.text = data['endereco']['access_token'];
+            widget.userData?['endereco']['access_token'] =
+                data['endereco']['access_token'];
+          });
+        }
+      }
+    } catch (e) {
+      print('Erro ao buscar token: $e');
+    }
   }
 
   Future<void> _onCepChanged() async {
@@ -69,7 +108,6 @@ class _UserAddressEditorPageState extends State<UserAddressEditorPage> {
     try {
       final usuario = widget.userData?['usuario'] ?? {};
       final endereco = widget.userData?['endereco'] ?? {};
-      final userType = usuario['Usuario_Tipo'] ?? 'customer';
 
       final idEnderecoRaw = endereco['id_Endereco'];
       final int? parsedId = idEnderecoRaw is int
@@ -80,9 +118,8 @@ class _UserAddressEditorPageState extends State<UserAddressEditorPage> {
       }
       final int idEndereco = parsedId;
 
-      // Monta o corpo da requisição com dados do endereço
       final Map<String, dynamic> requestBody = {
-        "Usuario_Tipo": userType,
+        "Usuario_Tipo": usuario['Usuario_Tipo'] ?? 'customer',
         "id_Endereco": idEndereco,
         "cep": _cepController.text.trim(),
         "logradouro": _logradouroController.text.trim(),
@@ -90,12 +127,13 @@ class _UserAddressEditorPageState extends State<UserAddressEditorPage> {
         "complemento": _complementoController.text.trim(),
       };
 
-      // Se for vendedor, inclui dados da loja existentes, mas não editáveis
-      if (userType != 'customer') {
+      if (requestBody['Usuario_Tipo'] != 'customer') {
         final String nomeLoja = endereco['nome_Loja']?.toString() ?? '';
-        final String descricaoLoja = endereco['descricao_Loja']?.toString() ?? '';
+        final String descricaoLoja =
+            endereco['descricao_Loja']?.toString() ?? '';
         final String tipoEntrega = endereco['tipo_Entrega']?.toString() ?? '';
         final String idImagem = endereco['id_Imagem']?.toString() ?? '';
+        final String accessToken = _accessTokenController.text;
 
         if (nomeLoja.isEmpty || descricaoLoja.isEmpty || tipoEntrega.isEmpty) {
           throw Exception("Dados incompletos da loja. Contate o suporte.");
@@ -106,6 +144,7 @@ class _UserAddressEditorPageState extends State<UserAddressEditorPage> {
           "descricao_Loja": descricaoLoja,
           "id_Imagem": idImagem,
           "tipo_Entrega": tipoEntrega,
+          "access_token": accessToken,
         });
       }
 
@@ -152,12 +191,14 @@ class _UserAddressEditorPageState extends State<UserAddressEditorPage> {
     _logradouroController.dispose();
     _numeroController.dispose();
     _complementoController.dispose();
+    _accessTokenController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final primaryColor = const Color(0xFFFbbc2c);
+    final usuario = widget.userData?['usuario'] ?? {};
 
     return Scaffold(
       appBar: AppBar(

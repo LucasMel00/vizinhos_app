@@ -6,7 +6,10 @@ import 'package:http/http.dart' as http;
 
 class MercadoPagoKeyScreen extends StatefulWidget {
   final VoidCallback? onFinish;
-  const MercadoPagoKeyScreen({Key? key, this.onFinish}) : super(key: key);
+  final bool showAlertOnEntry;
+  const MercadoPagoKeyScreen(
+      {Key? key, this.onFinish, this.showAlertOnEntry = true})
+      : super(key: key);
 
   @override
   State<MercadoPagoKeyScreen> createState() => _MercadoPagoKeyScreenState();
@@ -14,9 +17,30 @@ class MercadoPagoKeyScreen extends StatefulWidget {
 
 class _MercadoPagoKeyScreenState extends State<MercadoPagoKeyScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _mercadoPagoKeyController = TextEditingController();
+  final TextEditingController _mercadoPagoKeyController =
+      TextEditingController();
   final SecureStorage _secureStorage = SecureStorage();
   bool _isLoading = false;
+  bool _showTokenAlert = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.showAlertOnEntry) {
+      _checkExistingToken();
+    }
+  }
+
+  Future<void> _checkExistingToken() async {
+    final existingToken = await _secureStorage.getMercadoPagoToken();
+    if (existingToken != null &&
+        existingToken.isNotEmpty &&
+        widget.showAlertOnEntry) {
+      setState(() {
+        _showTokenAlert = true;
+      });
+    }
+  }
 
   Future<void> _saveMercadoPagoKey(String key) async {
     await _secureStorage.setMercadoPagoToken(key);
@@ -33,19 +57,20 @@ class _MercadoPagoKeyScreenState extends State<MercadoPagoKeyScreen> {
       setState(() {
         _isLoading = true;
       });
-      
+
       try {
         await _saveMercadoPagoKey(_mercadoPagoKeyController.text);
-        print('Chave (Access Token) Mercado Pago salva: ${_mercadoPagoKeyController.text}');
-        
+        print(
+            'Chave (Access Token) Mercado Pago salva: ${_mercadoPagoKeyController.text}');
+
         // Enviar token para a API
         final result = await _sendTokenToApi(_mercadoPagoKeyController.text);
-        
+
         if (result) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Token do Mercado Pago salvo com sucesso!')),
           );
-          
+
           if (widget.onFinish != null) {
             widget.onFinish!();
           } else {
@@ -57,12 +82,13 @@ class _MercadoPagoKeyScreenState extends State<MercadoPagoKeyScreen> {
           // Se falhou, mostra mensagem mas não impede de continuar
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Erro ao enviar token para o servidor. Você pode tentar novamente mais tarde.'),
+              content: Text(
+                  'Erro ao enviar token para o servidor. Você pode tentar novamente mais tarde.'),
               backgroundColor: Colors.orange,
               duration: Duration(seconds: 5),
             ),
           );
-          
+
           if (widget.onFinish != null) {
             widget.onFinish!();
           } else {
@@ -95,23 +121,20 @@ class _MercadoPagoKeyScreenState extends State<MercadoPagoKeyScreen> {
         print('Erro: id_Loja não encontrado');
         return false;
       }
-      
+
       // Construir o corpo da requisição conforme a API
-      final requestBody = {
-        'id_Loja': idEndereco,
-        'access_token': token
-      };
-      
+      final requestBody = {'id_Loja': idEndereco, 'access_token': token};
+
       // Fazer a chamada POST para a API
       final response = await http.patch(
-        Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/InsertStoreAccessToken'),
+        Uri.parse(
+            'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/InsertStoreAccessToken'),
         headers: {
           'Content-Type': 'application/json',
         },
         body: json.encode(requestBody),
-
       );
-      
+
       print('Requisição: ${json.encode(requestBody)}');
       print('Resposta: ${response.body}');
       // Verificar a resposta
@@ -120,7 +143,8 @@ class _MercadoPagoKeyScreenState extends State<MercadoPagoKeyScreen> {
         print('Token enviado com sucesso: ${responseData['message']}');
         return true;
       } else {
-        print('Erro ao enviar token: ${response.statusCode} - ${response.body}');
+        print(
+            'Erro ao enviar token: ${response.statusCode} - ${response.body}');
         return false;
       }
     } catch (e) {
@@ -161,7 +185,59 @@ class _MercadoPagoKeyScreenState extends State<MercadoPagoKeyScreen> {
   @override
   Widget build(BuildContext context) {
     final primaryColor = const Color(0xFFFbbc2c);
-    const mercadoPagoTutorialUrl = 'https://www.mercadopago.com.br/developers/pt/docs/your-integrations/credentials';
+    const mercadoPagoTutorialUrl =
+        'https://www.mercadopago.com.br/developers/pt/docs/your-integrations/credentials';
+
+    if (_showTokenAlert) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Access Token Mercado Pago'),
+          backgroundColor: primaryColor,
+          elevation: 0,
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.info_outline, color: primaryColor, size: 60),
+                const SizedBox(height: 24),
+                const Text(
+                  'Você já possui um Access Token cadastrado.',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Se desejar alterar ou visualizar, clique no botão abaixo para acessar a página de gerenciamento do token.',
+                  style: TextStyle(fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.vpn_key),
+                  label: const Text('Gerenciar Access Token'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 32, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _showTokenAlert = false;
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -212,7 +288,8 @@ class _MercadoPagoKeyScreenState extends State<MercadoPagoKeyScreen> {
                       borderRadius: BorderRadius.circular(10),
                       borderSide: BorderSide(color: primaryColor, width: 2),
                     ),
-                    prefixIcon: Icon(Icons.vpn_key_outlined, size: 20, color: primaryColor),
+                    prefixIcon: Icon(Icons.vpn_key_outlined,
+                        size: 20, color: primaryColor),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -286,9 +363,8 @@ class _MercadoPagoKeyScreenState extends State<MercadoPagoKeyScreen> {
                   child: Text(
                     'Cadastrar depois',
                     style: TextStyle(
-                      color: _isLoading ? Colors.grey : primaryColor, 
-                      fontSize: 14
-                    ),
+                        color: _isLoading ? Colors.grey : primaryColor,
+                        fontSize: 14),
                   ),
                 )
               ],

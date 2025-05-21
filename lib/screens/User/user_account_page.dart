@@ -14,6 +14,7 @@ import 'package:vizinhos_app/screens/vendor/create_store_screen.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 import 'package:vizinhos_app/services/secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'package:vizinhos_app/screens/user/help_page.dart';
 
 class UserAccountPage extends StatefulWidget {
   final Map<String, dynamic>? userInfo;
@@ -157,11 +158,19 @@ class _UserAccountPageState extends State<UserAccountPage> {
                     FadeTransition(opacity: animation, child: child),
               ));
         } else {
-          final result = await Navigator.push(
-            context,
+          final result = await Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => VendorOnboardingScreen(
-                onContinue: () => Navigator.of(context).pop(true),
+                onContinue: () {
+                  // Em vez de pop, navega diretamente para VendorAccountPage
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          VendorAccountPage(userInfo: _userInfo!),
+                    ),
+                    (route) => false,
+                  );
+                },
               ),
             ),
           );
@@ -420,35 +429,21 @@ class _UserAccountPageState extends State<UserAccountPage> {
               onTap: () {},
             ),
             _buildListTile(
-              icon: Icons.account_balance_wallet_outlined,
-              title: 'Carteira',
-              onTap: () {},
-            ),
-            _buildListTile(
               icon: Icons.help_outline,
               title: 'Ajuda',
-              onTap: () {},
-            ),
-            _buildListTile(
-              icon: Icons.card_giftcard,
-              title: 'Cupons',
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Color.fromARGB(68, 223, 194, 126),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  'Novo',
-                  style: TextStyle(fontSize: 12, color: Color(0xFFFbbc2c)),
-                ),
-              ),
-              onTap: () {},
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const HelpPage()),
+                );
+              },
             ),
             _buildListTile(
               icon: Icons.notifications_none,
               title: 'Notificação',
-              onTap: () {},
+              onTap: () {
+                Navigator.pushNamed(context, '/notifications');
+              },
             ),
             _buildListTile(
               icon: Icons.star_border,

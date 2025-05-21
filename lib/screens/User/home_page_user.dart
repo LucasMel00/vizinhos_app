@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shimmer/shimmer.dart'; // Import shimmer for loading effect
 import 'package:vizinhos_app/screens/provider/cart_provider.dart'; // Import CartProvider
 import 'package:vizinhos_app/screens/cart/cart_screen.dart'; // Import CartScreen
+import 'package:vizinhos_app/screens/store/store_detail_page.dart';
 import 'package:vizinhos_app/services/fcm_service.dart'; // Import FCMService
 import 'package:vizinhos_app/screens/provider/orders_provider.dart'; // Import OrdersProvider
 import 'package:vizinhos_app/screens/provider/notification_provider.dart'; // Importar NotificationProvider
@@ -16,7 +17,6 @@ import 'package:vizinhos_app/screens/user/user_profile_page.dart';
 import 'package:vizinhos_app/screens/model/restaurant.dart';
 import 'package:vizinhos_app/screens/onboarding/onboarding_user_screen.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart';
-import 'package:vizinhos_app/screens/restaurant/store_detail_page.dart'; // Corrected import
 import 'package:vizinhos_app/screens/search/search_page.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 

@@ -18,7 +18,8 @@ class VendorAccountPage extends StatefulWidget {
   _VendorAccountPageState createState() => _VendorAccountPageState();
 }
 
-class _VendorAccountPageState extends State<VendorAccountPage> with WidgetsBindingObserver {
+class _VendorAccountPageState extends State<VendorAccountPage>
+    with WidgetsBindingObserver {
   late Map<String, dynamic> _currentUserInfo = widget.userInfo;
   late final String _userId;
 
@@ -30,7 +31,7 @@ class _VendorAccountPageState extends State<VendorAccountPage> with WidgetsBindi
 
   bool _infoExpanded = true;
   bool _mercadoPagoKeyMissing = false;
-  
+
   final SecureStorage _secureStorage = SecureStorage();
 
   @override
@@ -72,23 +73,24 @@ class _VendorAccountPageState extends State<VendorAccountPage> with WidgetsBindi
 
       if (response.statusCode == 200) {
         if (!mounted) return;
-        
+
         final responseData = jsonDecode(response.body);
-        
+
         // Verificar se o access_token está presente na resposta da API
-        final hasAccessToken = responseData['endereco'] != null && 
-                              responseData['endereco']['access_token'] != null && 
-                              responseData['endereco']['access_token'].toString().isNotEmpty;
-        
+        final hasAccessToken = responseData['endereco'] != null &&
+            responseData['endereco']['access_token'] != null &&
+            responseData['endereco']['access_token'].toString().isNotEmpty;
+
         setState(() {
           storeData = responseData;
           _mercadoPagoKeyMissing = !hasAccessToken;
           _isLoading = false;
         });
-        
+
         // Se o token estiver presente na API, podemos salvá-lo no SecureStorage para uso futuro
         if (hasAccessToken) {
-          await _secureStorage.setMercadoPagoToken(responseData['endereco']['access_token']);
+          await _secureStorage
+              .setMercadoPagoToken(responseData['endereco']['access_token']);
           await _secureStorage.setMercadoPagoSkipped(false);
         }
       } else {
@@ -124,17 +126,47 @@ class _VendorAccountPageState extends State<VendorAccountPage> with WidgetsBindi
   }
 
   void _navigateToMercadoPagoKeyScreen() async {
-    // Navigate to MercadoPagoKeyScreen and wait for a potential result or state change
+    // Navegar para MercadoPagoKeyScreen SEM mostrar o alerta (showAlertOnEntry: false)
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const MercadoPagoKeyScreen()),
+      MaterialPageRoute(
+        builder: (context) =>
+            const MercadoPagoKeyScreen(showAlertOnEntry: false),
+      ),
     );
-    // Re-check the status after returning from the screen by reloading store data
+    // Recarregar dados da loja ao retornar
     _loadStoreData();
   }
 
   @override
   Widget build(BuildContext context) {
+    // ALERTA: Exigir cadastro do token Mercado Pago antes de tudo
+    if (_mercadoPagoKeyMissing) {
+      Future.microtask(() async {
+        final shouldGo = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Atenção!'),
+            content: const Text(
+              'Você precisa cadastrar o token do Mercado Pago para acessar as funcionalidades da loja.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop(true);
+                },
+                child: const Text('Cadastrar agora'),
+              ),
+            ],
+          ),
+        );
+        if (shouldGo == true) {
+          _navigateToMercadoPagoKeyScreen();
+        }
+      });
+    }
+
     final storeName = storeData?['endereco']?['nome_Loja'] ?? 'Sua Loja';
     final storeDescription =
         storeData?['endereco']?['descricao_Loja'] ?? 'Sem descrição';
@@ -206,218 +238,222 @@ class _VendorAccountPageState extends State<VendorAccountPage> with WidgetsBindi
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                          CircleAvatar(
-                            radius: 60,
-                            backgroundColor: Colors.white,
-                            child: storeData?['endereco'] != null &&
-                                storeData!['endereco']['id_Imagem'] != null &&
-                                storeData!['endereco']['id_Imagem']
-                                  .toString()
-                                  .isNotEmpty
+                        CircleAvatar(
+                          radius: 60,
+                          backgroundColor: Colors.white,
+                          child: storeData?['endereco'] != null &&
+                                  storeData!['endereco']['id_Imagem'] != null &&
+                                  storeData!['endereco']['id_Imagem']
+                                      .toString()
+                                      .isNotEmpty
                               ? ClipOval(
-                                child: Image.network(
-                                  'https://loja-profile-pictures.s3.amazonaws.com/${storeData?['endereco']['id_Imagem']}',
-                                  width: 120,
-                                  height: 120,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => CircleAvatar(
-                                  radius: 60,
-                                  backgroundColor: Colors.grey[200],
-                                  child: Icon(Icons.store,
-                                    size: 40, color: Colors.grey),
-                                  ),
-                                ),
-                                )
-                              : ClipOval(
-                                child: SizedBox(
-                                  width: 110,
-                                  height: 110,
-                                  child: storeImageWidget,
-                                ),
-                                ),
-                            ),
-                          const SizedBox(height: 15),
-                          Text(
-                            storeName,
-                            style: AppTheme.onPrimaryTextStyle.copyWith(
-                              fontSize: 24,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            storeDescription,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    // Widget de Alerta para Chave Mercado Pago - exibido apenas se o access_token estiver ausente na API
-                    if (_mercadoPagoKeyMissing)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: InkWell(
-                          onTap: _navigateToMercadoPagoKeyScreen,
-                          child: Card(
-                            color: Colors.red[50],
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12.0),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.warning_amber_rounded, color: Colors.red[700], size: 28),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Clique aqui para cadastrar seu token do Mercado Pago e receber pagamentos.',
-                                      style: TextStyle(color: Colors.red[900], fontWeight: FontWeight.w500),
+                                  child: Image.network(
+                                    'https://loja-profile-pictures.s3.amazonaws.com/${storeData?['endereco']['id_Imagem']}',
+                                    width: 120,
+                                    height: 120,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => CircleAvatar(
+                                      radius: 60,
+                                      backgroundColor: Colors.grey[200],
+                                      child: Icon(Icons.store,
+                                          size: 40, color: Colors.grey),
                                     ),
                                   ),
-                                  Icon(Icons.arrow_forward_ios, color: Colors.red[700], size: 16),
-                                ],
-                              ),
+                                )
+                              : ClipOval(
+                                  child: SizedBox(
+                                    width: 110,
+                                    height: 110,
+                                    child: storeImageWidget,
+                                  ),
+                                ),
+                        ),
+                        const SizedBox(height: 15),
+                        Text(
+                          storeName,
+                          style: AppTheme.onPrimaryTextStyle.copyWith(
+                            fontSize: 24,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          storeDescription,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Widget de Alerta para Chave Mercado Pago - exibido apenas se o access_token estiver ausente na API
+                  if (_mercadoPagoKeyMissing)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      child: InkWell(
+                        onTap: _navigateToMercadoPagoKeyScreen,
+                        child: Card(
+                          color: Colors.red[50],
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Row(
+                              children: [
+                                Icon(Icons.warning_amber_rounded,
+                                    color: Colors.red[700], size: 28),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Clique aqui para cadastrar seu token do Mercado Pago e receber pagamentos.',
+                                    style: TextStyle(
+                                        color: Colors.red[900],
+                                        fontWeight: FontWeight.w500),
+                                  ),
+                                ),
+                                Icon(Icons.arrow_forward_ios,
+                                    color: Colors.red[700], size: 16),
+                              ],
                             ),
                           ),
                         ),
                       ),
-                    // Conteúdo principal
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Card(
-                            margin: const EdgeInsets.only(bottom: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            elevation: 3,
-                            child: ExpansionTile(
-                              initiallyExpanded: _infoExpanded,
-                              onExpansionChanged: (val) {
-                                setState(() => _infoExpanded = val);
-                              },
-                              leading:
-                                  Icon(Icons.info, color: AppTheme.accentColor),
-                              title: Text(
-                                'Informações da Loja',
-                                style: TextStyle(
-                                  color: AppTheme.accentColor,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(
-                                      left: 16, right: 16, bottom: 16),
-                                  child: Column(
-                                    children: [
-                                      AppTheme.buildInfoCard(
-                                        icon: Icons.person,
-                                        title: 'Proprietário',
-                                        value: userName,
-                                      ),
-                                      AppTheme.buildInfoCard(
-                                        icon: Icons.phone,
-                                        title: 'Telefone',
-                                        value: userPhone,
-                                      ),
-                                      AppTheme.buildInfoCard(
-                                        icon: Icons.location_on,
-                                        title: 'Endereço',
-                                        value:
-                                            '$storeAddress${storeComplement.isNotEmpty ? ' - $storeComplement' : ''}',
-                                      ),
-                                      AppTheme.buildInfoCard(
-                                        icon: Icons.local_shipping,
-                                        title: 'Tipo de Entrega',
-                                        value: deliveryType,
-                                      ),
-                                      AppTheme.buildInfoCard(
-                                        icon: Icons.location_city,
-                                        title: 'CEP',
-                                        value: storeCep,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          AppTheme.buildSectionHeader(
-                              'Ações Rápidas', Icons.flash_on),
-                          const SizedBox(height: 15),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: AppTheme.buildActionButton(
-                                  label: 'Produtos',
-                                  icon: Icons.shopping_bag,
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            VendorProductsPage(),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: AppTheme.buildActionButton(
-                                  label: 'Pedidos',
-                                  icon: Icons.receipt_long,
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            OrdersVendorPage(),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: AppTheme.buildActionButton(
-                                  label: 'Configurações',
-                                  icon: Icons.settings,
-                                  onPressed: () {
-                                    // Navegar para configurações
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: AppTheme.buildActionButton(
-                                  label: 'Mercado Pago',
-                                  icon: Icons.payment,
-                                  onPressed: _navigateToMercadoPagoKeyScreen,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                        ],
-                      ),
                     ),
-                  ],
-                ),
+                  // Conteúdo principal
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Card(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 3,
+                          child: ExpansionTile(
+                            initiallyExpanded: _infoExpanded,
+                            onExpansionChanged: (val) {
+                              setState(() => _infoExpanded = val);
+                            },
+                            leading:
+                                Icon(Icons.info, color: AppTheme.accentColor),
+                            title: Text(
+                              'Informações da Loja',
+                              style: TextStyle(
+                                color: AppTheme.accentColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                    left: 16, right: 16, bottom: 16),
+                                child: Column(
+                                  children: [
+                                    AppTheme.buildInfoCard(
+                                      icon: Icons.person,
+                                      title: 'Proprietário',
+                                      value: userName,
+                                    ),
+                                    AppTheme.buildInfoCard(
+                                      icon: Icons.phone,
+                                      title: 'Telefone',
+                                      value: userPhone,
+                                    ),
+                                    AppTheme.buildInfoCard(
+                                      icon: Icons.location_on,
+                                      title: 'Endereço',
+                                      value:
+                                          '$storeAddress${storeComplement.isNotEmpty ? ' - $storeComplement' : ''}',
+                                    ),
+                                    AppTheme.buildInfoCard(
+                                      icon: Icons.local_shipping,
+                                      title: 'Tipo de Entrega',
+                                      value: deliveryType,
+                                    ),
+                                    AppTheme.buildInfoCard(
+                                      icon: Icons.location_city,
+                                      title: 'CEP',
+                                      value: storeCep,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        AppTheme.buildSectionHeader(
+                            'Ações Rápidas', Icons.flash_on),
+                        const SizedBox(height: 15),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: AppTheme.buildActionButton(
+                                label: 'Produtos',
+                                icon: Icons.shopping_bag,
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          VendorProductsPage(),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: AppTheme.buildActionButton(
+                                label: 'Pedidos',
+                                icon: Icons.receipt_long,
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => OrdersVendorPage(),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: AppTheme.buildActionButton(
+                                label: 'Configurações',
+                                icon: Icons.settings,
+                                onPressed: () {
+                                  // Navegar para configurações
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: AppTheme.buildActionButton(
+                                label: 'Mercado Pago',
+                                icon: Icons.payment,
+                                onPressed: _navigateToMercadoPagoKeyScreen,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-      
+      ),
     );
   }
 }

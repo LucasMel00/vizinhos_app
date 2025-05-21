@@ -191,40 +191,20 @@ class _UserProfilePageState extends State<UserProfilePage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildProfileHeader(),
-                  const SizedBox(height: 24),
-                  _buildInfoSection(),
-                  const SizedBox(height: 24),
-                  // Botão de Atualizar
-                  Center(
-                    child: ElevatedButton.icon(
-                      onPressed: _isLoading ? null : _loadUserData,
-                      icon: Icon(
-                        _isLoading ? Icons.autorenew_rounded : Icons.refresh,
-                        color: Colors.white,
-                      ),
-                      label: Text(
-                        _isLoading ? 'Atualizando...' : 'Atualizar',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 14),
-                      ),
-                    ),
-                  ),
-                ],
+          : RefreshIndicator(
+              onRefresh: _loadUserData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildProfileHeader(),
+                    const SizedBox(height: 24),
+                    _buildInfoSection(),
+                    const SizedBox(height: 24),
+                  ],
+                ),
               ),
             ),
     );

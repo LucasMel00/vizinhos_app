@@ -61,7 +61,13 @@ class PaymentSuccessScreen extends StatelessWidget {
             _buildInfoCard(
               title: 'Resumo do Pedido',
               children: [
-                _buildInfoRow('Número do Pedido:', orderId),
+                _buildInfoRow(
+                    'Identificador do Pedido:',
+                    orderId.toString().substring(
+                        0,
+                        orderId.toString().length > 8
+                            ? 8
+                            : orderId.toString().length)),
                 _buildInfoRow(
                     'Valor total:', _formatCurrency(transactionAmount)),
                 _buildInfoRow('Status:', _getStatusText(status)),
@@ -77,7 +83,7 @@ class PaymentSuccessScreen extends StatelessWidget {
             _buildInfoCard(
               title: 'Dados do Pagamento',
               children: [
-                _buildInfoRow('ID da transação:', paymentId),
+                _buildInfoRow('ID do Pagamento:', paymentId),
                 _buildInfoRow('Método:', 'PIX'),
                 _buildInfoRow('Status:', _getStatusText(status)),
               ],
