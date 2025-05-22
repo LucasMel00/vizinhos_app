@@ -417,7 +417,9 @@ class _VendorAccountPageState extends State<VendorAccountPage>
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => OrdersVendorPage(),
+                                      builder: (context) => OrdersVendorPage(
+                                        deliveryType: deliveryType,
+                                      ),
                                     ),
                                   );
                                 },

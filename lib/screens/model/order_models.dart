@@ -4,6 +4,7 @@ class StoreModel {
   final String imagemLoja;
   final String enderecoLoja;
   final String cepLoja;
+  final String tipo_Entrega;
 
   StoreModel({
     required this.idLoja,
@@ -11,6 +12,7 @@ class StoreModel {
     required this.imagemLoja,
     required this.enderecoLoja,
     required this.cepLoja,
+    required this.tipo_Entrega,
   });
 
   factory StoreModel.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class StoreModel {
       imagemLoja: json['imagem_loja']?.toString() ?? '',
       enderecoLoja: json['endereco_loja']?.toString() ?? '',
       cepLoja: json['cep_loja']?.toString() ?? '',
+      tipo_Entrega: json['tipo_entrega']?.toString() ?? '',
     );
   }
 }
@@ -74,6 +77,7 @@ class OrderModel {
   final String idPedido;
   final String idPagamento;
   final String statusPedido;
+  final String? tipoEntrega;
   final double valorTotal;
   final String dataPedido;
   final String? qrCode;
@@ -84,6 +88,7 @@ class OrderModel {
     required this.idPedido,
     required this.idPagamento,
     required this.statusPedido,
+    this.tipoEntrega,
     required this.valorTotal,
     required this.dataPedido,
     this.qrCode,
@@ -116,6 +121,7 @@ class OrderModel {
       idPedido: json['id_Pedido']?.toString() ?? '',
       idPagamento: json['id_Pagamento']?.toString() ?? '',
       statusPedido: json['status_pedido']?.toString() ?? '',
+      tipoEntrega: json['tipo_entrega']?.toString(),
       valorTotal: parseValorTotal(json['valor_total']),
       dataPedido: json['data_pedido']?.toString() ?? '',
       qrCode: json['qr_code']?.toString(),
