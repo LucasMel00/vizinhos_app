@@ -23,7 +23,8 @@ enum OrderStatus {
   inDelivery,
   readyForPickup,
   completed, 
-  canceled 
+  canceled,
+  refunded 
 }
 
 // Enum para os tipos de ordenação
@@ -55,7 +56,9 @@ class Order {
     return Order(
       id: json['id_Pedido'],
       date: DateTime.parse(json['data_pedido']),
-      total: double.parse(json['valor_total']),
+      total: (json['valor_total'] is num)
+          ? (json['valor_total'] as num).toDouble()
+          : double.parse(json['valor_total'].toString()),
       status: _parseStatus(json['status_pedido']),
       products: (json['produtos'] as List)
           .map((product) => OrderProduct.fromJson(product))
@@ -63,7 +66,6 @@ class Order {
       deliveryType: json['tipo_entrega']?.toString(),
     );
   }
-
   // Método melhorado para parsing de status com melhor tratamento de erros
   static OrderStatus _parseStatus(String status) {
     switch (status.toLowerCase()) {
@@ -79,6 +81,8 @@ class Order {
         return OrderStatus.completed;
       case 'cancelado':
         return OrderStatus.canceled;
+      case 'reembolsado':
+        return OrderStatus.refunded;
       default:
         // Verificação adicional para garantir que status com variações de nome sejam reconhecidos
         if (status.toLowerCase().contains('rota')) {
@@ -89,7 +93,6 @@ class Order {
         return OrderStatus.pending;
     }
   }
-
   // Método para converter OrderStatus para string da API
   static String statusToApiString(OrderStatus status) {
     switch (status) {
@@ -105,6 +108,8 @@ class Order {
         return 'completo';
       case OrderStatus.canceled:
         return 'cancelado';
+      case OrderStatus.refunded:
+        return 'reembolsado';
       default:
         return 'pendente';
     }
@@ -128,8 +133,12 @@ class OrderProduct {
     return OrderProduct(
       name: json['nome_produto'],
       image: json['imagem_produto'],
-      quantity: int.parse(json['quantidade']),
-      unitPrice: double.parse(json['valor_unitario']),
+      quantity: (json['quantidade'] is num)
+          ? (json['quantidade'] as num).toInt()
+          : int.parse(json['quantidade'].toString()),
+      unitPrice: (json['valor_unitario'] is num)
+          ? (json['valor_unitario'] as num).toDouble()
+          : double.parse(json['valor_unitario'].toString()),
     );
   }
 }
@@ -190,16 +199,15 @@ class OrderService {
       return false;
     }
   }
-
-  /// Cancelar pedido do usuário via API
+  /// Reembolsar pedido do usuário via API - cancela o pedido e processa o reembolso
   static Future<bool> cancelUserOrder(String orderId) async {
     final url = Uri.parse(
-      'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/CancelUserOrder'
+      'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/RefoundUserOrder'
     );
     
     final body = json.encode({'id_Pedido': orderId});
     
-    debugPrint('CancelUserOrder -> Patch $url');
+    debugPrint('RefoundUserOrder -> Patch $url');
     debugPrint('Request body: $body');
 
     try {
@@ -209,15 +217,14 @@ class OrderService {
       );
       
       debugPrint('Response -> statusCode: ${response.statusCode}, body: ${response.body}');
-      
-      if (response.statusCode == 200) {
+        if (response.statusCode == 200) {
         return true;
       } else {
-        debugPrint('Falha ao cancelar pedido: ${response.statusCode} - ${response.body}');
+        debugPrint('Falha ao reembolsar pedido: ${response.statusCode} - ${response.body}');
         return false;
       }
     } catch (e) {
-      debugPrint('Erro ao cancelar pedido: $e');
+      debugPrint('Erro ao reembolsar pedido: $e');
       return false;
     }
   }
@@ -469,8 +476,7 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   bool isWide = constraints.maxWidth > 600;
-                  return isWide
-                      ? Row(
+                  return isWide                      ? Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Filtro por status
@@ -561,6 +567,16 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                               ),
                                             ),
                                             DropdownMenuItem(
+                                              value: OrderStatus.refunded,
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.monetization_on, size: 18, color: Colors.orange[700]),
+                                                  const SizedBox(width: 8),
+                                                  const Text('Reembolsados'),
+                                                ],
+                                              ),
+                                            ),
+                                            DropdownMenuItem(
                                               value: OrderStatus.pending,
                                               child: Row(
                                                 children: [
@@ -628,8 +644,7 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                               ),
                             ),
                           ],
-                        )
-                      : Column(
+                        )                      : Column(
                           children: [
                             // Filtro por status
                             Row(
@@ -714,6 +729,16 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                                 Icon(Icons.cancel, size: 18, color: errorColor),
                                                 const SizedBox(width: 8),
                                                 const Text('Cancelados'),
+                                              ],
+                                            ),
+                                          ),
+                                          DropdownMenuItem(
+                                            value: OrderStatus.refunded,
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.monetization_on, size: 18, color: Colors.orange[700]),
+                                                const SizedBox(width: 8),
+                                                const Text('Reembolsados'),
                                               ],
                                             ),
                                           ),
@@ -922,7 +947,6 @@ class _OrderCardState extends State<OrderCard> {
       }
     }
   }
-
   // Cores mais vibrantes e acessíveis para os status
   Color _statusColor(OrderStatus status) {
     switch (status) {
@@ -938,11 +962,12 @@ class _OrderCardState extends State<OrderCard> {
         return Colors.green[700]!;
       case OrderStatus.canceled:
         return Colors.red[700]!;
+      case OrderStatus.refunded:
+        return Colors.orange[700]!;
       default:
         return Colors.grey[700]!;
     }
   }
-
   // Ícones para cada status
   IconData _statusIcon(OrderStatus status) {
     switch (status) {
@@ -958,11 +983,12 @@ class _OrderCardState extends State<OrderCard> {
         return Icons.check_circle;
       case OrderStatus.canceled:
         return Icons.cancel;
+      case OrderStatus.refunded:
+        return Icons.monetization_on;
       default:
         return Icons.hourglass_empty;
     }
   }
-
   String _statusLabel(OrderStatus status) {
     switch (status) {
       case OrderStatus.paid:
@@ -977,6 +1003,8 @@ class _OrderCardState extends State<OrderCard> {
         return 'Concluído';
       case OrderStatus.canceled:
         return 'Cancelado';
+      case OrderStatus.refunded:
+        return 'Reembolsado';
       default:
         return 'Pendente';
     }
@@ -1043,17 +1071,16 @@ class _OrderCardState extends State<OrderCard> {
     }
   }
 
-  // Método para cancelar o pedido
+  // Método para reembolsar o pedido
   Future<void> _cancelOrder() async {
     if (_isCanceling) return;
-    
-    // Mostrar diálogo de confirmação
+      // Mostrar diálogo de confirmação
     final shouldCancel = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Cancelar pedido'),
+        title: const Text('Reembolsar pedido'),
         content: const Text(
-          'Tem certeza que deseja cancelar este pedido? Esta ação não pode ser desfeita e o cliente será notificado.',
+          'Tem certeza que deseja reembolsar este pedido? Esta ação cancelará o pedido e processará o reembolso para o cliente.',
         ),
         actions: [
           TextButton(
@@ -1066,7 +1093,7 @@ class _OrderCardState extends State<OrderCard> {
               backgroundColor: errorColor,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Sim, cancelar'),
+            child: const Text('Sim, reembolsar'),
           ),
         ],
       ),
@@ -1080,18 +1107,17 @@ class _OrderCardState extends State<OrderCard> {
     
     try {
       final success = await OrderService.cancelUserOrder(widget.order.id);
-      
-      if (success) {
+        if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Row(
               children: [
-                Icon(Icons.cancel, color: Colors.white),
+                Icon(Icons.monetization_on, color: Colors.white),
                 SizedBox(width: 12),
-                Text('Pedido cancelado com sucesso'),
+                Text('Pedido reembolsado com sucesso'),
               ],
             ),
-            backgroundColor: errorColor,
+            backgroundColor: successColor,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
@@ -1106,7 +1132,7 @@ class _OrderCardState extends State<OrderCard> {
               children: [
                 Icon(Icons.error_outline, color: Colors.white),
                 SizedBox(width: 12),
-                Text('Falha ao cancelar pedido'),
+                Text('Falha ao reembolsar pedido'),
               ],
             ),
             backgroundColor: errorColor,
@@ -1383,16 +1409,15 @@ class _OrderCardState extends State<OrderCard> {
   Widget _buildActionButtons(BuildContext context) {
     final order = widget.order;
     
-    // Pedido pago → Iniciar preparo ou Cancelar
+    // Pedido pago → Iniciar preparo ou Reembolsar
     if (order.status == OrderStatus.paid) {
       return Row(
-        children: [
-          // Botão de cancelar
+        children: [          // Botão de reembolsar
           Expanded(
             flex: 1,
             child: ElevatedButton.icon(
-              icon: const Icon(Icons.cancel),
-              label: const Text('Cancelar'),
+              icon: const Icon(Icons.monetization_on),
+              label: const Text('Reembolsar'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: errorColor,
@@ -1729,8 +1754,7 @@ class ImStepperWidget extends StatelessWidget {
         break;
       case OrderStatus.completed:
         activeStep = 4;
-        break;
-      case OrderStatus.canceled:
+        break;      case OrderStatus.canceled:
         // Para pedidos cancelados, não mostramos o stepper
         return Container(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -1747,6 +1771,29 @@ class ImStepperWidget extends StatelessWidget {
                 'Pedido cancelado',
                 style: TextStyle(
                   color: errorColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        );
+      case OrderStatus.refunded:
+        // Para pedidos reembolsados, mostramos um indicador especial
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.orange.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.monetization_on, color: Colors.orange[700], size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Pedido reembolsado',
+                style: TextStyle(
+                  color: Colors.orange[700],
                   fontWeight: FontWeight.bold,
                 ),
               ),

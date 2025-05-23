@@ -26,14 +26,15 @@ enum OrderStatus {
   inDelivery,
   readyForPickup,
   completed,
-  canceled
+  canceled,
+  refunded
 }
 
 // Enum para tipos de entrega
-enum DeliveryType {
-  delivery,
-  pickup
-}
+enum DeliveryType { delivery, pickup }
+
+// Enum para ordenação de pedidos
+enum SortOrder { newest, oldest }
 
 class OrdersPage extends StatefulWidget {
   final String cpf;
@@ -46,9 +47,20 @@ class OrdersPage extends StatefulWidget {
 class _OrdersPageState extends State<OrdersPage> {
   final OrdersService _ordersService = OrdersService();
   List<OrderModel> _allOrders = [];
+  List<OrderModel> _filteredOrders = [];
   bool _isLoading = false;
   Map<String, bool> _updatingStatus = {};
 
+  // Variáveis para filtros
+  DateTime? _startDate;
+  DateTime? _endDate;
+  Set<OrderStatus> _selectedStatusFilters = {};
+  Set<DeliveryType> _selectedDeliveryTypes = {};
+  bool _isFilterActive = false;
+  
+  // Variável para ordenação
+  SortOrder _currentSortOrder = SortOrder.newest;
+  
   int _selectedIndex = 2;
 
   @override
@@ -68,7 +80,11 @@ class _OrdersPageState extends State<OrdersPage> {
       await Future.wait(pending.map((o) => _ordersService.updateOrderStatus(o.idPedido)));
       // Fetch fresh orders list
       final fresh = await _ordersService.getOrdersByUser(widget.cpf);
-      setState(() => _allOrders = fresh.pedidos);
+      setState(() {
+        _allOrders = fresh.pedidos;
+      });
+      // Apply current filters and sorting
+      _applyFilters();
     } catch (e) {
       debugPrint('Erro ao carregar pedidos: $e');
     } finally {
@@ -151,112 +167,119 @@ class _OrdersPageState extends State<OrdersPage> {
 
     setState(() => _updatingStatus.remove(idPedido));
   }
-
-  // Método para converter string de status para enum OrderStatus
-  OrderStatus _parseOrderStatus(String status) {
-    final statusLower = status.toLowerCase();
+  // Método para aplicar os filtros e ordenação nos pedidos
+  void _applyFilters() {
+    List<OrderModel> filteredList;
     
-    if (statusLower.contains('aguardando pagamento')) {
-      return OrderStatus.awaitingPayment;
-    } else if (statusLower.contains('pago') || statusLower.contains('confirmado')) {
-      return OrderStatus.paid;
-    } else if (statusLower.contains('preparo')) {
-      return OrderStatus.preparing;
-    } else if (statusLower.contains('rota') || statusLower.contains('caminho')) {
-      return OrderStatus.inDelivery;
-    } else if (statusLower.contains('retirada') && !statusLower.contains('aguardando')) {
-      return OrderStatus.readyForPickup;
-    } else if (statusLower.contains('concluído') || statusLower.contains('entregue') || statusLower.contains('retirado')) {
-      return OrderStatus.completed;
-    } else if (statusLower.contains('cancelado')) {
-      return OrderStatus.canceled;
-    } else if (statusLower.contains('pendente')) {
-      return OrderStatus.pending;
+    if (!_isFilterActive) {
+      filteredList = List.from(_allOrders);
     } else {
-      return OrderStatus.pending;
+      filteredList = _allOrders.where((order) {
+        // Filtro por data
+        if (_startDate != null || _endDate != null) {
+          final orderDate = DateTime.parse(order.dataPedido);
+          
+          if (_startDate != null && orderDate.isBefore(_startDate!)) {
+            return false;
+          }
+          
+          if (_endDate != null) {
+            // Adiciona 1 dia ao endDate para incluir pedidos feitos no próprio dia final
+            final endDatePlusOne = _endDate!.add(const Duration(days: 1));
+            if (orderDate.isAfter(endDatePlusOne)) {
+              return false;
+            }
+          }
+        }
+        
+        // Filtro por status
+        if (_selectedStatusFilters.isNotEmpty) {
+          final orderStatus = OrderUtils.parseOrderStatus(order.statusPedido);
+          if (!_selectedStatusFilters.contains(orderStatus)) {
+            return false;
+          }
+        }
+        
+        // Filtro por tipo de entrega
+        if (_selectedDeliveryTypes.isNotEmpty) {
+          final deliveryType = OrderUtils.getDeliveryType(order);
+          if (!_selectedDeliveryTypes.contains(deliveryType)) {
+            return false;
+          }
+        }
+        
+        return true;
+      }).toList();
     }
-  }
-
-  // Método para determinar o tipo de entrega
-  DeliveryType _getDeliveryType(OrderModel order) {
-    // Verificar se há informação explícita sobre o tipo de entrega
-    if (order.tipoEntrega != null) {
-      final tipoLower = order.tipoEntrega!.toLowerCase();
-      if (tipoLower.contains('delivery') || tipoLower.contains('entrega')) {
-        return DeliveryType.delivery;
-      } else if (tipoLower.contains('retirada') || tipoLower.contains('pickup')) {
-        return DeliveryType.pickup;
+    
+    // Aplicar ordenação
+    filteredList.sort((a, b) {
+      final dateA = DateTime.parse(a.dataPedido);
+      final dateB = DateTime.parse(b.dataPedido);
+      
+      if (_currentSortOrder == SortOrder.newest) {
+        return dateB.compareTo(dateA); // Mais recentes primeiro
+      } else {
+        return dateA.compareTo(dateB); // Mais antigos primeiro
       }
-    }
-    
-    // Se não houver informação explícita, tentar inferir pelo status
-    final statusLower = order.statusPedido.toLowerCase();
-    if (statusLower.contains('rota') || statusLower.contains('caminho') || statusLower.contains('entrega')) {
-      return DeliveryType.delivery;
-    } else if (statusLower.contains('retirada')) {
-      return DeliveryType.pickup;
-    }
-    
-    // Padrão: delivery
-    return DeliveryType.delivery;
-  }
-
-  void _onNavItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
     });
 
-    // Navegar para a página correspondente
-    switch (index) {
-      case 0:
-        Navigator.pushReplacement(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (_, __, ___) => HomePage(),
-            transitionDuration: const Duration(milliseconds: 300),
-            transitionsBuilder: (_, animation, __, child) =>
-                FadeTransition(opacity: animation, child: child),
-          ),
-        );
-        break;
-      case 1:
-        Navigator.pushReplacement(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (_, __, ___) => SearchPage(),
-            transitionDuration: const Duration(milliseconds: 300),
-            transitionsBuilder: (_, animation, __, child) =>
-                FadeTransition(opacity: animation, child: child),
-          ),
-        );
-        break;
-      case 2: // Orders
-        break; // Already on this page
-      case 3:
-        Navigator.pushReplacement(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (_, __, ___) => UserAccountPage(),
-            transitionDuration: const Duration(milliseconds: 300),
-            transitionsBuilder: (_, animation, __, child) =>
-                FadeTransition(opacity: animation, child: child),
-          ),
-        );
-        break;
-    }
+    setState(() {
+      _filteredOrders = filteredList;
+    });
   }
 
-  Widget _buildNavIcon(
-      IconData icon, String label, int index, BuildContext context) {
-    bool isSelected = index == _selectedIndex;
-    return InkWell(
-      onTap: () => _onNavItemTapped(index),
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 12.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+  Widget _buildNavIcon(IconData icon, String label, int index, BuildContext context) {
+    final bool isSelected = index == _selectedIndex;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedIndex = index;
+        });
+        // Navigate to the corresponding page
+        switch (index) {
+          case 0:
+            Navigator.pushReplacement(
+              context,
+              PageRouteBuilder(
+          pageBuilder: (_, __, ___) => HomePage(),
+          transitionDuration: const Duration(milliseconds: 300),
+          transitionsBuilder: (_, animation, __, child) =>
+              FadeTransition(opacity: animation, child: child),
+              ),
+            );
+            break;
+          case 1:
+            Navigator.pushReplacement(
+              context,
+              PageRouteBuilder(
+          pageBuilder: (_, __, ___) => SearchPage(),
+          transitionDuration: const Duration(milliseconds: 300),
+          transitionsBuilder: (_, animation, __, child) =>
+              FadeTransition(opacity: animation, child: child),
+              ),
+            );
+            break;
+          case 2:
+            // Current page
+            break;
+          case 3:
+            Navigator.pushReplacement(
+              context,
+              PageRouteBuilder(
+          pageBuilder: (_, __, ___) => UserAccountPage(),
+          transitionDuration: const Duration(milliseconds: 300),
+          transitionsBuilder: (_, animation, __, child) =>
+              FadeTransition(opacity: animation, child: child),
+              ),
+            );
+            break;
+        }
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+       children: [
             Icon(
               icon,
               size: 24,
@@ -276,7 +299,6 @@ class _OrdersPageState extends State<OrdersPage> {
               ),
             )
           ],
-        ),
       ),
     );
   }
@@ -292,8 +314,7 @@ class _OrdersPageState extends State<OrdersPage> {
         );
         return false;
       },
-      child: Scaffold(
-        appBar: AppBar(
+      child: Scaffold(        appBar: AppBar(
           automaticallyImplyLeading: false,
           backgroundColor: primaryColor,
           title: const Text(
@@ -310,6 +331,58 @@ class _OrdersPageState extends State<OrdersPage> {
               bottom: Radius.circular(16),
             ),
           ),
+          actions: [
+            // Botão para alternar ordenação
+            PopupMenuButton<SortOrder>(
+              icon: const Icon(Icons.sort, color: Colors.white),
+              onSelected: (SortOrder order) {
+                setState(() {
+                  _currentSortOrder = order;
+                });
+                _applyFilters();
+              },
+              itemBuilder: (BuildContext context) => <PopupMenuEntry<SortOrder>>[
+                PopupMenuItem<SortOrder>(
+                  value: SortOrder.newest,
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.arrow_downward,
+                        color: _currentSortOrder == SortOrder.newest ? primaryColor : Colors.grey,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Mais Recentes',
+                        style: TextStyle(
+                          color: _currentSortOrder == SortOrder.newest ? primaryColor : Colors.black,
+                          fontWeight: _currentSortOrder == SortOrder.newest ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuItem<SortOrder>(
+                  value: SortOrder.oldest,
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.arrow_upward,
+                        color: _currentSortOrder == SortOrder.oldest ? primaryColor : Colors.grey,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Mais Antigos',
+                        style: TextStyle(
+                          color: _currentSortOrder == SortOrder.oldest ? primaryColor : Colors.black,
+                          fontWeight: _currentSortOrder == SortOrder.oldest ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
         body: RefreshIndicator.adaptive(
           onRefresh: _refreshOrders,
@@ -325,34 +398,74 @@ class _OrdersPageState extends State<OrdersPage> {
                       Text('Carregando seus pedidos...'),
                     ],
                   ),
-                );
-              }
+                );              }
               if (_allOrders.isEmpty) {
                 return const _EmptyOrdersView();
               }
+              
               // Constrain width on large screens
               return ConstrainedBox(
                 constraints: BoxConstraints(
                     maxWidth:
                         constraints.maxWidth > 600 ? 600 : double.infinity),
-                child: ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _allOrders.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 16),
-                  itemBuilder: (context, index) {
-                    final order = _allOrders[index];
-                    final status = _parseOrderStatus(order.statusPedido);
-                    final delivery = _getDeliveryType(order);
-                    return _OrderCard(
-                      order: order,
-                      updating: _updatingStatus[order.idPedido] ?? false,
-                      onUpdateStatus: _updateOrderStatus,
-                      formatDate: _formatDate,
-                      formatCurrency: _formatCurrency,
-                      parseOrderStatus: _parseOrderStatus,
-                      getDeliveryType: _getDeliveryType,
-                    );
-                  },
+                child: Column(
+                  children: [
+                    // Indicador de ordenação
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _currentSortOrder == SortOrder.newest 
+                                ? Icons.arrow_downward 
+                                : Icons.arrow_upward,
+                            size: 16,
+                            color: Colors.grey[600],
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _currentSortOrder == SortOrder.newest 
+                                ? 'Ordenados por: Mais Recentes' 
+                                : 'Ordenados por: Mais Antigos',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '${_filteredOrders.length} pedido${_filteredOrders.length != 1 ? 's' : ''}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Lista de pedidos
+                    Expanded(
+                      child: ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        itemCount: _filteredOrders.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 16),
+                        itemBuilder: (context, index) {
+                          final order = _filteredOrders[index];
+                          return _OrderCard(
+                            order: order,
+                            updating: _updatingStatus[order.idPedido] ?? false,
+                            onUpdateStatus: _updateOrderStatus,
+                            formatDate: _formatDate,
+                            formatCurrency: _formatCurrency,
+                            parseOrderStatus: OrderUtils.parseOrderStatus,
+                            getDeliveryType: OrderUtils.getDeliveryType,
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               );
             },
@@ -636,25 +749,30 @@ class _OrderCard extends StatelessWidget {
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.star),
-                      label: const Text('Avaliar pedido'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
+                    child: ElevatedButton(
                       onPressed: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => OrderReviewPage(orderId: order.idPedido),
+                            builder: (context) => OrderReviewPage(orderId: order.idPedido),
                           ),
                         );
                       },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: successColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text(
+                        'Avaliar Pedido',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -708,17 +826,26 @@ class _OrderCard extends StatelessWidget {
         color = Colors.green[700]!;
         icon = Icons.check_circle;
         label = 'Concluído';
-        break;
-      case OrderStatus.canceled:
+        break;      case OrderStatus.canceled:
         color = Colors.red[700]!;
         icon = Icons.cancel;
         label = 'Cancelado';
+        break;
+      case OrderStatus.refunded:
+        color = Colors.orange[700]!;
+        icon = Icons.monetization_on;
+        label = 'Reembolsado';
         break;
     }
     
     // Se o status original tiver um texto específico, usá-lo em vez do padrão
     if (order.statusPedido.isNotEmpty) {
-      label = order.statusPedido;
+      // Ajustando o status "completo" para exibir "Pedido entregue" ou "Completo" corretamente
+      if (status == OrderStatus.completed) {
+        label = order.statusPedido.toLowerCase().contains('entregue') ? 'Pedido entregue' : 'Completo';
+      } else {
+        label = order.statusPedido;
+      }
     }
     
     return Container(
@@ -768,10 +895,15 @@ class OrderStepperWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Para pedidos cancelados, mostra uma representação visual diferente
+    // Para pedidos cancelados ou reembolsados, mostra uma representação visual diferente
     if (orderStatus == OrderStatus.canceled) {
       return _buildCanceledStepper(context);
     }
+
+    if (orderStatus == OrderStatus.refunded) {
+      return _buildRefundedStepper(context);
+    }
+
     
     // Determina o texto e ícone do quarto passo com base no tipo de entrega
     String fourthStepLabel = deliveryType == DeliveryType.delivery 
@@ -981,8 +1113,128 @@ class OrderStepperWidget extends StatelessWidget {
       ),
     );
   }
-  
-  // Método para determinar o passo ativo com base no status
+
+  // Widget especial para pedidos reembolsados
+  Widget _buildRefundedStepper(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      decoration: BoxDecoration(
+      color: Colors.orange[50],
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(
+        color: Colors.orange[200]!,
+        width: 1,
+      ),
+      ),
+      child: Column(
+      children: [
+        // Linha visual para pedidos reembolsados
+        Row(
+        children: [
+          // Primeiro passo: Pedido realizado
+          Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: primaryColor,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+          ),
+          child: const Icon(
+            Icons.shopping_bag,
+            color: Colors.white,
+            size: 20,
+          ),
+          ),
+          // Linha tracejada para reembolso
+          Expanded(
+          child: CustomPaint(
+            size: const Size(double.infinity, 3),
+            painter: DashedLinePainter(
+            color: Colors.orange[400]!,
+            strokeWidth: 3,
+            ),
+          ),
+          ),
+          // Ícone de reembolso
+          Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.orange[700],
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+          ),
+          child: const Icon(
+            Icons.monetization_on,
+            color: Colors.white,
+            size: 20,
+          ),
+          ),
+        ],
+        ),
+        const SizedBox(height: 12),
+        // Labels para pedidos reembolsados
+        Row(
+        children: [
+          Expanded(
+          child: Text(
+            'Pedido realizado',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+            fontSize: 12,
+            color: primaryColor,
+            fontWeight: FontWeight.w500,
+            ),
+          ),
+          ),
+          Expanded(
+          child: Text(
+            'Pedido reembolsado',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+            fontSize: 12,
+            color: Colors.orange[700],
+            fontWeight: FontWeight.bold,
+            ),
+          ),
+          ),
+        ],
+        ),
+        const SizedBox(height: 8),
+        // Mensagem explicativa
+        Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.orange[100],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+          Icon(
+            Icons.info_outline,
+            size: 16,
+            color: Colors.orange[700],
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+            'O reembolso será processado em até 48 horas úteis',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.orange[800],
+            ),
+            textAlign: TextAlign.center,
+            ),
+          ),
+          ],
+        ),
+        ),
+      ],
+      ),
+    );
+    }
   int _getActiveStep(OrderStatus status) {
     switch (status) {
       case OrderStatus.completed:
@@ -1001,6 +1253,8 @@ class OrderStepperWidget extends StatelessWidget {
         return 0;
       case OrderStatus.canceled:
         return 0; // Para cancelados, mostramos no início
+      case OrderStatus.refunded:
+        return 0; // Para reembolsados, mostramos no início
     }
   }
 }
@@ -1099,53 +1353,7 @@ class _ProductItem extends StatelessWidget {
   }
 }
 
-class _ErrorView extends StatelessWidget {
-  final String error;
-  final VoidCallback onRetry;
 
-  const _ErrorView({required this.error, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 60, color: errorColor),
-            const SizedBox(height: 20),
-            Text(
-              'Ocorreu um erro ao carregar os pedidos',
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              error,
-              style: Theme.of(context).textTheme.bodySmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.refresh),
-              label: const Text('Tentar novamente'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              onPressed: onRetry,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _EmptyOrdersView extends StatelessWidget {
   const _EmptyOrdersView();
@@ -1235,4 +1443,172 @@ class DashedLinePainter extends CustomPainter {
   
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
+
+class ImStepperWidget extends StatelessWidget {
+  final OrderModel order;
+
+  const ImStepperWidget({required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    int activeStep = 0;
+
+    switch (OrderUtils.parseOrderStatus(order.statusPedido)) {
+      case OrderStatus.pending:
+        activeStep = 0;
+        break;
+      case OrderStatus.paid:
+        activeStep = 1;
+        break;
+      case OrderStatus.preparing:
+        activeStep = 2;
+        break;
+      case OrderStatus.inDelivery:
+      case OrderStatus.readyForPickup:
+        activeStep = 3;
+        break;
+      case OrderStatus.completed:
+        activeStep = 4;
+        break;      case OrderStatus.canceled:
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          decoration: BoxDecoration(
+            color: errorColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.cancel, color: errorColor, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Pedido cancelado',
+                style: TextStyle(
+                  color: errorColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        );
+      case OrderStatus.refunded:
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.orange[700]!.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.monetization_on, color: Colors.orange[700], size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Pedido reembolsado',
+                    style: TextStyle(
+                      color: Colors.orange[700],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'O reembolso será processado em até 48 horas',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.orange[600],
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      case OrderStatus.awaitingPayment:
+        activeStep = 0;
+        break;
+    }
+
+    List<IconData> icons = [
+      Icons.shopping_cart,
+      Icons.payments_outlined,
+      Icons.restaurant,
+      order.tipoEntrega == 'delivery'
+          ? Icons.delivery_dining
+          : Icons.store,
+      Icons.check_circle,
+    ];
+
+    return Container(
+      height: 70,
+      child: IconStepper(
+        icons: icons.map((icon) => Icon(icon)).toList(),
+        activeStep: activeStep,
+        enableNextPreviousButtons: false,
+        enableStepTapping: false,
+        activeStepColor: primaryColor,
+        activeStepBorderColor: primaryColor,
+        activeStepBorderWidth: 1,
+        activeStepBorderPadding: 3,
+        lineColor: Colors.grey[300],
+        lineLength: 50,
+        lineDotRadius: 2,
+        stepRadius: 16,
+        stepColor: Colors.grey[200],
+        stepPadding: 0,
+      ),
+    );
+  }
+}
+
+class OrderUtils {  static OrderStatus parseOrderStatus(String status) {
+    final statusLower = status.toLowerCase();
+
+    if (statusLower.contains('aguardando pagamento')) {
+      return OrderStatus.awaitingPayment;
+    } else if (statusLower.contains('pago') || statusLower.contains('confirmado')) {
+      return OrderStatus.paid;
+    } else if (statusLower.contains('preparo')) {
+      return OrderStatus.preparing;
+    } else if (statusLower.contains('rota') || statusLower.contains('caminho')) {
+      return OrderStatus.inDelivery;
+    } else if (statusLower.contains('retirada') && !statusLower.contains('aguardando')) {
+      return OrderStatus.readyForPickup;
+    } else if (statusLower.contains('completo') || statusLower.contains('entregue') || statusLower.contains('retirado')) {
+      return OrderStatus.completed;
+    } else if (statusLower.contains('cancelado')) {
+      return OrderStatus.canceled;
+    } else if (statusLower.contains('reembolsado')) {
+      return OrderStatus.refunded;
+    } else if (statusLower.contains('pendente')) {
+      return OrderStatus.pending;
+    } else {
+      return OrderStatus.pending;
+    }
+  }
+
+  static DeliveryType getDeliveryType(OrderModel order) {
+    if (order.tipoEntrega != null) {
+      final tipoLower = order.tipoEntrega!.toLowerCase();
+      if (tipoLower.contains('delivery') || tipoLower.contains('entrega')) {
+        return DeliveryType.delivery;
+      } else if (tipoLower.contains('retirada') || tipoLower.contains('pickup')) {
+        return DeliveryType.pickup;
+      }
+    }
+
+    final statusLower = order.statusPedido.toLowerCase();
+    if (statusLower.contains('rota') || statusLower.contains('caminho')) {
+      return DeliveryType.delivery;
+    } else if (statusLower.contains('retirada')) {
+      return DeliveryType.pickup;
+    }
+
+    return DeliveryType.delivery;
+  }
 }

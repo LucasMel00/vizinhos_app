@@ -12,12 +12,12 @@ import 'package:vizinhos_app/services/fcm_service.dart'; // Import FCMService
 import 'package:vizinhos_app/screens/provider/orders_provider.dart'; // Import OrdersProvider
 import 'package:vizinhos_app/screens/provider/notification_provider.dart'; // Importar NotificationProvider
 import 'package:vizinhos_app/notifications_screen.dart'; // Importar NotificationsScreen
-import 'package:vizinhos_app/screens/user/user_account_page.dart';
+import 'package:vizinhos_app/screens/user/user_account_page.dart' as account;
 import 'package:vizinhos_app/screens/user/user_profile_page.dart';
 import 'package:vizinhos_app/screens/model/restaurant.dart';
 import 'package:vizinhos_app/screens/onboarding/onboarding_user_screen.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart';
-import 'package:vizinhos_app/screens/search/search_page.dart';
+import 'package:vizinhos_app/screens/search/search_page.dart' as search;
 import 'package:vizinhos_app/services/auth_provider.dart';
 
 // Define colors for consistency
@@ -265,7 +265,7 @@ class _HomePageState extends State<HomePage> {
         Navigator.pushReplacement(
           context,
           PageRouteBuilder(
-            pageBuilder: (_, __, ___) => SearchPage(),
+            pageBuilder: (_, __, ___) => search.SearchPage(),
             transitionDuration: const Duration(milliseconds: 300),
             transitionsBuilder: (_, animation, __, child) =>
                 FadeTransition(opacity: animation, child: child),
@@ -289,7 +289,7 @@ class _HomePageState extends State<HomePage> {
         Navigator.pushReplacement(
           context,
           PageRouteBuilder(
-            pageBuilder: (_, __, ___) => UserAccountPage(),
+            pageBuilder: (_, __, ___) => account.UserAccountPage(),
             transitionDuration: const Duration(milliseconds: 300),
             transitionsBuilder: (_, animation, __, child) =>
                 FadeTransition(opacity: animation, child: child),
