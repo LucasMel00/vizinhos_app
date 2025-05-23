@@ -1220,7 +1220,7 @@ class OrderStepperWidget extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-            'O reembolso será processado em até 48 horas úteis',
+            'Seu pedido foi rejeitado e o reembolso será processado em até 48 horas úteis',
             style: TextStyle(
               fontSize: 11,
               color: Colors.orange[800],

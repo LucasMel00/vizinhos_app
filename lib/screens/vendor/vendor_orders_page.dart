@@ -228,6 +228,28 @@ class OrderService {
       return false;
     }
   }
+  /// Update order status for pending orders (similar to user OrderService)
+  static Future<bool> updateOrderStatus(String idPedido) async {
+    try {
+      final url = Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/UpdateOrderStatus');
+      final body = json.encode({"id_Pedido": idPedido});
+      debugPrint("UpdateOrderStatus -> POST $url");
+      debugPrint("Request Body: $body");
+      debugPrint("Id Pedido: $idPedido");
+      
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      );
+      
+      debugPrint('UpdateOrderStatus Response -> statusCode: ${response.statusCode}, body: ${response.body}');
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Erro ao atualizar status do pedido: $e');
+      return false;
+    }
+  }
 }
 
 class OrdersVendorPage extends StatefulWidget {
@@ -266,11 +288,33 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
     });
     
     try {
+      // Primeiro busca os pedidos
       final orders = await OrderService.fetchOrders();
-      setState(() {
-        _allOrders = orders;
-        _isLoading = false;
-      });
+      
+      // Filtra pedidos pendentes para atualizar status
+      final pendingOrders = orders.where((order) => 
+        order.status == OrderStatus.pending
+      ).toList();
+      
+      // Atualiza status dos pedidos pendentes
+      if (pendingOrders.isNotEmpty) {
+        debugPrint('Atualizando ${pendingOrders.length} pedidos pendentes...');
+        await Future.wait(
+          pendingOrders.map((order) => OrderService.updateOrderStatus(order.id))
+        );
+        
+        // Recarrega os pedidos após as atualizações
+        final updatedOrders = await OrderService.fetchOrders();
+        setState(() {
+          _allOrders = updatedOrders;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _allOrders = orders;
+          _isLoading = false;
+        });
+      }
     } catch (error) {
       setState(() {
         _isLoading = false;
