@@ -754,7 +754,10 @@ class _OrderCard extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => OrderReviewPage(orderId: order.idPedido),
+                            builder: (context) => OrderReviewPage(
+                              orderId: order.idPedido,
+                              idEndereco: int.tryParse(order.produtos.first.loja.idLoja) ?? 0,
+                            ),
                           ),
                         );
                       },

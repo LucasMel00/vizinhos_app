@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../provider/order_service.dart';
 
 class OrderReviewPage extends StatefulWidget {
   final String orderId;
-  const OrderReviewPage({Key? key, required this.orderId}) : super(key: key);
+  final int idEndereco;
+  const OrderReviewPage({Key? key, required this.orderId, required this.idEndereco}) : super(key: key);
 
   @override
   _OrderReviewPageState createState() => _OrderReviewPageState();
@@ -11,6 +13,7 @@ class OrderReviewPage extends StatefulWidget {
 
 class _OrderReviewPageState extends State<OrderReviewPage> with SingleTickerProviderStateMixin {
   int _rating = 5;
+  String _userComment = "";
   // Predefined positive and negative characteristics
   final List<String> _positiveOptions = [
     'Entrega rápida',
@@ -46,20 +49,34 @@ class _OrderReviewPageState extends State<OrderReviewPage> with SingleTickerProv
   void _submitReview() async {
     if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
+    final storage = const FlutterSecureStorage();
+    final cpf = await storage.read(key: 'cpf');
+    if (cpf == null || cpf.isEmpty) {
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('CPF do usuário não encontrado.')),
+      );
+      return;
+    }
+    // Junta características e comentário livre
+    String comentarioFinal = _selectedChars.isNotEmpty
+      ? _selectedChars.join(", ") + (_userComment.isNotEmpty ? ' - ' + _userComment : '')
+      : _userComment;
     bool success = await _service.submitOrderReview(
-      widget.orderId,
-      _rating,
-      _selectedChars.toList(),
+      cpf: cpf,
+      idEndereco: widget.idEndereco,
+      avaliacao: _rating,
+      comentario: comentarioFinal,
     );
     setState(() => _isSubmitting = false);
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Avaliação enviada com sucesso!')),
+        const SnackBar(content: Text('Avaliação enviada com sucesso!')),
       );
       Navigator.pop(context);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao enviar avaliação.')),
+        const SnackBar(content: Text('Erro ao enviar avaliação.')),
       );
     }
   }
@@ -97,6 +114,8 @@ class _OrderReviewPageState extends State<OrderReviewPage> with SingleTickerProv
             _buildRatingCard(theme, colorScheme),
             const SizedBox(height: 24),
             _buildCharacteristicsCard(theme, colorScheme),
+            const SizedBox(height: 24),
+            _buildCommentField(theme),
             const SizedBox(height: 32),
             _buildSubmitButton(colorScheme),
           ],
@@ -223,6 +242,19 @@ class _OrderReviewPageState extends State<OrderReviewPage> with SingleTickerProv
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildCommentField(ThemeData theme) {
+    return TextField(
+      minLines: 2,
+      maxLines: 5,
+      decoration: InputDecoration(
+        labelText: 'Comentário (opcional)',
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      ),
+      onChanged: (value) => setState(() => _userComment = value),
     );
   }
 

@@ -45,16 +45,22 @@ class OrdersService {
     }
   }
 
-  /// Submit a review for an order with rating and selected characteristics
-  Future<bool> submitOrderReview(String orderId, int rating, List<String> characteristics) async {
+  /// Envia avaliação para a nova API CreateReview
+  Future<bool> submitOrderReview({
+    required String cpf,
+    required int idEndereco,
+    required int avaliacao,
+    String comentario = ""
+  }) async {
     try {
-      final url = Uri.parse('$baseUrl/SubmitOrderReview');
+      final url = Uri.parse('$baseUrl/CreateReview');
       final body = jsonEncode({
-        'id_Pedido': orderId,
-        'rating': rating,
-        'characteristics': characteristics,
+        "fk_Usuario_cpf": cpf,
+        "fk_id_Endereco": idEndereco,
+        "avaliacao": avaliacao,
+        "comentario": comentario,
       });
-      print('SubmitOrderReview -> POST $url');
+      print('CreateReview -> POST $url');
       print('Request body: $body');
       final response = await http.post(
         url,

@@ -243,14 +243,39 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> with Single
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Nome da loja
-                      Text(
-                        restaurant.name,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: primaryColor,
-                        ),
+                      // Nome da loja + avaliação
+                      Row(
+                        children: [
+                          Text(
+                            restaurant.name,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: primaryColor,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          FutureBuilder<double>(
+                            future: _fetchStoreRating(restaurant.idEndereco),
+                            builder: (context, snapshot) {
+                              final rating = snapshot.hasData ? snapshot.data! : 5.0;
+                              return Row(
+                                children: [
+                                  Text(
+                                    rating.toStringAsFixed(2),
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.amber,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
                       ),
                       SizedBox(height: 12),
                       
@@ -346,6 +371,26 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> with Single
     );
   }
 
+  // Função para buscar a nota da loja pela API GetReviewByStore
+  Future<double> _fetchStoreRating(String idLoja) async {
+    try {
+      final url = Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetReviewByStore?idLoja=$idLoja');
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final media = data['media_avaliacoes'] ?? data['loja']?['media_avaliacoes'];
+        if (media is num) {
+          return media.toDouble();
+        } else if (media != null) {
+          return double.tryParse(media.toString()) ?? 5.0;
+        }
+      }
+      return 5.0;
+    } catch (_) {
+      return 5.0;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -429,7 +474,7 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> with Single
                         ),
                         SizedBox(width: 8),
                       ],
-                      flexibleSpace: FlexibleSpaceBar(
+                        flexibleSpace: FlexibleSpaceBar(
                         // Ajustar o padding do título para afastar do botão voltar
                         titlePadding: EdgeInsetsDirectional.only(
                           start: 56.0, // Aumentado para afastar do botão voltar
@@ -438,26 +483,75 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> with Single
                         title: Align(
                           alignment: Alignment.bottomLeft,
                           child: Stack(
+                          children: [
+                            // Título da loja com avaliação ao lado
+                            Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              // Título da loja
-                              Text(
-                                restaurant.name,
-                                style: TextStyle(
-                                  color: Colors.white,
+                            Flexible(
+                              child: Text(
+                              restaurant.name,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                                shadows: [
+                                Shadow(
+                                  blurRadius: 4.0,
+                                  color: Colors.black.withOpacity(0.5),
+                                  offset: Offset(0, 1),
+                                ),
+                                ],
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            SizedBox(width: 12),
+                            FutureBuilder<double>(
+                              future: _fetchStoreRating(restaurant.idEndereco),
+                              builder: (context, snapshot) {
+                              final rating = snapshot.hasData ? snapshot.data! : 5.0;
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                Text(
+                                  rating.toStringAsFixed(1),
+                                  style: TextStyle(
+                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 20,
+                                  color: Colors.amber,
                                   shadows: [
                                     Shadow(
-                                      blurRadius: 4.0,
-                                      color: Colors.black.withOpacity(0.5),
-                                      offset: Offset(0, 1),
+                                    blurRadius: 4.0,
+                                    color: Colors.black.withOpacity(0.5),
+                                    offset: Offset(0, 1),
                                     ),
                                   ],
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.star_rounded, 
+                                  color: Colors.amber, 
+                                  size: 20,
+                                  shadows: [
+                                  Shadow(
+                                    blurRadius: 4.0,
+                                    color: Colors.black.withOpacity(0.5),
+                                    offset: Offset(0, 1),
+                                  ),
+                                  ],
+                                ),
+                                ],
+                              );
+                              },
+                            ),
                             ],
+                            ),
+                          ],
                           ),
-                        ),
+                          ),
                         background: Stack(
                           fit: StackFit.expand,
                           children: [
