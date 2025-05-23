@@ -35,7 +35,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  Future<List<Restaurant>> futureRestaurants = Future.value([]);
+  List<Restaurant> _restaurants = [];
   Map<String, dynamic>? userInfo;
   int _selectedIndex = 0;
   final storage = const FlutterSecureStorage();
@@ -103,7 +103,7 @@ class _HomePageState extends State<HomePage> {
       final restaurants = await fetchRestaurants();
       if (mounted) {
         setState(() {
-          futureRestaurants = Future.value(restaurants);
+          _restaurants = restaurants;
           _isLoading = false;
         });
       }
@@ -634,56 +634,32 @@ class _HomePageState extends State<HomePage> {
               ],
               body: _isLoading
                   ? _buildSkeletonLoading()
-                  : FutureBuilder<List<Restaurant>>(
-                      future: futureRestaurants,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                                ConnectionState.waiting &&
-                            !_isLoading) {
-                          return _buildSkeletonLoading();
-                        } else if (snapshot.hasError) {
-                          return Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Text(
-                                'Erro ao carregar lojas: ${snapshot.error}',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: secondaryTextColor),
-                              ),
+                  : _restaurants.isEmpty
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Text(
+                              'Nenhuma loja encontrada perto de você.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: secondaryTextColor),
                             ),
-                          );
-                        } else if (!snapshot.hasData ||
-                            snapshot.data!.isEmpty) {
-                          return const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: Text(
-                                'Nenhuma loja encontrada perto de você.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: secondaryTextColor),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: EdgeInsets.only(top: 8, bottom: 80),
+                          itemCount: _restaurants.length,
+                          itemBuilder: (context, index) {
+                            final store = _restaurants[index];
+                            return AnimatedOpacity(
+                              duration: Duration(milliseconds: 300 + (index * 50)),
+                              opacity: 1.0,
+                              child: _buildRestaurantCard(
+                                context: context,
+                                restaurant: store,
                               ),
-                            ),
-                          );
-                        } else {
-                          return ListView.builder(
-                            padding: EdgeInsets.only(top: 8, bottom: 80),
-                            itemCount: snapshot.data!.length,
-                            itemBuilder: (context, index) {
-                              final store = snapshot.data![index];
-                              return AnimatedOpacity(
-                                duration:
-                                    Duration(milliseconds: 300 + (index * 50)),
-                                opacity: 1.0,
-                                child: _buildRestaurantCard(
-                                  context: context,
-                                  restaurant: store,
-                                ),
-                              );
-                            },
-                          );
-                        }
-                      },
-                    ),
+                            );
+                          },
+                        ),
             ),
           ),
           bottomNavigationBar: Container(

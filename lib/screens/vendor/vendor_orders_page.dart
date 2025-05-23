@@ -190,6 +190,37 @@ class OrderService {
       return false;
     }
   }
+
+  /// Cancelar pedido do usuário via API
+  static Future<bool> cancelUserOrder(String orderId) async {
+    final url = Uri.parse(
+      'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/CancelUserOrder'
+    );
+    
+    final body = json.encode({'id_Pedido': orderId});
+    
+    debugPrint('CancelUserOrder -> Patch $url');
+    debugPrint('Request body: $body');
+
+    try {
+      final response = await http.patch(url,
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      );
+      
+      debugPrint('Response -> statusCode: ${response.statusCode}, body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        debugPrint('Falha ao cancelar pedido: ${response.statusCode} - ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Erro ao cancelar pedido: $e');
+      return false;
+    }
+  }
 }
 
 class OrdersVendorPage extends StatefulWidget {
@@ -435,301 +466,414 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                   ),
                 ],
               ),
-              child: Column(
-                children: [
-                  // Primeira linha: Filtro por status
-                  Row(
-                    children: [
-                      Icon(Icons.filter_alt_outlined, color: secondaryColor),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Filtrar:',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: secondaryColor,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Colors.grey[100],
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey[300]!),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: DropdownButton<OrderStatus?>(
-                              value: _selectedStatus,
-                              isExpanded: true,
-                              underline: const SizedBox(),
-                              icon: const Icon(Icons.arrow_drop_down),
-                              items: [
-                                const DropdownMenuItem(
-                                  value: null,
-                                  child: Text('Todos'),
-                                ),
-                                DropdownMenuItem(
-                                  value: OrderStatus.paid,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  bool isWide = constraints.maxWidth > 600;
+                  return isWide
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Filtro por status
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Icon(Icons.filter_alt_outlined, color: secondaryColor),
+                                  const SizedBox(width: 8),
+                                  Text('Filtrar:', style: TextStyle(fontWeight: FontWeight.bold, color: secondaryColor)),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[100],
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: Colors.grey[300]!),
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        child: DropdownButton<OrderStatus?>(
+                                          value: _selectedStatus,
+                                          isExpanded: true,
+                                          underline: const SizedBox(),
+                                          icon: const Icon(Icons.arrow_drop_down),
+                                          items: [
+                                            const DropdownMenuItem(
+                                              value: null,
+                                              child: Text('Todos'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: OrderStatus.paid,
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.payments_outlined, size: 18, color: infoColor),
+                                                  const SizedBox(width: 8),
+                                                  const Text('Pagos'),
+                                                ],
+                                              ),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: OrderStatus.preparing,
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.restaurant, size: 18, color: warningColor),
+                                                  const SizedBox(width: 8),
+                                                  const Text('Em preparo'),
+                                                ],
+                                              ),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: OrderStatus.inDelivery,
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.delivery_dining, size: 18, color: infoColor),
+                                                  const SizedBox(width: 8),
+                                                  const Text('Em rota'),
+                                                ],
+                                              ),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: OrderStatus.readyForPickup,
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.store, size: 18, color: warningColor),
+                                                  const SizedBox(width: 8),
+                                                  const Text('Pronto para retirada'),
+                                                ],
+                                              ),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: OrderStatus.completed,
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.check_circle, size: 18, color: successColor),
+                                                  const SizedBox(width: 8),
+                                                  const Text('Concluídos'),
+                                                ],
+                                              ),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: OrderStatus.canceled,
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.cancel, size: 18, color: errorColor),
+                                                  const SizedBox(width: 8),
+                                                  const Text('Cancelados'),
+                                                ],
+                                              ),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: OrderStatus.pending,
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.hourglass_empty, size: 18, color: Colors.grey),
+                                                  const SizedBox(width: 8),
+                                                  const Text('Pendentes'),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                          onChanged: (value) {
+                                            setState(() {
+                                              _selectedStatus = value;
+                                            });
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            // Ordenação
+                            Expanded(
+                              child: InkWell(
+                                onTap: _showSortDialog,
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.grey[300]!),
+                                  ),
                                   child: Row(
                                     children: [
-                                      Icon(Icons.payments_outlined, size: 18, color: infoColor),
+                                      Icon(Icons.sort, color: secondaryColor),
                                       const SizedBox(width: 8),
-                                      const Text('Pagos'),
+                                      Text(
+                                        'Ordenar por:',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: secondaryColor,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          _getSortTypeName(_currentSortType),
+                                          style: TextStyle(
+                                            color: primaryColor,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      Icon(
+                                        _getSortTypeIcon(_currentSortType),
+                                        color: primaryColor,
+                                        size: 20,
+                                      ),
                                     ],
                                   ),
                                 ),
-                                DropdownMenuItem(
-                                  value: OrderStatus.preparing,
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.restaurant, size: 18, color: warningColor),
-                                      const SizedBox(width: 8),
-                                      const Text('Em preparo'),
-                                    ],
-                                  ),
-                                ),
-                                DropdownMenuItem(
-                                  value: OrderStatus.inDelivery,
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.delivery_dining, size: 18, color: infoColor),
-                                      const SizedBox(width: 8),
-                                      const Text('Em rota'),
-                                    ],
-                                  ),
-                                ),
-                                DropdownMenuItem(
-                                  value: OrderStatus.readyForPickup,
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.store, size: 18, color: warningColor),
-                                      const SizedBox(width: 8),
-                                      const Text('Pronto para retirada'),
-                                    ],
-                                  ),
-                                ),
-                                DropdownMenuItem(
-                                  value: OrderStatus.completed,
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.check_circle, size: 18, color: successColor),
-                                      const SizedBox(width: 8),
-                                      const Text('Concluídos'),
-                                    ],
-                                  ),
-                                ),
-                                DropdownMenuItem(
-                                  value: OrderStatus.canceled,
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.cancel, size: 18, color: errorColor),
-                                      const SizedBox(width: 8),
-                                      const Text('Cancelados'),
-                                    ],
-                                  ),
-                                ),
-                                DropdownMenuItem(
-                                  value: OrderStatus.pending,
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.hourglass_empty, size: 18, color: Colors.grey),
-                                      const SizedBox(width: 8),
-                                      const Text('Pendentes'),
-                                    ],
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          children: [
+                            // Filtro por status
+                            Row(
+                              children: [
+                                Icon(Icons.filter_alt_outlined, color: secondaryColor),
+                                const SizedBox(width: 8),
+                                Text('Filtrar:', style: TextStyle(fontWeight: FontWeight.bold, color: secondaryColor)),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[100],
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: Colors.grey[300]!),
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                                      child: DropdownButton<OrderStatus?>(
+                                        value: _selectedStatus,
+                                        isExpanded: true,
+                                        underline: const SizedBox(),
+                                        icon: const Icon(Icons.arrow_drop_down),
+                                        items: [
+                                          const DropdownMenuItem(
+                                            value: null,
+                                            child: Text('Todos'),
+                                          ),
+                                          DropdownMenuItem(
+                                            value: OrderStatus.paid,
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.payments_outlined, size: 18, color: infoColor),
+                                                const SizedBox(width: 8),
+                                                const Text('Pagos'),
+                                              ],
+                                            ),
+                                          ),
+                                          DropdownMenuItem(
+                                            value: OrderStatus.preparing,
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.restaurant, size: 18, color: warningColor),
+                                                const SizedBox(width: 8),
+                                                const Text('Em preparo'),
+                                              ],
+                                            ),
+                                          ),
+                                          DropdownMenuItem(
+                                            value: OrderStatus.inDelivery,
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.delivery_dining, size: 18, color: infoColor),
+                                                const SizedBox(width: 8),
+                                                const Text('Em rota'),
+                                              ],
+                                            ),
+                                          ),
+                                          DropdownMenuItem(
+                                            value: OrderStatus.readyForPickup,
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.store, size: 18, color: warningColor),
+                                                const SizedBox(width: 8),
+                                                const Text('Pronto para retirada'),
+                                              ],
+                                            ),
+                                          ),
+                                          DropdownMenuItem(
+                                            value: OrderStatus.completed,
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.check_circle, size: 18, color: successColor),
+                                                const SizedBox(width: 8),
+                                                const Text('Concluídos'),
+                                              ],
+                                            ),
+                                          ),
+                                          DropdownMenuItem(
+                                            value: OrderStatus.canceled,
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.cancel, size: 18, color: errorColor),
+                                                const SizedBox(width: 8),
+                                                const Text('Cancelados'),
+                                              ],
+                                            ),
+                                          ),
+                                          DropdownMenuItem(
+                                            value: OrderStatus.pending,
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.hourglass_empty, size: 18, color: Colors.grey),
+                                                const SizedBox(width: 8),
+                                                const Text('Pendentes'),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _selectedStatus = value;
+                                          });
+                                        },
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],
-                              onChanged: (value) {
-                                setState(() {
-                                  _selectedStatus = value;
-                                });
-                              },
                             ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 12),
-                  
-                  // Segunda linha: Ordenação
-                  InkWell(
-                    onTap: _showSortDialog,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[300]!),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.sort, color: secondaryColor),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Ordenar por:',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: secondaryColor,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              _getSortTypeName(_currentSortType),
-                              style: TextStyle(
-                                color: primaryColor,
-                                fontWeight: FontWeight.w500,
+                            
+                            const SizedBox(height: 12),
+                            
+                            // Ordenação
+                            InkWell(
+                              onTap: _showSortDialog,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[100],
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.grey[300]!),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.sort, color: secondaryColor),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Ordenar por:',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: secondaryColor,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        _getSortTypeName(_currentSortType),
+                                        style: TextStyle(
+                                          color: primaryColor,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    Icon(
+                                      _getSortTypeIcon(_currentSortType),
+                                      color: primaryColor,
+                                      size: 20,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                          Icon(
-                            _getSortTypeIcon(_currentSortType),
-                            color: primaryColor,
-                            size: 20,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                          ],
+                        );
+                },
               ),
             ),
             
             // Lista de pedidos
             Expanded(
-              child: FutureBuilder<List<Order>>(
-                future: _futureOrders,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting && _isLoading) {
-                    return const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircularProgressIndicator(),
-                          SizedBox(height: 16),
-                          Text('Carregando pedidos...'),
-                        ],
-                      ),
-                    );
-                  }
-                  
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.error_outline, size: 48, color: errorColor),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Erro ao carregar pedidos',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: errorColor,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text('${snapshot.error}'),
-                          const SizedBox(height: 24),
-                          ElevatedButton.icon(
-                            onPressed: _loadOrders,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Tentar novamente'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: primaryColor,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-                  
-                  if (!snapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  
-                  if (_allOrders.isEmpty && snapshot.data != null) {
-                    _allOrders = snapshot.data!;
-                  }
-                  
-                  final orders = _getFilteredAndSortedOrders();
-                  
-                  if (orders.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'Nenhum pedido encontrado',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF666666)
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _selectedStatus != null 
-                                ? 'Tente selecionar outro filtro'
-                                : 'Não há pedidos disponíveis no momento',
-                            style: TextStyle(color: Colors.grey[600]),
-                          ),
-                          const SizedBox(height: 24),
-                          ElevatedButton.icon(
-                            onPressed: _refreshOrders,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Atualizar'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: primaryColor,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-                  
-                  return LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isWide = constraints.maxWidth > 600;
-                      // Wrap list in RefreshIndicator for pull-to-refresh
-                      return RefreshIndicator(
-                        onRefresh: _refreshOrders,
-                        color: primaryColor,
-                        child: ListView.separated(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isWide ? constraints.maxWidth * 0.1 : 16,
-                            vertical: 16,
-                          ),
-                          itemCount: orders.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 16),
-                          itemBuilder: (context, index) {
-                            return OrderCard(
-                              order: orders[index],
-                              isWide: isWide,
-                              onStatusChanged: _loadOrders,
-                            );
-                          },
+              child: RefreshIndicator(
+                onRefresh: _refreshOrders,
+                color: primaryColor,
+                child: _isLoading
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(),
+                            const SizedBox(height: 16),
+                            const Text('Carregando pedidos...'),
+                          ],
                         ),
-                      );
-                    },
-                  );
-                },
+                      )
+                    : Builder(
+                        builder: (context) {
+                          final orders = _getFilteredAndSortedOrders();
+                          if (orders.isEmpty) {
+                            return Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.inbox_outlined,
+                                    size: 64,
+                                    color: Colors.grey[400],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Nenhum pedido encontrado',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _selectedStatus == null
+                                        ? 'Não há pedidos registrados'
+                                        : 'Não há pedidos com o status selecionado',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  ElevatedButton.icon(
+                                    onPressed: _refreshOrders,
+                                    icon: const Icon(Icons.refresh),
+                                    label: const Text('Atualizar'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: primaryColor,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                          return LayoutBuilder(
+                            builder: (context, constraints) {
+                              final isWide = constraints.maxWidth > 600;
+                              return ListView.separated(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isWide ? constraints.maxWidth * 0.1 : 16,
+                                  vertical: 16,
+                                ),
+                                itemCount: orders.length,
+                                separatorBuilder: (_, __) => const SizedBox(height: 16),
+                                itemBuilder: (context, index) {
+                                  return OrderCard(
+                                    order: orders[index],
+                                    isWide: isWide,
+                                    onStatusChanged: _loadOrders,
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        },
+                      ),
               ),
             ),
           ],
@@ -757,6 +901,7 @@ class OrderCard extends StatefulWidget {
 class _OrderCardState extends State<OrderCard> {
   OrderStatus? _selectedNextStatus;
   bool _isUpdating = false;
+  bool _isCanceling = false;
 
   @override
   void initState() {
@@ -894,6 +1039,94 @@ class _OrderCardState extends State<OrderCard> {
     } finally {
       setState(() {
         _isUpdating = false;
+      });
+    }
+  }
+
+  // Método para cancelar o pedido
+  Future<void> _cancelOrder() async {
+    if (_isCanceling) return;
+    
+    // Mostrar diálogo de confirmação
+    final shouldCancel = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancelar pedido'),
+        content: const Text(
+          'Tem certeza que deseja cancelar este pedido? Esta ação não pode ser desfeita e o cliente será notificado.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Não'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: errorColor,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Sim, cancelar'),
+          ),
+        ],
+      ),
+    );
+    
+    if (shouldCancel != true) return;
+    
+    setState(() {
+      _isCanceling = true;
+    });
+    
+    try {
+      final success = await OrderService.cancelUserOrder(widget.order.id);
+      
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.cancel, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Pedido cancelado com sucesso'),
+              ],
+            ),
+            backgroundColor: errorColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+        widget.onStatusChanged();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Falha ao cancelar pedido'),
+              ],
+            ),
+            backgroundColor: errorColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro: $e'),
+          backgroundColor: errorColor,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isCanceling = false;
       });
     }
   }
@@ -1150,11 +1383,35 @@ class _OrderCardState extends State<OrderCard> {
   Widget _buildActionButtons(BuildContext context) {
     final order = widget.order;
     
-    // Pedido pago → Iniciar preparo
+    // Pedido pago → Iniciar preparo ou Cancelar
     if (order.status == OrderStatus.paid) {
       return Row(
         children: [
+          // Botão de cancelar
           Expanded(
+            flex: 1,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.cancel),
+              label: const Text('Cancelar'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: errorColor,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: errorColor),
+                ),
+              ),
+              onPressed: _isCanceling || _isUpdating
+                  ? null
+                  : _cancelOrder,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Botão de iniciar preparo
+          Expanded(
+            flex: 2,
             child: ElevatedButton.icon(
               icon: const Icon(Icons.restaurant),
               label: const Text('Iniciar preparo'),
@@ -1167,7 +1424,7 @@ class _OrderCardState extends State<OrderCard> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              onPressed: _isUpdating 
+              onPressed: _isUpdating || _isCanceling
                   ? null 
                   : () => _updateOrderStatus(OrderStatus.preparing),
             ),
@@ -1410,247 +1667,122 @@ class _OrderCardState extends State<OrderCard> {
                 ? null
                 : () => _updateOrderStatus(OrderStatus.completed),
           ),
-          
-          // Dica para o usuário
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              order.status == OrderStatus.inDelivery
-                  ? 'Confirme apenas quando o pedido for entregue ao cliente.'
-                  : 'Confirme apenas quando o cliente retirar o pedido na loja.',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-                fontStyle: FontStyle.italic,
+          if (order.status == OrderStatus.inDelivery)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Confirme apenas quando o cliente receber o pedido.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
-          ),
+          if (order.status == OrderStatus.readyForPickup)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Confirme apenas quando o cliente retirar o pedido na loja.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
         ],
       );
     }
     
-    // Pedido concluído - mostrar mensagem de confirmação
-    if (order.status == OrderStatus.completed) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: successColor.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: successColor.withOpacity(0.3)),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.check_circle, color: successColor),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Pedido concluído com sucesso',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: successColor,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Este pedido foi finalizado e não requer mais ações.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    
-    // Pedido cancelado - mostrar mensagem de cancelamento
-    if (order.status == OrderStatus.canceled) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: errorColor.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: errorColor.withOpacity(0.3)),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.cancel, color: errorColor),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Pedido cancelado',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: errorColor,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Este pedido foi cancelado e não requer mais ações.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    
+    // Para outros status, não mostramos botões de ação
     return const SizedBox.shrink();
   }
 }
 
-// Widget de stepper usando im_stepper
+// Widget para exibir o stepper de status do pedido
 class ImStepperWidget extends StatelessWidget {
   final Order order;
   
   const ImStepperWidget({required this.order});
-
+  
   @override
   Widget build(BuildContext context) {
-    // Determina o tipo de entrega do pedido
-    final String deliveryType = order.deliveryType?.toLowerCase() ?? '';
-    final bool isDelivery = deliveryType == 'delivery';
-    
-    // Determina o status atual para exibição dinâmica
-    final bool isInDelivery = order.status == OrderStatus.inDelivery;
-    final bool isReadyForPickup = order.status == OrderStatus.readyForPickup;
-    
-    // Determina o texto e ícone do quarto passo com base no status atual e tipo de entrega
-    String fourthStepLabel;
-    IconData fourthStepIcon;
-    
-    // Lógica para determinar o texto e ícone do quarto passo
-    if (isDelivery || isInDelivery) {
-      // Para delivery ou quando o status já é "Em rota"
-      fourthStepLabel = 'Em rota';
-      fourthStepIcon = Icons.delivery_dining;
-    } else {
-      // Para retirada ou quando o status já é "Pronto para retirada"
-      fourthStepLabel = 'Pronto para retirada';
-      fourthStepIcon = Icons.store;
-    }
-    
-    // Determina o step atual com lógica melhorada para garantir o avanço correto
+    // Determinar o índice ativo com base no status do pedido
     int activeStep = 0;
     
-    // Primeiro verificamos o status pelo enum para garantir consistência
     switch (order.status) {
-      case OrderStatus.completed:
-        activeStep = 4;
-        break;
-      case OrderStatus.inDelivery:
-        activeStep = 3;
-        break;
-      case OrderStatus.readyForPickup:
-        activeStep = 3;
-        break;
-      case OrderStatus.preparing:
-        activeStep = 2;
+      case OrderStatus.pending:
+        activeStep = 0;
         break;
       case OrderStatus.paid:
         activeStep = 1;
         break;
-      default:
-        activeStep = 0;
+      case OrderStatus.preparing:
+        activeStep = 2;
+        break;
+      case OrderStatus.inDelivery:
+      case OrderStatus.readyForPickup:
+        activeStep = 3;
+        break;
+      case OrderStatus.completed:
+        activeStep = 4;
+        break;
+      case OrderStatus.canceled:
+        // Para pedidos cancelados, não mostramos o stepper
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          decoration: BoxDecoration(
+            color: errorColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.cancel, color: errorColor, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Pedido cancelado',
+                style: TextStyle(
+                  color: errorColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        );
     }
     
-    // Verificação adicional para garantir que o status seja exibido corretamente
-    if (order.status.toString().contains('inDelivery') || 
-        (order.deliveryType == 'delivery' && order.status.toString().toLowerCase().contains('rota'))) {
-      activeStep = 3;
-    } else if (order.status.toString().contains('readyForPickup') || 
-               (order.deliveryType == 'retirada' && order.status.toString().toLowerCase().contains('retirada'))) {
-      activeStep = 3;
-    }
-    
-    // Lista de ícones para o stepper
+    // Definir os ícones para cada etapa
     List<IconData> icons = [
-      Icons.shopping_bag,
-      Icons.payments_outlined,
-      Icons.restaurant,
-      fourthStepIcon,
-      Icons.check_circle,
-    ];
-    
-    // Lista de textos para o stepper
-    List<String> labels = [
-      'Pedido realizado',
-      'Pagamento confirmado',
-      'Em preparo',
-      fourthStepLabel,
-      isDelivery ? 'Pedido entregue' : 'Pedido retirado',
+      Icons.shopping_cart,      // Pedido realizado
+      Icons.payments_outlined,  // Pagamento confirmado
+      Icons.restaurant,         // Em preparo
+      order.deliveryType == 'delivery' 
+          ? Icons.delivery_dining  // Em rota (delivery)
+          : Icons.store,           // Pronto para retirada
+      Icons.check_circle,       // Concluído
     ];
     
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          // Usando IconStepper do pacote im_stepper
-          IconStepper(
-            icons: icons.map((icon) => Icon(icon)).toList(),
-            activeStep: activeStep,
-            enableNextPreviousButtons: false,
-            enableStepTapping: false,
-            activeStepColor: primaryColor,
-            activeStepBorderColor: primaryColor,
-            activeStepBorderWidth: 0,
-            lineColor: Colors.grey[300],
-            lineLength: 50,
-            lineDotRadius: 1.5,
-            stepRadius: 20,
-            stepColor: Colors.grey[300],
-            stepPadding: 0,
-          ),
-          
-          // Adicionando os textos abaixo dos ícones
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(
-              labels.length,
-              (i) => Expanded(
-                child: Text(
-                  labels[i],
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: i <= activeStep ? primaryColor : Colors.grey[600],
-                    fontWeight: i == activeStep ? FontWeight.bold : FontWeight.normal,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          
-          // Data do pedido
-          if (order.date != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                DateFormat('dd/MM/yyyy HH:mm').format(order.date),
-                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-              ),
-            ),
-        ],
+      height: 70,
+      child: IconStepper(
+        icons: icons.map((icon) => Icon(icon)).toList(),
+        activeStep: activeStep,
+        enableNextPreviousButtons: false,
+        enableStepTapping: false,
+        activeStepColor: primaryColor,
+        activeStepBorderColor: primaryColor,
+        activeStepBorderWidth: 1,
+        activeStepBorderPadding: 3,
+        lineColor: Colors.grey[300],
+        lineLength: 50,
+        lineDotRadius: 2,
+        stepRadius: 16,
+        stepColor: Colors.grey[200],
+        stepPadding: 0,
       ),
     );
   }

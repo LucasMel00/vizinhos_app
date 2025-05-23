@@ -44,4 +44,29 @@ class OrdersService {
       return false;
     }
   }
+
+  /// Submit a review for an order with rating and selected characteristics
+  Future<bool> submitOrderReview(String orderId, int rating, List<String> characteristics) async {
+    try {
+      final url = Uri.parse('$baseUrl/SubmitOrderReview');
+      final body = jsonEncode({
+        'id_Pedido': orderId,
+        'rating': rating,
+        'characteristics': characteristics,
+      });
+      print('SubmitOrderReview -> POST $url');
+      print('Request body: $body');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      );
+      print('Response -> statusCode: \\${response.statusCode}, body: \\${response.body}');
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Erro ao enviar avaliação: $e');
+      return false;
+    }
+  }
+
 }

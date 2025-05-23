@@ -7,6 +7,7 @@ import 'package:vizinhos_app/screens/search/search_page.dart';
 import 'package:vizinhos_app/screens/user/user_account_page.dart';
 import '../model/order_models.dart';
 import '../provider/order_service.dart';
+import 'order_review_page.dart';
 
 // Cores do tema com melhor contraste e acessibilidade
 final primaryColor = const Color(0xFFFbbc2c);
@@ -44,7 +45,8 @@ class OrdersPage extends StatefulWidget {
 
 class _OrdersPageState extends State<OrdersPage> {
   final OrdersService _ordersService = OrdersService();
-  late Future<OrdersResponse> _ordersFuture;
+  List<OrderModel> _allOrders = [];
+  bool _isLoading = false;
   Map<String, bool> _updatingStatus = {};
 
   int _selectedIndex = 2;
@@ -52,29 +54,31 @@ class _OrdersPageState extends State<OrdersPage> {
   @override
   void initState() {
     super.initState();
-    _ordersFuture = _fetchOrders();
-    // Atualiza automaticamente status de pedidos pendentes ao abrir a página
-    _refreshOrders();
+    _loadOrders();
   }
 
-  Future<OrdersResponse> _fetchOrders() =>
-      _ordersService.getOrdersByUser(widget.cpf);
-
-  // Refresh handler: check pending-payment orders and update their status before reloading
-  Future<void> _refreshOrders() async {
+  /// Loads orders, updates pending payments, and refreshes UI
+  Future<void> _loadOrders() async {
+    setState(() => _isLoading = true);
     try {
+      // Fetch and update pending-payment orders first
       final resp = await _ordersService.getOrdersByUser(widget.cpf);
-      final updates = resp.pedidos
-          .where((o) => o.statusPedido.toLowerCase() == 'aguardando pagamento')
-          .map((o) => _ordersService.updateOrderStatus(o.idPedido));
-      await Future.wait(updates);
+      final pending = resp.pedidos
+          .where((o) => o.statusPedido.toLowerCase().contains('aguardando pagamento'));
+      await Future.wait(pending.map((o) => _ordersService.updateOrderStatus(o.idPedido)));
+      // Fetch fresh orders list
+      final fresh = await _ordersService.getOrdersByUser(widget.cpf);
+      setState(() => _allOrders = fresh.pedidos);
     } catch (e) {
-      debugPrint('Erro ao atualizar pedidos pendentes: $e');
+      debugPrint('Erro ao carregar pedidos: $e');
     } finally {
-      setState(() {
-        _ordersFuture = _fetchOrders();
-      });
+      setState(() => _isLoading = false);
     }
+  }
+
+  /// Pull-to-refresh handler
+  Future<void> _refreshOrders() async {
+    await _loadOrders();
   }
 
   String _formatDate(String dateString) {
@@ -94,7 +98,22 @@ class _OrdersPageState extends State<OrdersPage> {
     final success = await _ordersService.updateOrderStatus(idPedido);
 
     if (success) {
-      setState(() => _ordersFuture = _fetchOrders());
+      setState(() => _allOrders = _allOrders.map((order) {
+        if (order.idPedido == idPedido) {
+          // Retorna uma nova instância de OrderModel com os mesmos dados, mas com o status atualizado
+          return OrderModel(
+            idPedido: order.idPedido,
+            dataPedido: order.dataPedido,
+            statusPedido: order.statusPedido, // Este campo será atualizado
+            valorTotal: order.valorTotal,
+            qrCode: order.qrCode,
+            tipoEntrega: order.tipoEntrega,
+            produtos: order.produtos, 
+            idPagamento: order.idPagamento,
+          );
+        }
+        return order;
+      }).toList());
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -292,66 +311,52 @@ class _OrdersPageState extends State<OrdersPage> {
             ),
           ),
         ),
-        body: LayoutBuilder(
-          builder: (context, constraints) {
-            return RefreshIndicator.adaptive(
-              onRefresh: _refreshOrders,
-              child: FutureBuilder<OrdersResponse>(
-                future: _ordersFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircularProgressIndicator.adaptive(),
-                          SizedBox(height: 16),
-                          Text('Carregando seus pedidos...'),
-                        ],
-                      ),
+        body: RefreshIndicator.adaptive(
+          onRefresh: _refreshOrders,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              if (_isLoading) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      CircularProgressIndicator.adaptive(),
+                      SizedBox(height: 16),
+                      Text('Carregando seus pedidos...'),
+                    ],
+                  ),
+                );
+              }
+              if (_allOrders.isEmpty) {
+                return const _EmptyOrdersView();
+              }
+              // Constrain width on large screens
+              return ConstrainedBox(
+                constraints: BoxConstraints(
+                    maxWidth:
+                        constraints.maxWidth > 600 ? 600 : double.infinity),
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _allOrders.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 16),
+                  itemBuilder: (context, index) {
+                    final order = _allOrders[index];
+                    final status = _parseOrderStatus(order.statusPedido);
+                    final delivery = _getDeliveryType(order);
+                    return _OrderCard(
+                      order: order,
+                      updating: _updatingStatus[order.idPedido] ?? false,
+                      onUpdateStatus: _updateOrderStatus,
+                      formatDate: _formatDate,
+                      formatCurrency: _formatCurrency,
+                      parseOrderStatus: _parseOrderStatus,
+                      getDeliveryType: _getDeliveryType,
                     );
-                  }
-
-                  if (snapshot.hasError) {
-                    return _ErrorView(
-                      error: snapshot.error.toString(),
-                      onRetry: () {
-                        setState(() {
-                          _ordersFuture = _fetchOrders();
-                        });
-                      },
-                    );
-                  }
-
-                  final orders = snapshot.data?.pedidos ?? [];
-                  if (orders.isEmpty) {
-                    return const _EmptyOrdersView();
-                  }
-
-                  return ConstrainedBox(
-                    constraints: BoxConstraints(
-                        maxWidth:
-                            constraints.maxWidth > 600 ? 600 : double.infinity),
-                    child: ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: orders.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 16),
-                      itemBuilder: (context, index) => _OrderCard(
-                        order: orders[index],
-                        updating:
-                            _updatingStatus[orders[index].idPedido] ?? false,
-                        onUpdateStatus: _updateOrderStatus,
-                        formatDate: _formatDate,
-                        formatCurrency: _formatCurrency,
-                        parseOrderStatus: _parseOrderStatus,
-                        getDeliveryType: _getDeliveryType,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            );
-          },
+                  },
+                ),
+              );
+            },
+          ),
         ),
         bottomNavigationBar: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -626,6 +631,33 @@ class _OrderCard extends StatelessWidget {
                     ),
                   ),
                 ],
+                // Botão de avaliação para pedidos concluídos
+                if (orderStatus == OrderStatus.completed) ...[
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.star),
+                      label: const Text('Avaliar pedido'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => OrderReviewPage(orderId: order.idPedido),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -736,6 +768,11 @@ class OrderStepperWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Para pedidos cancelados, mostra uma representação visual diferente
+    if (orderStatus == OrderStatus.canceled) {
+      return _buildCanceledStepper(context);
+    }
+    
     // Determina o texto e ícone do quarto passo com base no tipo de entrega
     String fourthStepLabel = deliveryType == DeliveryType.delivery 
         ? 'Em rota' 
@@ -821,6 +858,128 @@ class OrderStepperWidget extends StatelessWidget {
          ],
        ),
      );
+  }
+  
+  // Widget especial para pedidos cancelados
+  Widget _buildCanceledStepper(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.red[50],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.red[200]!,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          // Linha visual para pedidos cancelados
+          Row(
+            children: [
+              // Primeiro passo: Pedido realizado (sempre ativo)
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: primaryColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: const Icon(
+                  Icons.shopping_bag,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              // Linha tracejada para cancelamento
+              Expanded(
+                child: CustomPaint(
+                  size: const Size(double.infinity, 3),
+                  painter: DashedLinePainter(
+                    color: Colors.red[400]!,
+                    strokeWidth: 3,
+                  ),
+                ),
+              ),
+              // Ícone de cancelamento
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.red[700],
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: const Icon(
+                  Icons.cancel,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Labels para pedidos cancelados
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Pedido realizado',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: primaryColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  'Pedido cancelado',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.red[700],
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Mensagem explicativa
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.red[100],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: Colors.red[700],
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Este pedido foi cancelado ',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.red[800],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
   
   // Método para determinar o passo ativo com base no status
@@ -1028,8 +1187,7 @@ class _EmptyOrdersView extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            onPressed: () {
-              Navigator.pushReplacement(
+            onPressed: () {            Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (context) => HomePage()),
               );
@@ -1039,4 +1197,42 @@ class _EmptyOrdersView extends StatelessWidget {
       ),
     );
   }
+}
+
+// Custom painter para criar linhas tracejadas
+class DashedLinePainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double dashWidth;
+  final double dashSpace;
+  
+  DashedLinePainter({
+    required this.color,
+    this.strokeWidth = 2.0,
+    this.dashWidth = 5.0,
+    this.dashSpace = 3.0,
+  });
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke;
+    
+    double startX = 0;
+    final y = size.height / 2;
+    
+    while (startX < size.width) {
+      canvas.drawLine(
+        Offset(startX, y),
+        Offset(startX + dashWidth, y),
+        paint,
+      );
+      startX += dashWidth + dashSpace;
+    }
+  }
+  
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
