@@ -240,7 +240,6 @@ class OrdersVendorPage extends StatefulWidget {
 
 class _OrdersVendorPageState extends State<OrdersVendorPage> 
     with WidgetsBindingObserver {
-  late Future<List<Order>> _futureOrders;
   OrderStatus? _selectedStatus = OrderStatus.paid; // Filtro padrão: pagos
   List<Order> _allOrders = [];
   bool _isLoading = false;
@@ -261,23 +260,25 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  void _loadOrders() {
+  }  Future<void> _loadOrders() async {
     setState(() {
       _isLoading = true;
-      _futureOrders = OrderService.fetchOrders().then((orders) {
+    });
+    
+    try {
+      final orders = await OrderService.fetchOrders();
+      setState(() {
         _allOrders = orders;
         _isLoading = false;
-        return orders;
-      }).catchError((error) {
-        _isLoading = false;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao carregar pedidos: $error'))
-        );
-        return <Order>[];
       });
-    });
+    } catch (error) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao carregar pedidos: $error'))
+      );
+    }
   }
 
   // Método para filtrar e ordenar os pedidos
@@ -340,11 +341,9 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
       _loadOrders();
     }
   }
-
   /// Pull-to-refresh: reload orders when user swipes down
   Future<void> _refreshOrders() async {
-    _loadOrders();
-    await _futureOrders;
+    await _loadOrders();
   }
 
   // Método para mostrar o diálogo de seleção de ordenação
@@ -456,8 +455,7 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
             bottom: Radius.circular(16),
           ),
         ),
-      ),
-      body: SafeArea(
+      ),      body: SafeArea(
         child: Column(
           children: [
             // Filtro e ordenação com design melhorado
@@ -476,7 +474,8 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   bool isWide = constraints.maxWidth > 600;
-                  return isWide                      ? Row(
+                  return isWide
+                      ? Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Filtro por status
@@ -642,9 +641,9 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        )                      : Column(
+                            ),                          ],
+                        )
+                      : Column(
                           children: [
                             // Filtro por status
                             Row(
