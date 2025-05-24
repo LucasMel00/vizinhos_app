@@ -67,13 +67,15 @@ class _OrderReviewPageState extends State<OrderReviewPage> with SingleTickerProv
       idEndereco: widget.idEndereco,
       avaliacao: _rating,
       comentario: comentarioFinal,
+      idPedido: widget.orderId, // Corrige para o nome correto do parâmetro
     );
     setState(() => _isSubmitting = false);
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Avaliação enviada com sucesso!')),
       );
-      Navigator.pop(context);
+      // Atualiza a página de pedidos ao voltar
+      Navigator.pop(context, true); // Passa true para indicar atualização
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Erro ao enviar avaliação.')),

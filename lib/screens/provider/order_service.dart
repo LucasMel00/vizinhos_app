@@ -50,6 +50,7 @@ class OrdersService {
     required String cpf,
     required int idEndereco,
     required int avaliacao,
+    required String idPedido,
     String comentario = ""
   }) async {
     try {
@@ -59,6 +60,7 @@ class OrdersService {
         "fk_id_Endereco": idEndereco,
         "avaliacao": avaliacao,
         "comentario": comentario,
+        "id_Pedido": idPedido,
       });
       print('CreateReview -> POST $url');
       print('Request body: $body');
@@ -68,7 +70,7 @@ class OrdersService {
         body: body,
       );
       print('Response -> statusCode: \\${response.statusCode}, body: \\${response.body}');
-      return response.statusCode == 200;
+      return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       print('Erro ao enviar avaliação: $e');
       return false;

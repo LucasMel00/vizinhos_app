@@ -137,13 +137,12 @@ class _VendorAccountPageState extends State<VendorAccountPage>
   Widget? _buildRatingAverage() {
     // Busca média tanto do root quanto de 'loja' (compatível com ambas APIs)
     final media = storeData?['media_avaliacoes'] ?? storeData?['loja']?['media_avaliacoes'];
-    double? avg;
+    double avg = 5.0;
     if (media is num) {
       avg = media.toDouble();
     } else if (media != null) {
-      avg = double.tryParse(media.toString());
+      avg = double.tryParse(media.toString()) ?? 5.0;
     }
-    if (avg == null) return null;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -492,40 +491,6 @@ class _VendorAccountPageState extends State<VendorAccountPage>
                           ],
                         ),
                         const SizedBox(height: 20),
-                        // Botão para ver avaliações (agora sempre no final)
-                        if ((storeData?['avaliacoes'] as List?)?.isNotEmpty ?? false)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8.0, bottom: 16.0),
-                            child: ElevatedButton.icon(
-                              icon: const Icon(Icons.star_rate, color: Color.fromARGB(255, 255, 255, 255)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: const Color.fromARGB(255, 255, 255, 255),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                elevation: 1,
-                              ),
-                              label: const Text('Ver Avaliações'),
-                              onPressed: () {
-                                final idLoja = storeData?['loja']?['id_Endereco']?.toString();
-                                if (idLoja != null && idLoja.isNotEmpty) {
-                                  showModalBottomSheet(
-                                    context: context,
-                                    isScrollControlled: true,
-                                    shape: const RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                                    ),
-                                    builder: (context) => VendorReviewsSheet(idLoja: idLoja),
-                                  );
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('ID da loja não encontrado.')),
-                                  );
-                                }
-                              },
-                            ),
-                          ),
                       ],
                     ),
                   ),

@@ -461,6 +461,7 @@ class _OrdersPageState extends State<OrdersPage> {
                             formatCurrency: _formatCurrency,
                             parseOrderStatus: OrderUtils.parseOrderStatus,
                             getDeliveryType: OrderUtils.getDeliveryType,
+                            onReviewSubmitted: _refreshOrders, // Passa o refresh
                           );
                         },
                       ),
@@ -510,6 +511,7 @@ class _OrderCard extends StatelessWidget {
   final String Function(double) formatCurrency;
   final OrderStatus Function(String) parseOrderStatus;
   final DeliveryType Function(OrderModel) getDeliveryType;
+  final VoidCallback? onReviewSubmitted; // Novo callback opcional
 
   const _OrderCard({
     required this.order,
@@ -519,6 +521,7 @@ class _OrderCard extends StatelessWidget {
     required this.formatCurrency,
     required this.parseOrderStatus,
     required this.getDeliveryType,
+    this.onReviewSubmitted,
   });
 
   @override
@@ -745,13 +748,13 @@ class _OrderCard extends StatelessWidget {
                   ),
                 ],
                 // Botão de avaliação para pedidos concluídos
-                if (orderStatus == OrderStatus.completed) ...[
+                if (orderStatus == OrderStatus.completed && order.avaliacaoFeita != true) ...[
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
+                      onPressed: () async {
+                        final result = await Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => OrderReviewPage(
@@ -760,6 +763,9 @@ class _OrderCard extends StatelessWidget {
                             ),
                           ),
                         );
+                        if (result == true && onReviewSubmitted != null) {
+                          onReviewSubmitted!();
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: successColor,

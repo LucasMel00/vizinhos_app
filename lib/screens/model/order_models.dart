@@ -83,6 +83,7 @@ class OrderModel {
   final String? qrCode;
   final String? qrCodeBase64;
   final List<ProductModel> produtos;
+  final bool avaliacaoFeita; // true se já foi avaliado
 
   OrderModel({
     required this.idPedido,
@@ -94,6 +95,7 @@ class OrderModel {
     this.qrCode,
     this.qrCodeBase64,
     required this.produtos,
+    this.avaliacaoFeita = false,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
@@ -127,6 +129,7 @@ class OrderModel {
       qrCode: json['qr_code']?.toString(),
       qrCodeBase64: json['qr_code_base64']?.toString(),
       produtos: produtosList,
+      avaliacaoFeita: json['AvaliacaoFeita'] == true || json['AvaliacaoFeita'] == 'true' ? true : false,
     );
   }
 }
