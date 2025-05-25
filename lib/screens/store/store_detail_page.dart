@@ -4,10 +4,8 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:vizinhos_app/screens/cart/cart_screen.dart';
-import 'package:vizinhos_app/screens/model/cart_item.dart';
 import 'package:vizinhos_app/screens/model/restaurant.dart';
 import 'package:vizinhos_app/screens/model/product.dart';
-import 'package:vizinhos_app/screens/model/characteristic.dart';
 import 'package:vizinhos_app/screens/model/lote.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
@@ -245,39 +243,83 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Nome da loja + avaliação
+                      // Nome da loja + avaliação (visual melhorada)
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Text(
-                            restaurant.name,
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: primaryColor,
+                          Expanded(
+                            child: Text(
+                              restaurant.name,
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: primaryColor,
+                                letterSpacing: 0.2,
+                                shadows: [
+                                  Shadow(
+                                    blurRadius: 4.0,
+                                    color: Colors.black.withOpacity(0.08),
+                                    offset: Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          FutureBuilder<double>(
-                            future: _fetchStoreRating(restaurant.idEndereco),
-                            builder: (context, snapshot) {
-                              final rating =
-                                  snapshot.hasData ? snapshot.data! : 5.0;
-                              return Row(
-                                children: [
-                                  Text(
-                                    rating.toStringAsFixed(2),
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.amber,
-                                    ),
+                          Container(
+                            margin: EdgeInsets.only(left: 12),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: FutureBuilder<double>(
+                              future: _fetchStoreRating(restaurant.idEndereco),
+                              builder: (context, snapshot) {
+                                final rating =
+                                    snapshot.hasData ? snapshot.data! : 5.0;
+                                return InkWell(
+                                  onTap: () => _showStoreReviewsModal(
+                                      restaurant.idEndereco),
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.star_rounded,
+                                          color: Colors.amber,
+                                          size: 18,
+                                          shadows: [
+                                            Shadow(
+                                              blurRadius: 4.0,
+                                              color: Colors.black
+                                                  .withOpacity(0.15),
+                                              offset: Offset(0, 1),
+                                            ),
+                                          ]),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        rating.toStringAsFixed(2),
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.amber[900],
+                                          shadows: [
+                                            Shadow(
+                                              blurRadius: 4.0,
+                                              color: Colors.black
+                                                  .withOpacity(0.10),
+                                              offset: Offset(0, 1),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 2),
-                                  const Icon(Icons.star_rounded,
-                                      color: Colors.amber, size: 18),
-                                ],
-                              );
-                            },
+                                );
+                              },
+                            ),
                           ),
                         ],
                       ),
@@ -326,6 +368,22 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                           color: secondaryTextColor,
                         ),
                       ),
+                      // Adiciona telefone da loja
+                      if (restaurant.telefone != null &&
+                          restaurant.telefone!.isNotEmpty) ...[
+                        SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.phone, size: 16, color: primaryColor),
+                            SizedBox(width: 6),
+                            Text(
+                              restaurant.telefone ?? '',
+                              style: TextStyle(
+                                  fontSize: 14, color: secondaryTextColor),
+                            ),
+                          ],
+                        ),
+                      ],
                       SizedBox(height: 16),
 
                       // Informações de entrega
@@ -386,9 +444,16 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
         final data = json.decode(response.body);
         final media =
             data['media_avaliacoes'] ?? data['loja']?['media_avaliacoes'];
+        final avaliacoes = data['avaliacoes'] ?? data['loja']?['avaliacoes'];
+        // Se não houver avaliações ou média for 0/null, retorna 5.0
+        if (media == null ||
+            media == 0 ||
+            (avaliacoes is List && avaliacoes.isEmpty)) {
+          return 5.0;
+        }
         if (media is num) {
           return media.toDouble();
-        } else if (media != null) {
+        } else {
           return double.tryParse(media.toString()) ?? 5.0;
         }
       }
@@ -396,6 +461,137 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
     } catch (_) {
       return 5.0;
     }
+  }
+
+  // Função para buscar avaliações da loja pela API
+  Future<List<Map<String, dynamic>>> _fetchStoreReviews(String idLoja) async {
+    try {
+      final url = Uri.parse(
+          'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetReviewByStore?idLoja=$idLoja');
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final avaliacoes = data['avaliacoes'] ?? data['loja']?['avaliacoes'];
+        if (avaliacoes is List && avaliacoes.isNotEmpty) {
+          return List<Map<String, dynamic>>.from(avaliacoes);
+        }
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // Modal para exibir avaliações da loja
+  void _showStoreReviewsModal(String idLoja) async {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return FutureBuilder<List<Map<String, dynamic>>>(
+          future: _fetchStoreReviews(idLoja),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final reviews = snapshot.data ?? [];
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 24,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Avaliações da Loja',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: primaryTextColor,
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                  Divider(),
+                  if (reviews.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 32.0),
+                      child: Center(
+                        child: Text(
+                          'Ainda não há nenhuma avaliação para esta loja.',
+                          style: TextStyle(
+                              fontSize: 16, color: secondaryTextColor),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: reviews.length,
+                        separatorBuilder: (_, __) => Divider(),
+                        itemBuilder: (context, idx) {
+                          final review = reviews[idx];
+                          final nota = review['nota'] ?? 5;
+                          final comentario = review['comentario'] ?? '';
+                          final usuario = review['usuario'] ?? 'Usuário';
+                          final data = review['data'] ?? '';
+                          return ListTile(
+                            leading: Icon(Icons.star, color: Colors.amber),
+                            title: Row(
+                              children: [
+                                Text(
+                                  usuario,
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Nota: $nota',
+                                  style: TextStyle(color: Colors.amber[900]),
+                                ),
+                              ],
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (comentario.isNotEmpty) Text(comentario),
+                                if (data.isNotEmpty)
+                                  Text(
+                                    data,
+                                    style: TextStyle(
+                                        fontSize: 12, color: Colors.grey[600]),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -521,41 +717,38 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                                       final rating = snapshot.hasData
                                           ? snapshot.data!
                                           : 5.0;
-                                      return Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            rating.toStringAsFixed(1),
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
+                                      return InkWell(
+                                        onTap: () => _showStoreReviewsModal(
+                                            restaurant.idEndereco),
+                                        borderRadius: BorderRadius.circular(16),
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.star_rounded,
                                               color: Colors.amber,
+                                              size: 18,
                                               shadows: [
                                                 Shadow(
                                                   blurRadius: 4.0,
                                                   color: Colors.black
-                                                      .withOpacity(0.5),
+                                                      .withOpacity(0.15),
                                                   offset: Offset(0, 1),
                                                 ),
                                               ],
                                             ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Icon(
-                                            Icons.star_rounded,
-                                            color: Colors.amber,
-                                            size: 12,
-                                            shadows: [
-                                              Shadow(
-                                                blurRadius: 4.0,
-                                                color: Colors.black
-                                                    .withOpacity(0.5),
-                                                offset: Offset(0, 1),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              rating.toStringAsFixed(2),
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.amber,
                                               ),
-                                            ],
-                                          ),
-                                        ],
+                                            ),
+                                          ],
+                                        ),
                                       );
                                     },
                                   ),
@@ -639,6 +832,23 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                                   fontSize: 15, color: secondaryTextColor),
                             ),
                             const SizedBox(height: 16),
+                            if (restaurant.telefone != null &&
+                                restaurant.telefone!.isNotEmpty) ...[
+                              Row(
+                                children: [
+                                  Icon(Icons.phone,
+                                      size: 16, color: primaryColor),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    restaurant.telefone ?? '',
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        color: secondaryTextColor),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 8),
+                            ],
                             _buildInfoRow(Icons.local_shipping_outlined,
                                 'Entrega: ${restaurant.tipoEntrega}'),
                           ],
@@ -1279,7 +1489,6 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
     final cartProvider = Provider.of<CartProvider>(context);
     final productImageUrl = product.imagemUrl;
     final String formattedPrice = _formatCurrency(product.valorVenda);
-    final int inCart = cartProvider.items[product.id]?.quantity ?? 0;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),

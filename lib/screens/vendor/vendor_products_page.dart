@@ -129,13 +129,20 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
       return {'status': 'none'};
     }
 
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     final expirationDate =
         product.dataFabricacao!.add(Duration(days: product.diasValidade));
-    final daysUntilExpiration =
-        expirationDate.difference(DateTime.now()).inDays;
+    final expirationDay =
+        DateTime(expirationDate.year, expirationDate.month, expirationDate.day);
+
+    // O produto é válido até o final do dia de validade, então se hoje é o dia do vencimento, ainda está válido
+    final daysUntilExpiration = expirationDay.difference(today).inDays;
 
     if (daysUntilExpiration < 0) {
       return {'status': 'expired', 'days': daysUntilExpiration};
+    } else if (daysUntilExpiration == 0) {
+      return {'status': 'expiring', 'days': 0}; // Vence hoje
     } else if (daysUntilExpiration <= 3) {
       return {'status': 'expiring', 'days': daysUntilExpiration};
     }
@@ -628,7 +635,9 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
                                 child: Text(
                                   isExpired
                                       ? 'EXPIRADO'
-                                      : 'VENCE EM ${status['days']} DIA${status['days'] == 1 ? '' : 'S'}',
+                                      : status['days'] == 0
+                                          ? 'VENCE HOJE'
+                                          : 'VENCE EM ${status['days']} DIA${status['days'] == 1 ? '' : 'S'}',
                                   style: TextStyle(
                                     fontSize: 10,
                                     color: isExpired

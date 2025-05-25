@@ -5,15 +5,17 @@ import '../provider/order_service.dart';
 class OrderReviewPage extends StatefulWidget {
   final String orderId;
   final int idEndereco;
-  const OrderReviewPage({Key? key, required this.orderId, required this.idEndereco}) : super(key: key);
+  const OrderReviewPage(
+      {Key? key, required this.orderId, required this.idEndereco})
+      : super(key: key);
 
   @override
   _OrderReviewPageState createState() => _OrderReviewPageState();
 }
 
-class _OrderReviewPageState extends State<OrderReviewPage> with SingleTickerProviderStateMixin {
+class _OrderReviewPageState extends State<OrderReviewPage>
+    with SingleTickerProviderStateMixin {
   int _rating = 5;
-  String _userComment = "";
   // Predefined positive and negative characteristics
   final List<String> _positiveOptions = [
     'Entrega rápida',
@@ -60,8 +62,8 @@ class _OrderReviewPageState extends State<OrderReviewPage> with SingleTickerProv
     }
     // Junta características e comentário livre
     String comentarioFinal = _selectedChars.isNotEmpty
-      ? _selectedChars.join(", ") + (_userComment.isNotEmpty ? ' - ' + _userComment : '')
-      : _userComment;
+        ? _selectedChars.join(", ") // Remove o comentário livre
+        : '';
     bool success = await _service.submitOrderReview(
       cpf: cpf,
       idEndereco: widget.idEndereco,
@@ -116,8 +118,6 @@ class _OrderReviewPageState extends State<OrderReviewPage> with SingleTickerProv
             _buildRatingCard(theme, colorScheme),
             const SizedBox(height: 24),
             _buildCharacteristicsCard(theme, colorScheme),
-            const SizedBox(height: 24),
-            _buildCommentField(theme),
             const SizedBox(height: 32),
             _buildSubmitButton(colorScheme),
           ],
@@ -141,40 +141,41 @@ class _OrderReviewPageState extends State<OrderReviewPage> with SingleTickerProv
             const SizedBox(height: 16),
             Center(
               child: AnimatedBuilder(
-                animation: _starController,
-                builder: (context, child) {
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(5, (index) {
-                      final starIndex = index + 1;
-                      final scaleAnim = Tween<double>(begin: 0.5, end: 1.0).animate(
-                        CurvedAnimation(
-                          parent: _starController,
-                          curve: Interval(
-                            index / 5,
-                            1.0,
-                            curve: Curves.easeOut,
+                  animation: _starController,
+                  builder: (context, child) {
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(5, (index) {
+                        final starIndex = index + 1;
+                        final scaleAnim =
+                            Tween<double>(begin: 0.5, end: 1.0).animate(
+                          CurvedAnimation(
+                            parent: _starController,
+                            curve: Interval(
+                              index / 5,
+                              1.0,
+                              curve: Curves.easeOut,
+                            ),
                           ),
-                        ),
-                      );
-                      return ScaleTransition(
-                        scale: scaleAnim,
-                        child: IconButton(
-                          iconSize: 40,
-                          icon: Icon(
-                            Icons.star_rounded,
-                            color: _rating >= starIndex
-                                ? Colors.amber
-                                : Colors.grey[300],
+                        );
+                        return ScaleTransition(
+                          scale: scaleAnim,
+                          child: IconButton(
+                            iconSize: 40,
+                            icon: Icon(
+                              Icons.star_rounded,
+                              color: _rating >= starIndex
+                                  ? Colors.amber
+                                  : Colors.grey[300],
+                            ),
+                            onPressed: () => _animateStars(starIndex),
+                            splashColor: Colors.amber.withOpacity(0.2),
+                            highlightColor: Colors.transparent,
                           ),
-                          onPressed: () => _animateStars(starIndex),
-                          splashColor: Colors.amber.withOpacity(0.2),
-                          highlightColor: Colors.transparent,
-                        ),
-                      );
-                    }),
-                  );
-                }),
+                        );
+                      }),
+                    );
+                  }),
             ),
           ],
         ),
@@ -217,13 +218,14 @@ class _OrderReviewPageState extends State<OrderReviewPage> with SingleTickerProv
                       selected: isSelected,
                       onSelected: (selected) {
                         setState(() {
-                          if (selected) _selectedChars.add(option);
-                          else _selectedChars.remove(option);
+                          if (selected)
+                            _selectedChars.add(option);
+                          else
+                            _selectedChars.remove(option);
                         });
                       },
-                      avatar: isSelected
-                          ? const Icon(Icons.check, size: 18)
-                          : null,
+                      avatar:
+                          isSelected ? const Icon(Icons.check, size: 18) : null,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -244,19 +246,6 @@ class _OrderReviewPageState extends State<OrderReviewPage> with SingleTickerProv
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildCommentField(ThemeData theme) {
-    return TextField(
-      minLines: 2,
-      maxLines: 5,
-      decoration: InputDecoration(
-        labelText: 'Comentário (opcional)',
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      ),
-      onChanged: (value) => setState(() => _userComment = value),
     );
   }
 
@@ -290,23 +279,23 @@ class _OrderReviewPageState extends State<OrderReviewPage> with SingleTickerProv
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
               child: _isSubmitting
-                ? SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                  ),
-                )
-                : Text(
-                    'Enviar Avaliação',
-                    style: TextStyle(
-                      color: colorScheme.onPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                  ? SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      'Enviar Avaliação',
+                      style: TextStyle(
+                        color: colorScheme.onPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
             ),
           ),
         ),

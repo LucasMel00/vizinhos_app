@@ -14,6 +14,7 @@ class Restaurant {
   final String? imageString;
   final String? imagemUrl;
   final List<Product> produtos;
+  final String? telefone;
 
   Restaurant({
     required this.idEndereco,
@@ -27,6 +28,7 @@ class Restaurant {
     required this.cep,
     this.imageString,
     required this.produtos,
+    this.telefone,
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
@@ -47,6 +49,7 @@ class Restaurant {
       imageString: json['id_Imagem'] as String?,
       imagemUrl: json['imagem_url'],
       produtos: productData,
+      telefone: json['telefone'],
     );
   }
 

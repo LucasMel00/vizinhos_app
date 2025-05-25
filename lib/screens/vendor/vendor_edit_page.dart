@@ -38,28 +38,32 @@ class _VendorEditPageState extends State<VendorEditPage> {
     // Clona o map para não mexer no original direto
     storeData = Map<String, dynamic>.from(widget.storeData);
 
+    // Garante que 'loja' existe
+    if (storeData['loja'] == null) {
+      storeData['loja'] = <String, dynamic>{};
+    }
+
     // Logs para depuração da estrutura
     print('Estrutura completa do storeData: $storeData');
 
     // Atualiza os controllers com valores vindos de storeData
-    nameController.text = storeData['endereco']['nome_Loja'] ?? '';
-    descriptionController.text = storeData['endereco']['descricao_Loja'] ?? '';
+    nameController.text = storeData['loja']['nome_Loja'] ?? '';
+    descriptionController.text = storeData['loja']['descricao_Loja'] ?? '';
     selectedDeliveryType =
-        storeData['endereco']['tipo_Entrega'] as String? ?? 'Delivery';
+        storeData['loja']['tipo_Entrega'] as String? ?? 'Delivery';
 
     // Verificar onde o token está na estrutura
     if (storeData.containsKey('access_token')) {
-      print('Token encontrado na raiz: ${storeData['access_token']}');
+      print('Token encontrado na raiz: \\${storeData['access_token']}');
       accessTokenController.text = storeData['access_token'];
-    } else if (storeData['endereco'] != null &&
-        storeData['endereco'].containsKey('access_token')) {
-      print(
-          'Token encontrado em endereco: ${storeData['endereco']['access_token']}');
-      accessTokenController.text = storeData['endereco']['access_token'];
+    } else if (storeData['loja'] != null &&
+        storeData['loja'].containsKey('access_token')) {
+      print('Token encontrado em loja: \\${storeData['loja']['access_token']}');
+      accessTokenController.text = storeData['loja']['access_token'];
     } else {
       print('Token não encontrado na estrutura esperada');
       // Buscar o token diretamente da API
-      _fetchAccessToken(storeData['endereco']['id_Endereco'].toString());
+      _fetchAccessToken(storeData['loja']['id_Endereco'].toString());
     }
   }
 
@@ -202,7 +206,7 @@ class _VendorEditPageState extends State<VendorEditPage> {
         ),
       );
     }
-    final idImg = storeData['endereco']['id_Imagem'];
+    final idImg = storeData['loja']?['id_Imagem'];
     if (idImg != null && idImg.toString().isNotEmpty) {
       final url = 'https://loja-profile-pictures.s3.amazonaws.com/$idImg';
       return ClipOval(

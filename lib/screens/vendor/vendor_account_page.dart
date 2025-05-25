@@ -5,6 +5,7 @@ import 'package:vizinhos_app/screens/model/product.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_edit_page.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_orders_page.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_products_page.dart';
+import 'package:vizinhos_app/screens/vendor/vendor_metrics_page.dart';
 import 'package:vizinhos_app/services/app_theme.dart';
 import 'package:vizinhos_app/screens/onboarding/mercado_pago_key_screen.dart';
 import 'package:vizinhos_app/services/secure_storage.dart';
@@ -22,13 +23,9 @@ class VendorAccountPage extends StatefulWidget {
 class _VendorAccountPageState extends State<VendorAccountPage>
     with WidgetsBindingObserver {
   late Map<String, dynamic> _currentUserInfo = widget.userInfo;
-  late final String _userId;
 
   Map<String, dynamic>? storeData;
   bool _isLoading = true;
-
-  List<Product> _products = [];
-  bool _isProductsLoading = true;
 
   bool _infoExpanded = true;
   bool _mercadoPagoKeyMissing = false;
@@ -39,7 +36,6 @@ class _VendorAccountPageState extends State<VendorAccountPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _userId = widget.userInfo['usuario']?['id_Usuario'] ?? '';
     _currentUserInfo = widget.userInfo;
     _loadStoreData();
   }
@@ -68,7 +64,8 @@ class _VendorAccountPageState extends State<VendorAccountPage>
 
       // Busca dados da loja + avaliações
       final response = await http.get(
-        Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetReviewByStore?idLoja=$idEndereco'),
+        Uri.parse(
+            'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetReviewByStore?idLoja=$idEndereco'),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -77,15 +74,17 @@ class _VendorAccountPageState extends State<VendorAccountPage>
         final responseData = jsonDecode(response.body);
         setState(() {
           storeData = responseData;
-          _mercadoPagoKeyMissing = responseData['loja']?['access_token'] == null ||
-              responseData['loja']['access_token'].toString().isEmpty;
+          _mercadoPagoKeyMissing =
+              responseData['loja']?['access_token'] == null ||
+                  responseData['loja']['access_token'].toString().isEmpty;
           _isLoading = false;
         });
         // Salva token se presente
         final hasAccessToken = responseData['loja']?['access_token'] != null &&
             responseData['loja']['access_token'].toString().isNotEmpty;
         if (hasAccessToken) {
-          await _secureStorage.setMercadoPagoToken(responseData['loja']['access_token']);
+          await _secureStorage
+              .setMercadoPagoToken(responseData['loja']['access_token']);
           await _secureStorage.setMercadoPagoSkipped(false);
         }
       } else {
@@ -136,7 +135,8 @@ class _VendorAccountPageState extends State<VendorAccountPage>
   // Exibe a média de avaliações, se disponível
   Widget? _buildRatingAverage() {
     // Busca média tanto do root quanto de 'loja' (compatível com ambas APIs)
-    final media = storeData?['media_avaliacoes'] ?? storeData?['loja']?['media_avaliacoes'];
+    final media = storeData?['media_avaliacoes'] ??
+        storeData?['loja']?['media_avaliacoes'];
     double avg = 5.0;
     if (media is num) {
       avg = media.toDouble();
@@ -150,7 +150,8 @@ class _VendorAccountPageState extends State<VendorAccountPage>
         const SizedBox(width: 4),
         Text(
           avg.toStringAsFixed(2),
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+          style: const TextStyle(
+              fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
         ),
       ],
     );
@@ -188,8 +189,10 @@ class _VendorAccountPageState extends State<VendorAccountPage>
     final loja = storeData?['loja'] ?? storeData?['endereco'] ?? {};
     final storeName = loja['nome_Loja'] ?? 'Sua Loja';
     final storeDescription = loja['descricao_Loja'] ?? 'Sem descrição';
-    final userName = widget.userInfo['usuario']?['nome'] ?? 'Nome não disponível';
-    final userPhone = widget.userInfo['usuario']?['telefone'] ?? 'Telefone não disponível';
+    final userName =
+        widget.userInfo['usuario']?['nome'] ?? 'Nome não disponível';
+    final userPhone =
+        widget.userInfo['usuario']?['telefone'] ?? 'Telefone não disponível';
     final storeAddress = '${loja['logradouro'] ?? ''}, ${loja['numero'] ?? ''}';
     final storeComplement = loja['complemento'] ?? '';
     final deliveryType = loja['tipo_Entrega'] ?? 'Não especificado';
@@ -198,17 +201,21 @@ class _VendorAccountPageState extends State<VendorAccountPage>
     // Imagem da loja (compatível com ambos formatos)
     String? imageUrl = loja['imagem_url'];
     String? idImagem = loja['id_Imagem']?.toString();
-    if ((imageUrl == null || imageUrl.isEmpty) && idImagem != null && idImagem.isNotEmpty) {
+    if ((imageUrl == null || imageUrl.isEmpty) &&
+        idImagem != null &&
+        idImagem.isNotEmpty) {
       imageUrl = 'https://loja-profile-pictures.s3.amazonaws.com/$idImagem';
     }
-    Widget storeImageWidget = Icon(Icons.store, size: 40, color: AppTheme.primaryColor);
+    Widget storeImageWidget =
+        Icon(Icons.store, size: 40, color: AppTheme.primaryColor);
     if (imageUrl != null && imageUrl.isNotEmpty) {
       storeImageWidget = Image.network(
         imageUrl,
         fit: BoxFit.cover,
         width: 110,
         height: 110,
-        errorBuilder: (_, __, ___) => Icon(Icons.store, size: 40, color: AppTheme.primaryColor),
+        errorBuilder: (_, __, ___) =>
+            Icon(Icons.store, size: 40, color: AppTheme.primaryColor),
       );
     }
 
@@ -451,6 +458,35 @@ class _VendorAccountPageState extends State<VendorAccountPage>
                                 },
                               ),
                             ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: AppTheme.buildActionButton(
+                                label: 'Desempenho',
+                                icon: Icons.bar_chart,
+                                onPressed: () {
+                                  final idLoja = storeData?['loja']
+                                              ?['id_Endereco']
+                                          ?.toString() ??
+                                      storeData?['endereco']?['id_Endereco']
+                                          ?.toString();
+                                  if (idLoja != null && idLoja.isNotEmpty) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            VendorMetricsPage(idLoja: idLoja),
+                                      ),
+                                    );
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text(
+                                              'ID da loja não encontrado.')),
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 10),
@@ -464,25 +500,34 @@ class _VendorAccountPageState extends State<VendorAccountPage>
                               ),
                             ),
                             const SizedBox(width: 10),
-                            if ((storeData?['avaliacoes'] as List?)?.isNotEmpty ?? false)
+                            if ((storeData?['avaliacoes'] as List?)
+                                    ?.isNotEmpty ??
+                                false)
                               Expanded(
                                 child: AppTheme.buildActionButton(
                                   label: 'Ver Avaliações',
                                   icon: Icons.star_rate,
                                   onPressed: () {
-                                    final idLoja = storeData?['loja']?['id_Endereco']?.toString();
+                                    final idLoja = storeData?['loja']
+                                            ?['id_Endereco']
+                                        ?.toString();
                                     if (idLoja != null && idLoja.isNotEmpty) {
                                       showModalBottomSheet(
                                         context: context,
                                         isScrollControlled: true,
                                         shape: const RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                                          borderRadius: BorderRadius.vertical(
+                                              top: Radius.circular(24)),
                                         ),
-                                        builder: (context) => VendorReviewsSheet(idLoja: idLoja),
+                                        builder: (context) =>
+                                            VendorReviewsSheet(idLoja: idLoja),
                                       );
                                     } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('ID da loja não encontrado.')),
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                'ID da loja não encontrado.')),
                                       );
                                     }
                                   },
