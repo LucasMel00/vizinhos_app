@@ -57,26 +57,34 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
         },
       );
 
+      debugPrint(
+          '[VendorProductsPage] statusCode: ${response.statusCode}, body: ${response.body}');
+
       if (response.statusCode == 200) {
-        final body = json.decode(response.body) as Map<String, dynamic>;
-
-        if (body.containsKey('produtos') && body['produtos'] != null) {
-          final lista = body['produtos'] as List<dynamic>;
-          final loaded = lista
-              .map((item) => Product.fromJson(item as Map<String, dynamic>))
-              .toList();
-
+        try {
+          final body = json.decode(response.body) as Map<String, dynamic>;
+          List<Product> loaded = [];
+          if (body['produtos'] is List) {
+            final lista = body['produtos'] as List<dynamic>;
+            loaded = lista
+                .map((item) => Product.fromJson(item as Map<String, dynamic>))
+                .toList();
+          }
           if (mounted) {
             setState(() {
               products = loaded;
               isLoading = false;
+              // Não setar errorMessage para lista vazia/null
             });
           }
-        } else {
+        } catch (e) {
+          debugPrint(
+              '[VendorProductsPage] Erro ao fazer parsing dos produtos: ${e.toString()}');
           if (mounted) {
             setState(() {
               products = [];
               isLoading = false;
+              // Não setar errorMessage para erro de parsing, apenas mostrar vazio
             });
           }
         }
@@ -90,10 +98,11 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
         }
       }
     } catch (e) {
+      debugPrint('[VendorProductsPage] Erro inesperado: ${e.toString()}');
       if (mounted) {
         setState(() {
           isLoading = false;
-          errorMessage = 'Nenhum produto existente: Clique em criar um produto';
+          errorMessage = 'Erro ao carregar produtos. Tente novamente.';
         });
       }
     }
@@ -151,6 +160,7 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
       'disponivel': novoValor,
       'caracteristicas_IDs': caracteristicasIDs,
       'id_imagem': p.imageId,
+      'flag_oferta': false,
     };
 
     final String url =
@@ -369,14 +379,13 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
           title: Text('Meus Produtos'),
           actions: [
             IconButton(
-              icon: Icon(_showExpiringOnly 
-                ? Icons.filter_alt 
-                : Icons.filter_alt_outlined),
+              icon: Icon(_showExpiringOnly
+                  ? Icons.filter_alt
+                  : Icons.filter_alt_outlined),
               onPressed: _toggleExpiringFilter,
-              tooltip: _showExpiringOnly 
-                ? 'Mostrar todos os produtos' 
-                : 'Filtrar por validade',
-            
+              tooltip: _showExpiringOnly
+                  ? 'Mostrar todos os produtos'
+                  : 'Filtrar por validade',
             ),
           ],
         ),
@@ -387,9 +396,8 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
           onPressed: _handleCreateProduct,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
+          ),
         ),
-      ),
-
       ),
     );
   }
@@ -420,8 +428,9 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
         padding: EdgeInsets.all(16),
         children: [
           if (_showExpiringOnly) _buildExpiringHeader(),
-          ...filteredProducts.map((product) => 
-            _buildProductCard(product)).toList(),
+          ...filteredProducts
+              .map((product) => _buildProductCard(product))
+              .toList(),
         ],
       ),
     );
@@ -451,22 +460,29 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
   }
 
   Widget _buildErrorState() {
+    // Sempre mostra erro real, nunca para lista vazia
     return Center(
       child: Padding(
         padding: EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 48, color: AppTheme.errorColor),
+            Icon(
+              Icons.error_outline,
+              size: 48,
+              color: AppTheme.errorColor,
+            ),
             SizedBox(height: 16),
-            Text('Erro ao carregar produtos',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.errorColor,
-                )),
+            Text(
+              'Erro ao carregar produtos',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.errorColor,
+              ),
+            ),
             SizedBox(height: 8),
-            Text(errorMessage!,
+            Text(errorMessage ?? '',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[600])),
             SizedBox(height: 24),
@@ -493,9 +509,9 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              _showExpiringOnly 
-                ? Icons.event_available 
-                : Icons.inventory_2_outlined,
+              _showExpiringOnly
+                  ? Icons.event_available
+                  : Icons.inventory_2_outlined,
               size: 48,
               color: Colors.grey[400],
             ),
@@ -503,7 +519,7 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
             Text(
               _showExpiringOnly
                   ? 'Nenhum produto próximo da validade'
-                  : 'Nenhum produto cadastrado',
+                  : 'Você ainda não cadastrou nenhum produto',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -514,7 +530,7 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
             Text(
               _showExpiringOnly
                   ? 'Todos os seus produtos estão com a validade em dia'
-                  : 'Clique no botão + para adicionar seu primeiro produto',
+                  : 'Clique no botão abaixo para cadastrar seu primeiro produto e começar a vender!',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey[500]),
             ),
@@ -527,12 +543,17 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
             else
               ElevatedButton.icon(
                 icon: Icon(Icons.add),
-                label: Text('Adicionar produto'),
+                label: Text('Cadastrar produto'),
                 onPressed: _handleCreateProduct,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
                   foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  textStyle:
+                      TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
           ],
@@ -545,16 +566,16 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
     final status = _getExpirationStatus(product);
     final isExpired = status['status'] == 'expired';
     final isExpiring = status['status'] == 'expiring';
-    final hasDiscount = product.valorVendaDesc > 0 && 
-                       product.valorVendaDesc < product.valorVenda;
+    final hasDiscount = product.valorVendaDesc > 0 &&
+        product.valorVendaDesc < product.valorVenda;
 
     return Card(
       margin: EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: isExpired 
-          ? BorderSide(color: Colors.red[300]!, width: 1.5)
-          : BorderSide.none,
+        side: isExpired
+            ? BorderSide(color: Colors.red[300]!, width: 1.5)
+            : BorderSide.none,
       ),
       elevation: 2,
       child: InkWell(
@@ -586,11 +607,12 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
                                 ),
                               ),
                             ),
-                               IconButton(
-                icon: Icon(Icons.delete_outline, color: Colors.red[400]),
-                tooltip: 'Apagar produto',
-                onPressed: () => _confirmDeleteProduct(product),
-              ),
+                            IconButton(
+                              icon: Icon(Icons.delete_outline,
+                                  color: Colors.red[400]),
+                              tooltip: 'Apagar produto',
+                              onPressed: () => _confirmDeleteProduct(product),
+                            ),
                             if (isExpiring || isExpired)
                               Container(
                                 padding: EdgeInsets.symmetric(
@@ -598,20 +620,20 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: isExpired 
-                                    ? Colors.red[100] 
-                                    : Colors.orange[100],
+                                  color: isExpired
+                                      ? Colors.red[100]
+                                      : Colors.orange[100],
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  isExpired 
-                                    ? 'EXPIRADO' 
-                                    : 'VENCE EM ${status['days']} DIA${status['days'] == 1 ? '' : 'S'}',
+                                  isExpired
+                                      ? 'EXPIRADO'
+                                      : 'VENCE EM ${status['days']} DIA${status['days'] == 1 ? '' : 'S'}',
                                   style: TextStyle(
                                     fontSize: 10,
-                                    color: isExpired 
-                                      ? Colors.red[800] 
-                                      : Colors.orange[800],
+                                    color: isExpired
+                                        ? Colors.red[800]
+                                        : Colors.orange[800],
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -671,9 +693,7 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
                   Row(
                     children: [
                       Text(
-                        'Por: R\$ ${hasDiscount 
-                          ? product.valorVendaDesc.toStringAsFixed(2) 
-                          : product.valorVenda.toStringAsFixed(2)}',
+                        'Por: R\$ ${hasDiscount ? product.valorVendaDesc.toStringAsFixed(2) : product.valorVenda.toStringAsFixed(2)}',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -733,7 +753,8 @@ class _VendorProductsPageState extends State<VendorProductsPage> {
                   ),
                   Switch.adaptive(
                     value: product.disponivel,
-                    onChanged: (value) => _toggleDisponibilidade(product, value),
+                    onChanged: (value) =>
+                        _toggleDisponibilidade(product, value),
                     activeColor: AppTheme.successColor,
                   ),
                 ],

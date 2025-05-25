@@ -9,6 +9,8 @@ import 'package:vizinhos_app/screens/vendor/vendor_products_page.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 import 'package:intl/intl.dart';
 
+import '../../services/app_theme.dart';
+
 final primaryColor = const Color(0xFFFbbc2c);
 
 class Caracteristica {
@@ -381,65 +383,67 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
   }
 
   // Método para criar o lote associado ao produto
- Future<void> _createBatch(String produtoId) async {
-  try {
-    final loteUri = Uri.parse(
-        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/CreateBatch');
+  Future<void> _createBatch(String produtoId) async {
+    try {
+      final loteUri = Uri.parse(
+          'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/CreateBatch');
 
-    // Validação e parsing da quantidade
-    final quantidade = int.tryParse(quantityController.text);
-    if (quantidade == null || quantidade <= 0) {
-      throw Exception('Quantidade inválida');
-    }
-
-    // Calcula o valor de venda com desconto e garante formato string com ponto
-    final valorVendaDesc = _calcularValorVendaDesconto().toStringAsFixed(2);
-
-    // Monta o body do lote
-    final loteBody = {
-      "fk_id_Produto": produtoId,
-      "dt_fabricacao": fabricationDateController.text,
-      "valor_venda_desc": _calcularValorVendaDesconto(),
-      "quantidade": quantidade
-    };
-
-    // Headers explícitos e corretos
-    final headers = {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ${Provider.of<AuthProvider>(context, listen: false).accessToken}',
-      'Accept': 'application/json',
-    };
-
-    print('Enviando lote: $loteBody');
-    print('Headers: $headers');
-
-    final loteResponse = await http.post(
-      loteUri,
-      headers: headers,
-      body: jsonEncode(loteBody),
-    );
-
-    print('Status code lote: ${loteResponse.statusCode}');
-    print('Resposta lote: ${loteResponse.body}');
-
-    if (loteResponse.statusCode != 200) {
-      throw Exception('Erro ao criar lote: ${loteResponse.body}');
-    } else {
-      final loteData = jsonDecode(loteResponse.body);
-      if (loteData is Map && loteData.containsKey('lote')) {
-        final loteId = loteData['lote']['id_Lote'];
-        print('ID do lote criado: $loteId');
+      // Validação e parsing da quantidade
+      final quantidade = int.tryParse(quantityController.text);
+      if (quantidade == null || quantidade <= 0) {
+        throw Exception('Quantidade inválida');
       }
+
+      // Calcula o valor de venda com desconto e garante formato string com ponto
+      final valorVendaDesc = _calcularValorVendaDesconto().toStringAsFixed(2);
+
+      // Monta o body do lote
+      final loteBody = {
+        "fk_id_Produto": produtoId,
+        "dt_fabricacao": fabricationDateController.text,
+        "valor_venda_desc": _calcularValorVendaDesconto(),
+        "quantidade": quantidade
+      };
+
+      // Headers explícitos e corretos
+      final headers = {
+        'Content-Type': 'application/json',
+        'Authorization':
+            'Bearer ${Provider.of<AuthProvider>(context, listen: false).accessToken}',
+        'Accept': 'application/json',
+      };
+
+      print('Enviando lote: $loteBody');
+      print('Headers: $headers');
+
+      final loteResponse = await http.post(
+        loteUri,
+        headers: headers,
+        body: jsonEncode(loteBody),
+      );
+
+      print('Status code lote: ${loteResponse.statusCode}');
+      print('Resposta lote: ${loteResponse.body}');
+
+      if (loteResponse.statusCode != 200) {
+        throw Exception('Erro ao criar lote: ${loteResponse.body}');
+      } else {
+        final loteData = jsonDecode(loteResponse.body);
+        if (loteData is Map && loteData.containsKey('lote')) {
+          final loteId = loteData['lote']['id_Lote'];
+          print('ID do lote criado: $loteId');
+        }
+      }
+    } catch (e) {
+      print('Erro ao criar lote: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              Text('Aviso: Produto criado, mas houve erro ao criar o lote: $e'),
+        ),
+      );
     }
-  } catch (e) {
-    print('Erro ao criar lote: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Aviso: Produto criado, mas houve erro ao criar o lote: $e'),
-      ),
-    );
   }
-}
 
   double _parseCurrency(String value) {
     return double.tryParse(value
@@ -499,16 +503,16 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppTheme.primaryColor,
         elevation: 0.5,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: primaryColor),
+          icon: Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text(
           'Criar produto',
           style: TextStyle(
-            color: Colors.black,
+            color: Color.fromARGB(255, 255, 255, 255),
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -876,6 +880,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                               'Criar Produto e Lote',
                               style: TextStyle(
                                 fontSize: 16,
+                                color: Colors.white,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),

@@ -16,21 +16,21 @@ final infoColor = const Color(0xFF2196F3);
 final errorColor = const Color(0xFFE53935);
 
 // Enum com nomes mais consistentes e descritivos
-enum OrderStatus { 
-  pending, 
-  paid, 
-  preparing, 
+enum OrderStatus {
+  pending,
+  paid,
+  preparing,
   inDelivery,
   readyForPickup,
-  completed, 
+  completed,
   canceled,
-  refunded 
+  refunded
 }
 
 // Enum para os tipos de ordenação
 enum SortType {
-  newest,    // Mais recentes primeiro
-  oldest,    // Mais antigos primeiro
+  newest, // Mais recentes primeiro
+  oldest, // Mais antigos primeiro
   statusAsc, // Status em ordem crescente (pendente → concluído)
   statusDesc // Status em ordem decrescente (concluído → pendente)
 }
@@ -53,17 +53,31 @@ class Order {
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
+    debugPrint('[Order.fromJson] json recebido: ' + jsonEncode(json));
     return Order(
-      id: json['id_Pedido'],
-      date: DateTime.parse(json['data_pedido']),
+      id: json['id_Pedido']?.toString() ?? '',
+      date: DateTime.tryParse(json['data_pedido']?.toString() ?? '') ??
+          DateTime.now(),
       total: (json['valor_total'] is num)
           ? (json['valor_total'] as num).toDouble()
-          : double.parse(json['valor_total'].toString()),
-      status: _parseStatus(json['status_pedido']),
-      products: (json['produtos'] as List)
-          .map((product) => OrderProduct.fromJson(product))
-          .toList(),
-      deliveryType: json['tipo_entrega']?.toString(),
+          : double.tryParse(json['valor_total']?.toString() ?? '0') ?? 0.0,
+      status: _parseStatus(json['status_pedido']?.toString() ?? ''),
+      products: (json['produtos'] as List?)?.map((product) {
+            if (product is Map<String, dynamic>) {
+              return OrderProduct.fromJson(product);
+            } else if (product is Map) {
+              return OrderProduct.fromJson(Map<String, dynamic>.from(product));
+            } else {
+              return OrderProduct(
+                name: '-',
+                image: '',
+                quantity: 1,
+                unitPrice: 0.0,
+              );
+            }
+          }).toList() ??
+          [],
+      deliveryType: json['tipo_entrega']?.toString() ?? '',
     );
   }
   // Método melhorado para parsing de status com melhor tratamento de erros
@@ -93,6 +107,7 @@ class Order {
         return OrderStatus.pending;
     }
   }
+
   // Método para converter OrderStatus para string da API
   static String statusToApiString(OrderStatus status) {
     switch (status) {
@@ -130,15 +145,21 @@ class OrderProduct {
   });
 
   factory OrderProduct.fromJson(Map<String, dynamic> json) {
+    debugPrint('[OrderProduct.fromJson] json recebido: ' + jsonEncode(json));
+    // Tenta pegar o nome e imagem do produto usando diferentes chaves possíveis
+    final name =
+        json['nome_produto']?.toString() ?? json['nome']?.toString() ?? '-';
+    final image =
+        json['imagem_produto']?.toString() ?? json['imagem']?.toString() ?? '';
     return OrderProduct(
-      name: json['nome_produto'],
-      image: json['imagem_produto'],
+      name: name,
+      image: image,
       quantity: (json['quantidade'] is num)
           ? (json['quantidade'] as num).toInt()
-          : int.parse(json['quantidade'].toString()),
+          : int.tryParse(json['quantidade']?.toString() ?? '1') ?? 1,
       unitPrice: (json['valor_unitario'] is num)
           ? (json['valor_unitario'] as num).toDouble()
-          : double.parse(json['valor_unitario'].toString()),
+          : double.tryParse(json['valor_unitario']?.toString() ?? '0') ?? 0.0,
     );
   }
 }
@@ -147,11 +168,10 @@ class OrderService {
   static Future<List<Order>> fetchOrders() async {
     final storage = SecureStorage();
     final storeId = await storage.getEnderecoId();
-    
+
     try {
       final response = await http.get(Uri.parse(
-        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetOrdersByStore?id_Loja=$storeId'
-      ));
+          'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetOrdersByStore?id_Loja=$storeId'));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -159,7 +179,8 @@ class OrderService {
             .map((order) => Order.fromJson(order))
             .toList();
       } else {
-        debugPrint('GetOrdersByStore error: statusCode=${response.statusCode}, body=${response.body}');
+        debugPrint(
+            'GetOrdersByStore error: statusCode=${response.statusCode}, body=${response.body}');
         throw Exception('Falha ao carregar pedidos: ${response.statusCode}');
       }
     } catch (e) {
@@ -169,29 +190,32 @@ class OrderService {
   }
 
   /// Send a request to change order status via API
-  static Future<bool> changeOrderStatus(String orderId, OrderStatus newStatus) async {
+  static Future<bool> changeOrderStatus(
+      String orderId, OrderStatus newStatus) async {
     final url = Uri.parse(
-      'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/ChangeOrderStatus'
-    );
-    
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/ChangeOrderStatus');
+
     final statusString = Order.statusToApiString(newStatus);
     final body = json.encode({'id_Pedido': orderId, 'status': statusString});
-    
+
     debugPrint('ChangeOrderStatus -> Patch $url');
     debugPrint('Request body: $body');
 
     try {
-      final response = await http.patch(url,
+      final response = await http.patch(
+        url,
         headers: {'Content-Type': 'application/json'},
         body: body,
       );
-      
-      debugPrint('Response -> statusCode: ${response.statusCode}, body: ${response.body}');
-      
+
+      debugPrint(
+          'Response -> statusCode: ${response.statusCode}, body: ${response.body}');
+
       if (response.statusCode == 200) {
         return true;
       } else {
-        debugPrint('Falha ao atualizar status: ${response.statusCode} - ${response.body}');
+        debugPrint(
+            'Falha ao atualizar status: ${response.statusCode} - ${response.body}');
         return false;
       }
     } catch (e) {
@@ -199,28 +223,25 @@ class OrderService {
       return false;
     }
   }
+
   /// Reembolsar pedido do usuário via API - cancela o pedido e processa o reembolso
   static Future<bool> cancelUserOrder(String orderId) async {
     final url = Uri.parse(
-      'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/RefoundUserOrder'
-    );
-    
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/RefoundUserOrder');
     final body = json.encode({'id_Pedido': orderId});
-    
     debugPrint('RefoundUserOrder -> Patch $url');
     debugPrint('Request body: $body');
-
     try {
-      final response = await http.patch(url,
+      final response = await http.patch(
+        url,
         headers: {'Content-Type': 'application/json'},
         body: body,
       );
-      
-      debugPrint('Response -> statusCode: ${response.statusCode}, body: ${response.body}');
-        if (response.statusCode == 200) {
+      debugPrint('Response -> statusCode: [33m[0m, body: [33m[0m');
+      if (response.statusCode == 200) {
         return true;
       } else {
-        debugPrint('Falha ao reembolsar pedido: ${response.statusCode} - ${response.body}');
+        debugPrint('Falha ao reembolsar pedido: [33m[0m - [33m[0m');
         return false;
       }
     } catch (e) {
@@ -228,22 +249,25 @@ class OrderService {
       return false;
     }
   }
+
   /// Update order status for pending orders (similar to user OrderService)
   static Future<bool> updateOrderStatus(String idPedido) async {
     try {
-      final url = Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/UpdateOrderStatus');
+      final url = Uri.parse(
+          'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/UpdateOrderStatus');
       final body = json.encode({"id_Pedido": idPedido});
       debugPrint("UpdateOrderStatus -> POST $url");
       debugPrint("Request Body: $body");
       debugPrint("Id Pedido: $idPedido");
-      
+
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: body,
       );
-      
-      debugPrint('UpdateOrderStatus Response -> statusCode: ${response.statusCode}, body: ${response.body}');
+
+      debugPrint(
+          'UpdateOrderStatus Response -> statusCode: ${response.statusCode}, body: ${response.body}');
       return response.statusCode == 200;
     } catch (e) {
       debugPrint('Erro ao atualizar status do pedido: $e');
@@ -260,12 +284,12 @@ class OrdersVendorPage extends StatefulWidget {
   _OrdersVendorPageState createState() => _OrdersVendorPageState();
 }
 
-class _OrdersVendorPageState extends State<OrdersVendorPage> 
+class _OrdersVendorPageState extends State<OrdersVendorPage>
     with WidgetsBindingObserver {
   OrderStatus? _selectedStatus = OrderStatus.paid; // Filtro padrão: pagos
   List<Order> _allOrders = [];
   bool _isLoading = false;
-  
+
   // Adicionando variável para controlar o tipo de ordenação
   SortType _currentSortType = SortType.newest;
 
@@ -282,56 +306,60 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }  Future<void> _loadOrders() async {
+  }
+
+  Future<void> _loadOrders() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       // Primeiro busca os pedidos
       final orders = await OrderService.fetchOrders();
-      
+
       // Filtra pedidos pendentes para atualizar status
-      final pendingOrders = orders.where((order) => 
-        order.status == OrderStatus.pending
-      ).toList();
-      
+      final pendingOrders =
+          orders.where((order) => order.status == OrderStatus.pending).toList();
+
       // Atualiza status dos pedidos pendentes
       if (pendingOrders.isNotEmpty) {
-        debugPrint('Atualizando ${pendingOrders.length} pedidos pendentes...');
-        await Future.wait(
-          pendingOrders.map((order) => OrderService.updateOrderStatus(order.id))
-        );
-        
+        debugPrint(
+            'Atualizando \\${pendingOrders.length} pedidos pendentes...');
+        await Future.wait(pendingOrders
+            .map((order) => OrderService.updateOrderStatus(order.id)));
+
         // Recarrega os pedidos após as atualizações
         final updatedOrders = await OrderService.fetchOrders();
+        if (!mounted) return;
         setState(() {
           _allOrders = updatedOrders;
           _isLoading = false;
         });
       } else {
+        if (!mounted) return;
         setState(() {
           _allOrders = orders;
           _isLoading = false;
         });
       }
     } catch (error) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao carregar pedidos: $error'))
-      );
+          SnackBar(content: Text('Erro ao carregar pedidos: \\${error}')));
     }
   }
 
   // Método para filtrar e ordenar os pedidos
   List<Order> _getFilteredAndSortedOrders() {
     // Primeiro filtramos por status (se houver um selecionado)
-    List<Order> filteredOrders = _selectedStatus == null 
-        ? List.from(_allOrders) 
+    List<Order> filteredOrders = _selectedStatus == null
+        ? List.from(_allOrders)
         : _allOrders.where((o) => o.status == _selectedStatus).toList();
-    
+
     // Depois ordenamos conforme o tipo de ordenação selecionado
     switch (_currentSortType) {
       case SortType.newest:
@@ -347,7 +375,7 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
         filteredOrders.sort((a, b) => b.status.index.compareTo(a.status.index));
         break;
     }
-    
+
     return filteredOrders;
   }
 
@@ -385,6 +413,7 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
       _loadOrders();
     }
   }
+
   /// Pull-to-refresh: reload orders when user swipes down
   Future<void> _refreshOrders() async {
     await _loadOrders();
@@ -403,7 +432,9 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
             ListTile(
               leading: Icon(
                 Icons.arrow_downward,
-                color: _currentSortType == SortType.newest ? primaryColor : Colors.grey,
+                color: _currentSortType == SortType.newest
+                    ? primaryColor
+                    : Colors.grey,
               ),
               title: const Text('Mais recentes primeiro'),
               selected: _currentSortType == SortType.newest,
@@ -415,12 +446,14 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                 Navigator.pop(context);
               },
             ),
-            
+
             // Opção: Mais antigos primeiro
             ListTile(
               leading: Icon(
                 Icons.arrow_upward,
-                color: _currentSortType == SortType.oldest ? primaryColor : Colors.grey,
+                color: _currentSortType == SortType.oldest
+                    ? primaryColor
+                    : Colors.grey,
               ),
               title: const Text('Mais antigos primeiro'),
               selected: _currentSortType == SortType.oldest,
@@ -432,14 +465,16 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                 Navigator.pop(context);
               },
             ),
-            
+
             const Divider(),
-            
+
             // Opção: Status em ordem crescente
             ListTile(
               leading: Icon(
                 Icons.sort,
-                color: _currentSortType == SortType.statusAsc ? primaryColor : Colors.grey,
+                color: _currentSortType == SortType.statusAsc
+                    ? primaryColor
+                    : Colors.grey,
               ),
               title: const Text('Status (Pendente → Concluído)'),
               selected: _currentSortType == SortType.statusAsc,
@@ -451,12 +486,14 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                 Navigator.pop(context);
               },
             ),
-            
+
             // Opção: Status em ordem decrescente
             ListTile(
               leading: Icon(
                 Icons.sort,
-                color: _currentSortType == SortType.statusDesc ? primaryColor : Colors.grey,
+                color: _currentSortType == SortType.statusDesc
+                    ? primaryColor
+                    : Colors.grey,
               ),
               title: const Text('Status (Concluído → Pendente)'),
               selected: _currentSortType == SortType.statusDesc,
@@ -499,7 +536,8 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
             bottom: Radius.circular(16),
           ),
         ),
-      ),      body: SafeArea(
+      ),
+      body: SafeArea(
         child: Column(
           children: [
             // Filtro e ordenação com design melhorado
@@ -526,24 +564,31 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                             Expanded(
                               child: Row(
                                 children: [
-                                  Icon(Icons.filter_alt_outlined, color: secondaryColor),
+                                  Icon(Icons.filter_alt_outlined,
+                                      color: secondaryColor),
                                   const SizedBox(width: 8),
-                                  Text('Filtrar:', style: TextStyle(fontWeight: FontWeight.bold, color: secondaryColor)),
+                                  Text('Filtrar:',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: secondaryColor)),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: DecoratedBox(
                                       decoration: BoxDecoration(
                                         color: Colors.grey[100],
                                         borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: Colors.grey[300]!),
+                                        border: Border.all(
+                                            color: Colors.grey[300]!),
                                       ),
                                       child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12),
                                         child: DropdownButton<OrderStatus?>(
                                           value: _selectedStatus,
                                           isExpanded: true,
                                           underline: const SizedBox(),
-                                          icon: const Icon(Icons.arrow_drop_down),
+                                          icon:
+                                              const Icon(Icons.arrow_drop_down),
                                           items: [
                                             const DropdownMenuItem(
                                               value: null,
@@ -553,7 +598,9 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                               value: OrderStatus.paid,
                                               child: Row(
                                                 children: [
-                                                  Icon(Icons.payments_outlined, size: 18, color: infoColor),
+                                                  Icon(Icons.payments_outlined,
+                                                      size: 18,
+                                                      color: infoColor),
                                                   const SizedBox(width: 8),
                                                   const Text('Pagos'),
                                                 ],
@@ -563,7 +610,9 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                               value: OrderStatus.preparing,
                                               child: Row(
                                                 children: [
-                                                  Icon(Icons.restaurant, size: 18, color: warningColor),
+                                                  Icon(Icons.restaurant,
+                                                      size: 18,
+                                                      color: warningColor),
                                                   const SizedBox(width: 8),
                                                   const Text('Em preparo'),
                                                 ],
@@ -573,7 +622,9 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                               value: OrderStatus.inDelivery,
                                               child: Row(
                                                 children: [
-                                                  Icon(Icons.delivery_dining, size: 18, color: infoColor),
+                                                  Icon(Icons.delivery_dining,
+                                                      size: 18,
+                                                      color: infoColor),
                                                   const SizedBox(width: 8),
                                                   const Text('Em rota'),
                                                 ],
@@ -583,9 +634,12 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                               value: OrderStatus.readyForPickup,
                                               child: Row(
                                                 children: [
-                                                  Icon(Icons.store, size: 18, color: warningColor),
+                                                  Icon(Icons.store,
+                                                      size: 18,
+                                                      color: warningColor),
                                                   const SizedBox(width: 8),
-                                                  const Text('Pronto para retirada'),
+                                                  const Text(
+                                                      'Pronto para retirada'),
                                                 ],
                                               ),
                                             ),
@@ -593,7 +647,9 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                               value: OrderStatus.completed,
                                               child: Row(
                                                 children: [
-                                                  Icon(Icons.check_circle, size: 18, color: successColor),
+                                                  Icon(Icons.check_circle,
+                                                      size: 18,
+                                                      color: successColor),
                                                   const SizedBox(width: 8),
                                                   const Text('Concluídos'),
                                                 ],
@@ -603,7 +659,9 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                               value: OrderStatus.canceled,
                                               child: Row(
                                                 children: [
-                                                  Icon(Icons.cancel, size: 18, color: errorColor),
+                                                  Icon(Icons.cancel,
+                                                      size: 18,
+                                                      color: errorColor),
                                                   const SizedBox(width: 8),
                                                   const Text('Cancelados'),
                                                 ],
@@ -613,7 +671,10 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                               value: OrderStatus.refunded,
                                               child: Row(
                                                 children: [
-                                                  Icon(Icons.monetization_on, size: 18, color: Colors.orange[700]),
+                                                  Icon(Icons.monetization_on,
+                                                      size: 18,
+                                                      color:
+                                                          Colors.orange[700]),
                                                   const SizedBox(width: 8),
                                                   const Text('Reembolsados'),
                                                 ],
@@ -623,7 +684,9 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                               value: OrderStatus.pending,
                                               child: Row(
                                                 children: [
-                                                  Icon(Icons.hourglass_empty, size: 18, color: Colors.grey),
+                                                  Icon(Icons.hourglass_empty,
+                                                      size: 18,
+                                                      color: Colors.grey),
                                                   const SizedBox(width: 8),
                                                   const Text('Pendentes'),
                                                 ],
@@ -649,11 +712,13 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                 onTap: _showSortDialog,
                                 borderRadius: BorderRadius.circular(12),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 12),
                                   decoration: BoxDecoration(
                                     color: Colors.grey[100],
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.grey[300]!),
+                                    border:
+                                        Border.all(color: Colors.grey[300]!),
                                   ),
                                   child: Row(
                                     children: [
@@ -685,26 +750,33 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                   ),
                                 ),
                               ),
-                            ),                          ],
+                            ),
+                          ],
                         )
                       : Column(
                           children: [
                             // Filtro por status
                             Row(
                               children: [
-                                Icon(Icons.filter_alt_outlined, color: secondaryColor),
+                                Icon(Icons.filter_alt_outlined,
+                                    color: secondaryColor),
                                 const SizedBox(width: 8),
-                                Text('Filtrar:', style: TextStyle(fontWeight: FontWeight.bold, color: secondaryColor)),
+                                Text('Filtrar:',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: secondaryColor)),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: DecoratedBox(
                                     decoration: BoxDecoration(
                                       color: Colors.grey[100],
                                       borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.grey[300]!),
+                                      border:
+                                          Border.all(color: Colors.grey[300]!),
                                     ),
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12),
                                       child: DropdownButton<OrderStatus?>(
                                         value: _selectedStatus,
                                         isExpanded: true,
@@ -719,7 +791,8 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                             value: OrderStatus.paid,
                                             child: Row(
                                               children: [
-                                                Icon(Icons.payments_outlined, size: 18, color: infoColor),
+                                                Icon(Icons.payments_outlined,
+                                                    size: 18, color: infoColor),
                                                 const SizedBox(width: 8),
                                                 const Text('Pagos'),
                                               ],
@@ -729,7 +802,9 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                             value: OrderStatus.preparing,
                                             child: Row(
                                               children: [
-                                                Icon(Icons.restaurant, size: 18, color: warningColor),
+                                                Icon(Icons.restaurant,
+                                                    size: 18,
+                                                    color: warningColor),
                                                 const SizedBox(width: 8),
                                                 const Text('Em preparo'),
                                               ],
@@ -739,7 +814,8 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                             value: OrderStatus.inDelivery,
                                             child: Row(
                                               children: [
-                                                Icon(Icons.delivery_dining, size: 18, color: infoColor),
+                                                Icon(Icons.delivery_dining,
+                                                    size: 18, color: infoColor),
                                                 const SizedBox(width: 8),
                                                 const Text('Em rota'),
                                               ],
@@ -749,9 +825,12 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                             value: OrderStatus.readyForPickup,
                                             child: Row(
                                               children: [
-                                                Icon(Icons.store, size: 18, color: warningColor),
+                                                Icon(Icons.store,
+                                                    size: 18,
+                                                    color: warningColor),
                                                 const SizedBox(width: 8),
-                                                const Text('Pronto para retirada'),
+                                                const Text(
+                                                    'Pronto para retirada'),
                                               ],
                                             ),
                                           ),
@@ -759,7 +838,9 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                             value: OrderStatus.completed,
                                             child: Row(
                                               children: [
-                                                Icon(Icons.check_circle, size: 18, color: successColor),
+                                                Icon(Icons.check_circle,
+                                                    size: 18,
+                                                    color: successColor),
                                                 const SizedBox(width: 8),
                                                 const Text('Concluídos'),
                                               ],
@@ -769,7 +850,9 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                             value: OrderStatus.canceled,
                                             child: Row(
                                               children: [
-                                                Icon(Icons.cancel, size: 18, color: errorColor),
+                                                Icon(Icons.cancel,
+                                                    size: 18,
+                                                    color: errorColor),
                                                 const SizedBox(width: 8),
                                                 const Text('Cancelados'),
                                               ],
@@ -779,7 +862,9 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                             value: OrderStatus.refunded,
                                             child: Row(
                                               children: [
-                                                Icon(Icons.monetization_on, size: 18, color: Colors.orange[700]),
+                                                Icon(Icons.monetization_on,
+                                                    size: 18,
+                                                    color: Colors.orange[700]),
                                                 const SizedBox(width: 8),
                                                 const Text('Reembolsados'),
                                               ],
@@ -789,7 +874,9 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                             value: OrderStatus.pending,
                                             child: Row(
                                               children: [
-                                                Icon(Icons.hourglass_empty, size: 18, color: Colors.grey),
+                                                Icon(Icons.hourglass_empty,
+                                                    size: 18,
+                                                    color: Colors.grey),
                                                 const SizedBox(width: 8),
                                                 const Text('Pendentes'),
                                               ],
@@ -807,15 +894,16 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                 ),
                               ],
                             ),
-                            
+
                             const SizedBox(height: 12),
-                            
+
                             // Ordenação
                             InkWell(
                               onTap: _showSortDialog,
                               borderRadius: BorderRadius.circular(12),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
                                 decoration: BoxDecoration(
                                   color: Colors.grey[100],
                                   borderRadius: BorderRadius.circular(12),
@@ -856,7 +944,7 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                 },
               ),
             ),
-            
+
             // Lista de pedidos
             Expanded(
               child: RefreshIndicator(
@@ -912,8 +1000,11 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: primaryColor,
                                       foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 24, vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12)),
                                     ),
                                   ),
                                 ],
@@ -925,11 +1016,13 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
                               final isWide = constraints.maxWidth > 600;
                               return ListView.separated(
                                 padding: EdgeInsets.symmetric(
-                                  horizontal: isWide ? constraints.maxWidth * 0.1 : 16,
+                                  horizontal:
+                                      isWide ? constraints.maxWidth * 0.1 : 16,
                                   vertical: 16,
                                 ),
                                 itemCount: orders.length,
-                                separatorBuilder: (_, __) => const SizedBox(height: 16),
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 16),
                                 itemBuilder: (context, index) {
                                   return OrderCard(
                                     order: orders[index],
@@ -971,6 +1064,171 @@ class _OrderCardState extends State<OrderCard> {
   bool _isUpdating = false;
   bool _isCanceling = false;
 
+  // Função para buscar dados do cliente
+  Future<Map<String, dynamic>?> _fetchClientInfo() async {
+    final orderId = widget.order.id;
+    final url = Uri.parse(
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetUserInfoByOrder?id_Pedido=$orderId');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+    } catch (e) {
+      debugPrint('Erro ao buscar dados do cliente: $e');
+    }
+    return null;
+  }
+
+  // Função para exibir o modal com dados do cliente
+  void _showClientInfoModal() async {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return FutureBuilder<Map<String, dynamic>?>(
+          future: _fetchClientInfo(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: CircularProgressIndicator(color: primaryColor),
+                ),
+              );
+            }
+            if (!snapshot.hasData || snapshot.data == null) {
+              return Container(
+                margin: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.error_outline, color: errorColor, size: 40),
+                    const SizedBox(height: 16),
+                    Text('Não foi possível carregar os dados do cliente.',
+                        style: TextStyle(
+                            color: errorColor, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              );
+            }
+            final data = snapshot.data!;
+            final endereco = data['endereco'] ?? {};
+            return Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.07),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.person, color: primaryColor, size: 32),
+                      const SizedBox(width: 12),
+                      Text(
+                        data['nome'] ?? '-',
+                        style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: secondaryColor),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Icon(Icons.phone, color: infoColor),
+                      const SizedBox(width: 8),
+                      Text(
+                        data['telefone'] ?? '-',
+                        style: TextStyle(fontSize: 16, color: secondaryColor),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.location_on, color: warningColor),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              endereco['logradouro'] ?? '-',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  color: secondaryColor,
+                                  fontWeight: FontWeight.w500),
+                            ),
+                            Text(
+                              'Nº ${endereco['numero'] ?? '-'}',
+                              style: TextStyle(
+                                  fontSize: 15, color: Colors.grey[700]),
+                            ),
+                            if ((endereco['complemento'] ?? '')
+                                .toString()
+                                .isNotEmpty)
+                              Text(
+                                endereco['complemento'],
+                                style: TextStyle(
+                                    fontSize: 15, color: Colors.grey[700]),
+                              ),
+                            if ((endereco['cep'] ?? '').toString().isNotEmpty)
+                              Text(
+                                'CEP: ${endereco['cep']}',
+                                style: TextStyle(
+                                    fontSize: 15, color: Colors.grey[700]),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton.icon(
+                      icon: Icon(Icons.close, color: Colors.white),
+                      label:
+                          Text('Fechar', style: TextStyle(color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -980,7 +1238,7 @@ class _OrderCardState extends State<OrderCard> {
   // Inicializa o próximo status baseado no tipo de entrega e status atual
   void _initializeNextStatus() {
     final order = widget.order;
-    
+
     if (order.status == OrderStatus.preparing) {
       // Seleciona automaticamente o próximo status baseado no tipo de entrega
       if (order.deliveryType == 'delivery') {
@@ -990,6 +1248,7 @@ class _OrderCardState extends State<OrderCard> {
       }
     }
   }
+
   // Cores mais vibrantes e acessíveis para os status
   Color _statusColor(OrderStatus status) {
     switch (status) {
@@ -1011,6 +1270,7 @@ class _OrderCardState extends State<OrderCard> {
         return Colors.grey[700]!;
     }
   }
+
   // Ícones para cada status
   IconData _statusIcon(OrderStatus status) {
     switch (status) {
@@ -1032,6 +1292,7 @@ class _OrderCardState extends State<OrderCard> {
         return Icons.hourglass_empty;
     }
   }
+
   String _statusLabel(OrderStatus status) {
     switch (status) {
       case OrderStatus.paid:
@@ -1053,25 +1314,53 @@ class _OrderCardState extends State<OrderCard> {
     }
   }
 
+  // Envia notificação ao comprador sobre novo status
+  Future<void> _notifyBuyerStatus(String orderId, OrderStatus status) async {
+    final statusString = Order.statusToApiString(status);
+    final url = Uri.parse(
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/SendNotificationBuyer');
+    final payload = {
+      'orderId': orderId,
+      'status': statusString,
+    };
+    final body = json.encode(payload);
+    debugPrint('[NOTIFY_BUYER] URL: ' + url.toString());
+    debugPrint('[NOTIFY_BUYER] Payload: ' + body);
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      );
+      debugPrint('[NOTIFY_BUYER] Status: \\${response.statusCode}');
+      debugPrint('[NOTIFY_BUYER] Response body: \\${response.body}');
+    } catch (e) {
+      debugPrint(
+          '[NOTIFY_BUYER] Erro ao notificar comprador: \\${e.toString()}');
+    }
+  }
+
   // Método para atualizar o status do pedido
   Future<void> _updateOrderStatus(OrderStatus newStatus) async {
     if (_isUpdating) return;
-    
+
     setState(() {
       _isUpdating = true;
     });
-    
+
     try {
-      final success = await OrderService.changeOrderStatus(widget.order.id, newStatus);
-      
+      final success =
+          await OrderService.changeOrderStatus(widget.order.id, newStatus);
+
       if (success) {
+        await _notifyBuyerStatus(widget.order.id, newStatus);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
                 Icon(_statusIcon(newStatus), color: Colors.white),
                 const SizedBox(width: 12),
-                Text('Status atualizado: ${_statusLabel(newStatus)}'),
+                Text('Status atualizado: \\${_statusLabel(newStatus)}'),
               ],
             ),
             backgroundColor: _statusColor(newStatus),
@@ -1103,7 +1392,7 @@ class _OrderCardState extends State<OrderCard> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erro: $e'),
+          content: Text('Erro: \\${e}'),
           backgroundColor: errorColor,
         ),
       );
@@ -1117,7 +1406,7 @@ class _OrderCardState extends State<OrderCard> {
   // Método para reembolsar o pedido
   Future<void> _cancelOrder() async {
     if (_isCanceling) return;
-      // Mostrar diálogo de confirmação
+    // Mostrar diálogo de confirmação
     final shouldCancel = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1141,16 +1430,17 @@ class _OrderCardState extends State<OrderCard> {
         ],
       ),
     );
-    
+
     if (shouldCancel != true) return;
-    
+
     setState(() {
       _isCanceling = true;
     });
-    
+
     try {
       final success = await OrderService.cancelUserOrder(widget.order.id);
-        if (success) {
+      if (success) {
+        await _notifyBuyerStatus(widget.order.id, OrderStatus.refunded);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Row(
@@ -1203,259 +1493,270 @@ class _OrderCardState extends State<OrderCard> {
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 2,
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: EdgeInsets.all(widget.isWide ? 32 : 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Status stepper usando im_stepper
-            ImStepperWidget(order: order),
-            const SizedBox(height: 16),
-            
-            // Cabeçalho do pedido com informações principais
-            Row(
+    return GestureDetector(
+        onTap: _showClientInfoModal,
+        child: Card(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: 2,
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: EdgeInsets.all(widget.isWide ? 32 : 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: _statusColor(order.status).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _statusColor(order.status).withOpacity(0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _statusIcon(order.status),
-                        size: 18,
-                        color: _statusColor(order.status),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _statusLabel(order.status),
-                        style: TextStyle(
-                          color: _statusColor(order.status),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
+                // Status stepper usando im_stepper
+                ImStepperWidget(order: order),
+                const SizedBox(height: 16),
+
+                // Cabeçalho do pedido com informações principais
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _statusColor(order.status).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _statusColor(order.status).withOpacity(0.3),
+                          width: 1,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        order.deliveryType == 'delivery' 
-                            ? Icons.delivery_dining 
-                            : Icons.store,
-                        size: 16,
-                        color: secondaryColor,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _statusIcon(order.status),
+                            size: 18,
+                            color: _statusColor(order.status),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _statusLabel(order.status),
+                            style: TextStyle(
+                              color: _statusColor(order.status),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        order.deliveryType == 'delivery' ? 'Entrega' : 'Retirada',
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            order.deliveryType == 'delivery'
+                                ? Icons.delivery_dining
+                                : Icons.store,
+                            size: 16,
+                            color: secondaryColor,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            order.deliveryType == 'delivery'
+                                ? 'Entrega'
+                                : 'Retirada',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              color: secondaryColor,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                // ID do pedido e data
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '#${order.id.substring(0, 6).toUpperCase()}',
                         style: TextStyle(
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.bold,
                           color: secondaryColor,
                           fontSize: 14,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // ID do pedido e data
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '#${order.id.substring(0, 6).toUpperCase()}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: secondaryColor,
-                      fontSize: 14,
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text(
+                      DateFormat('dd/MM/yyyy HH:mm').format(order.date),
+                      style: const TextStyle(
+                          fontSize: 14, color: Color(0xFF666666)),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  DateFormat('dd/MM/yyyy HH:mm').format(order.date),
-                  style: const TextStyle(fontSize: 14, color: Color(0xFF666666)),
-                ),
-              ],
-            ),
-            
-            const Divider(height: 24),
-            
-            // Lista de produtos com design melhorado
-            ...order.products.map((product) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          product.image,
-                          width: 56,
-                          height: 56,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            width: 56,
-                            height: 56,
-                            color: Colors.grey[200],
-                            child: const Icon(Icons.image, color: Colors.grey),
+
+                const Divider(height: 24),
+
+                // Lista de produtos com design melhorado
+                ...order.products.map((product) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  product.image,
+                                  width: 56,
+                                  height: 56,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    width: 56,
+                                    height: 56,
+                                    color: Colors.grey[200],
+                                    child: const Icon(Icons.image,
+                                        color: Colors.grey),
+                                  ),
+                                ),
+                              ),
+                              if (product.quantity > 1)
+                                Positioned(
+                                  right: 0,
+                                  top: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: primaryColor,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                          color: Colors.white, width: 2),
+                                    ),
+                                    child: Text(
+                                      '${product.quantity}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                        ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  product.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Text(
+                                      '${product.quantity}x',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: primaryColor,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      width: 4,
+                                      height: 4,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[400],
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'R\$${product.unitPrice.toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey[700],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            'R\$${(product.quantity * product.unitPrice).toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
                       ),
-                      if (product.quantity > 1)
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: primaryColor,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                            child: Text(
-                              '${product.quantity}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          product.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Text(
-                              '${product.quantity}x',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: primaryColor,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              width: 4,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: Colors.grey[400],
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'R\$${product.unitPrice.toStringAsFixed(2)}',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[700],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                    )),
+
+                const Divider(height: 24),
+
+                // Total do pedido com design melhorado
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Total: ',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 16,
+                          color: Colors.grey[700]),
                     ),
-                  ),
-                  Text(
-                    'R\$${(product.quantity * product.unitPrice).toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
+                    Text(
+                      'R\$${order.total.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: secondaryColor,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            )),
-            
-            const Divider(height: 24),
-            
-            // Total do pedido com design melhorado
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Text(
-                  'Total: ',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 16,
-                    color: Colors.grey[700]
-                  ),
+                  ],
                 ),
-                Text(
-                  'R\$${order.total.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    color: secondaryColor,
-                  ),
-                ),
+
+                const SizedBox(height: 20),
+
+                // Botões de ação com design melhorado
+                _buildActionButtons(context),
               ],
             ),
-            
-            const SizedBox(height: 20),
-            
-            // Botões de ação com design melhorado
-            _buildActionButtons(context),
-          ],
-        ),
-      ),
-    );
+          ),
+        ));
   }
 
   Widget _buildActionButtons(BuildContext context) {
     final order = widget.order;
-    
+
     // Pedido pago → Iniciar preparo ou Reembolsar
     if (order.status == OrderStatus.paid) {
       return Row(
-        children: [          // Botão de reembolsar
+        children: [
+          // Botão de reembolsar
           Expanded(
             flex: 1,
             child: ElevatedButton.icon(
@@ -1471,9 +1772,7 @@ class _OrderCardState extends State<OrderCard> {
                   side: BorderSide(color: errorColor),
                 ),
               ),
-              onPressed: _isCanceling || _isUpdating
-                  ? null
-                  : _cancelOrder,
+              onPressed: _isCanceling || _isUpdating ? null : _cancelOrder,
             ),
           ),
           const SizedBox(width: 12),
@@ -1493,14 +1792,14 @@ class _OrderCardState extends State<OrderCard> {
                 ),
               ),
               onPressed: _isUpdating || _isCanceling
-                  ? null 
+                  ? null
                   : () => _updateOrderStatus(OrderStatus.preparing),
             ),
           ),
         ],
       );
     }
-    
+
     // Em preparo → Em rota (delivery) ou Pronto para retirada (retirada)
     if (order.status == OrderStatus.preparing) {
       // Interface melhorada para seleção do próximo status
@@ -1516,7 +1815,7 @@ class _OrderCardState extends State<OrderCard> {
             ),
           ),
           const SizedBox(height: 12),
-          
+
           // Opções de status como cards selecionáveis
           Row(
             children: [
@@ -1539,7 +1838,9 @@ class _OrderCardState extends State<OrderCard> {
                         color: _selectedNextStatus == OrderStatus.inDelivery
                             ? infoColor
                             : Colors.grey[300]!,
-                        width: _selectedNextStatus == OrderStatus.inDelivery ? 2 : 1,
+                        width: _selectedNextStatus == OrderStatus.inDelivery
+                            ? 2
+                            : 1,
                       ),
                     ),
                     child: Column(
@@ -1555,9 +1856,10 @@ class _OrderCardState extends State<OrderCard> {
                         Text(
                           'Em rota',
                           style: TextStyle(
-                            fontWeight: _selectedNextStatus == OrderStatus.inDelivery
-                                ? FontWeight.bold
-                                : FontWeight.normal,
+                            fontWeight:
+                                _selectedNextStatus == OrderStatus.inDelivery
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                             color: _selectedNextStatus == OrderStatus.inDelivery
                                 ? infoColor
                                 : Colors.grey[800],
@@ -1577,7 +1879,7 @@ class _OrderCardState extends State<OrderCard> {
                 ),
               ),
               const SizedBox(width: 12),
-              
+
               // Opção "Pronto para retirada"
               Expanded(
                 child: GestureDetector(
@@ -1597,7 +1899,9 @@ class _OrderCardState extends State<OrderCard> {
                         color: _selectedNextStatus == OrderStatus.readyForPickup
                             ? warningColor
                             : Colors.grey[300]!,
-                        width: _selectedNextStatus == OrderStatus.readyForPickup ? 2 : 1,
+                        width: _selectedNextStatus == OrderStatus.readyForPickup
+                            ? 2
+                            : 1,
                       ),
                     ),
                     child: Column(
@@ -1605,18 +1909,21 @@ class _OrderCardState extends State<OrderCard> {
                         Icon(
                           Icons.store,
                           size: 28,
-                          color: _selectedNextStatus == OrderStatus.readyForPickup
-                              ? warningColor
-                              : Colors.grey[600],
+                          color:
+                              _selectedNextStatus == OrderStatus.readyForPickup
+                                  ? warningColor
+                                  : Colors.grey[600],
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Pronto para retirada',
                           style: TextStyle(
-                            fontWeight: _selectedNextStatus == OrderStatus.readyForPickup
+                            fontWeight: _selectedNextStatus ==
+                                    OrderStatus.readyForPickup
                                 ? FontWeight.bold
                                 : FontWeight.normal,
-                            color: _selectedNextStatus == OrderStatus.readyForPickup
+                            color: _selectedNextStatus ==
+                                    OrderStatus.readyForPickup
                                 ? warningColor
                                 : Colors.grey[800],
                           ),
@@ -1636,9 +1943,9 @@ class _OrderCardState extends State<OrderCard> {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Botão de atualização
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -1666,7 +1973,8 @@ class _OrderCardState extends State<OrderCard> {
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1689,7 +1997,7 @@ class _OrderCardState extends State<OrderCard> {
                     ],
                   ),
           ),
-          
+
           // Dica para o usuário
           if (_selectedNextStatus != null)
             Padding(
@@ -1709,9 +2017,10 @@ class _OrderCardState extends State<OrderCard> {
         ],
       );
     }
-    
+
     // Em rota ou Pronto para retirada → Concluído
-    if (order.status == OrderStatus.inDelivery || order.status == OrderStatus.readyForPickup) {
+    if (order.status == OrderStatus.inDelivery ||
+        order.status == OrderStatus.readyForPickup) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1764,7 +2073,7 @@ class _OrderCardState extends State<OrderCard> {
         ],
       );
     }
-    
+
     // Para outros status, não mostramos botões de ação
     return const SizedBox.shrink();
   }
@@ -1773,14 +2082,14 @@ class _OrderCardState extends State<OrderCard> {
 // Widget para exibir o stepper de status do pedido
 class ImStepperWidget extends StatelessWidget {
   final Order order;
-  
+
   const ImStepperWidget({required this.order});
-  
+
   @override
   Widget build(BuildContext context) {
     // Determinar o índice ativo com base no status do pedido
     int activeStep = 0;
-    
+
     switch (order.status) {
       case OrderStatus.pending:
         activeStep = 0;
@@ -1797,7 +2106,8 @@ class ImStepperWidget extends StatelessWidget {
         break;
       case OrderStatus.completed:
         activeStep = 4;
-        break;      case OrderStatus.canceled:
+        break;
+      case OrderStatus.canceled:
         // Para pedidos cancelados, não mostramos o stepper
         return Container(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -1844,18 +2154,18 @@ class ImStepperWidget extends StatelessWidget {
           ),
         );
     }
-    
+
     // Definir os ícones para cada etapa
     List<IconData> icons = [
-      Icons.shopping_cart,      // Pedido realizado
-      Icons.payments_outlined,  // Pagamento confirmado
-      Icons.restaurant,         // Em preparo
-      order.deliveryType == 'delivery' 
-          ? Icons.delivery_dining  // Em rota (delivery)
-          : Icons.store,           // Pronto para retirada
-      Icons.check_circle,       // Concluído
+      Icons.shopping_cart, // Pedido realizado
+      Icons.payments_outlined, // Pagamento confirmado
+      Icons.restaurant, // Em preparo
+      order.deliveryType == 'delivery'
+          ? Icons.delivery_dining // Em rota (delivery)
+          : Icons.store, // Pronto para retirada
+      Icons.check_circle, // Concluído
     ];
-    
+
     return Container(
       height: 70,
       child: IconStepper(
