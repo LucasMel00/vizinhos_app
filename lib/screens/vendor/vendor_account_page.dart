@@ -424,68 +424,62 @@ class _VendorAccountPageState extends State<VendorAccountPage>
                         AppTheme.buildSectionHeader(
                             'Ações Rápidas', Icons.flash_on),
                         const SizedBox(height: 15),
-                        Row(
+                        // Substituir Row por Wrap para evitar quebra de botões em telas pequenas
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
                           children: [
-                            Expanded(
-                              child: AppTheme.buildActionButton(
-                                label: 'Produtos',
-                                icon: Icons.shopping_bag,
-                                onPressed: () {
+                            AppTheme.buildActionButton(
+                              label: 'Produtos',
+                              icon: Icons.shopping_bag,
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => VendorProductsPage(),
+                                  ),
+                                );
+                              },
+                            ),
+                            AppTheme.buildActionButton(
+                              label: 'Pedidos',
+                              icon: Icons.receipt_long,
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OrdersVendorPage(
+                                      deliveryType: deliveryType,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            AppTheme.buildActionButton(
+                              label: 'Desempenho',
+                              icon: Icons.bar_chart,
+                              onPressed: () {
+                                final idLoja = storeData?['loja']
+                                            ?['id_Endereco']
+                                        ?.toString() ??
+                                    storeData?['endereco']?['id_Endereco']
+                                        ?.toString();
+                                if (idLoja != null && idLoja.isNotEmpty) {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) =>
-                                          VendorProductsPage(),
+                                          VendorMetricsPage(idLoja: idLoja),
                                     ),
                                   );
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: AppTheme.buildActionButton(
-                                label: 'Pedidos',
-                                icon: Icons.receipt_long,
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => OrdersVendorPage(
-                                        deliveryType: deliveryType,
-                                      ),
-                                    ),
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content:
+                                            Text('ID da loja não encontrado.')),
                                   );
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: AppTheme.buildActionButton(
-                                label: 'Desempenho',
-                                icon: Icons.bar_chart,
-                                onPressed: () {
-                                  final idLoja = storeData?['loja']
-                                              ?['id_Endereco']
-                                          ?.toString() ??
-                                      storeData?['endereco']?['id_Endereco']
-                                          ?.toString();
-                                  if (idLoja != null && idLoja.isNotEmpty) {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            VendorMetricsPage(idLoja: idLoja),
-                                      ),
-                                    );
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text(
-                                              'ID da loja não encontrado.')),
-                                    );
-                                  }
-                                },
-                              ),
+                                }
+                              },
                             ),
                           ],
                         ),

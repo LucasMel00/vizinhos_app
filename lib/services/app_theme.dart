@@ -229,15 +229,17 @@ class AppTheme {
     required VoidCallback onPressed,
     Color? color,
   }) {
+    // Estilo de label padrão
+    const TextStyle effectiveLabelStyle = TextStyle(
+      color: Colors.white,
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
+    );
     return ElevatedButton.icon(
       icon: Icon(icon, color: Colors.white, size: 18),
       label: Text(
         label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-        ),
+        style: effectiveLabelStyle,
       ),
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
