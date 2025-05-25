@@ -29,102 +29,112 @@ class PaymentSuccessScreen extends StatelessWidget {
     final orderId = orderData['id_Pedido'] ?? '';
     final tipoEntrega = orderData['tipo_entrega'] ?? 'Retirada';
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pagamento via PIX'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 80),
-            const SizedBox(height: 16),
-            const Text(
-              'Pedido gerado com sucesso!',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Status: ${_getStatusText(status)}',
-              style: TextStyle(
-                fontSize: 18,
-                color: status == 'approved' ? Colors.green : Colors.orange,
-                fontWeight: FontWeight.w500,
+    return WillPopScope(
+      onWillPop: () async {
+        // Ao pressionar voltar, navegar para a HomePage
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => HomePage()),
+        );
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Pagamento via PIX'),
+          backgroundColor: Theme.of(context).primaryColor,
+          foregroundColor: Colors.white,
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.green, size: 80),
+              const SizedBox(height: 16),
+              const Text(
+                'Pedido gerado com sucesso!',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(height: 30),
-
-            // Card com resumo do pedido
-            _buildInfoCard(
-              title: 'Resumo do Pedido',
-              children: [
-                _buildInfoRow(
-                    'Identificador do Pedido:',
-                    orderId.toString().substring(
-                        0,
-                        orderId.toString().length > 8
-                            ? 8
-                            : orderId.toString().length)),
-                _buildInfoRow(
-                    'Valor total:', _formatCurrency(transactionAmount)),
-                _buildInfoRow('Status:', _getStatusText(status)),
-                _buildInfoRow(
-                    'Data:', _formatDate(orderData['data_pedido'] ?? '')),
-                _buildInfoRow('Tipo de entrega:', tipoEntrega),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // Card com resumo do pagamento
-            _buildInfoCard(
-              title: 'Dados do Pagamento',
-              children: [
-                _buildInfoRow('ID do Pagamento:', paymentId),
-                _buildInfoRow('Método:', 'PIX'),
-                _buildInfoRow('Status:', _getStatusText(status)),
-              ],
-            ),
-
-            const SizedBox(height: 25),
-
-            // Seção do QR Code
-            if (pixImageBase64.isNotEmpty || pixCode.isNotEmpty)
-              _buildPixSection(context, pixImageBase64, pixCode),
-
-            const SizedBox(height: 30),
-
-            // Botão de ação
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => HomePage()),
-                  );
-                },
-                child: const Text(
-                  'Voltar ao início',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+              const SizedBox(height: 8),
+              Text(
+                'Status: ${_getStatusText(status)}',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: status == 'approved' ? Colors.green : Colors.orange,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 30),
+
+              // Card com resumo do pedido
+              _buildInfoCard(
+                title: 'Resumo do Pedido',
+                children: [
+                  _buildInfoRow(
+                      'Identificador do Pedido:',
+                      orderId.toString().substring(
+                          0,
+                          orderId.toString().length > 8
+                              ? 8
+                              : orderId.toString().length)),
+                  _buildInfoRow(
+                      'Valor total:', _formatCurrency(transactionAmount)),
+                  _buildInfoRow('Status:', _getStatusText(status)),
+                  _buildInfoRow(
+                      'Data:', _formatDate(orderData['data_pedido'] ?? '')),
+                  _buildInfoRow('Tipo de entrega:', tipoEntrega),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // Card com resumo do pagamento
+              _buildInfoCard(
+                title: 'Dados do Pagamento',
+                children: [
+                  _buildInfoRow('ID do Pagamento:', paymentId),
+                  _buildInfoRow('Método:', 'PIX'),
+                  _buildInfoRow('Status:', _getStatusText(status)),
+                ],
+              ),
+
+              const SizedBox(height: 25),
+
+              // Seção do QR Code
+              if (pixImageBase64.isNotEmpty || pixCode.isNotEmpty)
+                _buildPixSection(context, pixImageBase64, pixCode),
+
+              const SizedBox(height: 30),
+
+              // Botão de ação
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).primaryColor,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => HomePage()),
+                    );
+                  },
+                  child: const Text(
+                    'Voltar ao início',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
