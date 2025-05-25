@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:vizinhos_app/services/app_theme.dart';
-import '../model/product.dart'; 
+import '../model/product.dart';
 import '../../services/auth_provider.dart';
 
 const primaryColor = Color(0xFFFbbc2c);
@@ -35,7 +35,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
   // Batch controllers
   late TextEditingController batchQuantityCtrl;
-  late MoneyMaskedTextController batchDiscountPriceCtrl; // Preço com desconto específico do LOTE
+  late MoneyMaskedTextController
+      batchDiscountPriceCtrl; // Preço com desconto específico do LOTE
   late TextEditingController batchManufactureDateCtrl;
   DateTime? _selectedManufactureDate; // Para armazenar a data selecionada
 
@@ -46,75 +47,63 @@ class _EditProductScreenState extends State<EditProductScreen> {
   String? imageUrl;
   bool _isLoading = false;
   bool _loadingChars = true;
-  // Não precisa mais de _loadingBatch ou _batchDetails
 
   List<Characteristic> allChars = [];
   List<String> selectedCharIds = [];
 
+  Product? _productWithBatch; // <-- NEW: holds the batch-aware product
+  bool _loadingProduct = true; // <-- NEW: loading state for product
+
   @override
   void initState() {
     super.initState();
-    // Debug: print incoming product details including lote
-    debugPrint("[DEBUG] Opening EditProductScreen with product: ${jsonEncode(widget.product.toJson())}");
-    debugPrint("[DEBUG] Raw lote object: ${widget.product.lote}");
-    debugPrint("[DEBUG] Computed id_lote: ${widget.product.id_lote}");
-    debugPrint("[DEBUG] quantidade (widget.product.quantidade): ${widget.product.quantidade}");
-    debugPrint("[DEBUG] dataFabricacao: ${widget.product.dataFabricacao}");
-    _initializeControllers(); // Inicializa todos os controllers
+    _productWithBatch = widget.product;
+    _initializeControllers();
+    _loadingProduct = false;
     _fetchCaracteristicas();
   }
 
   void _initializeControllers() {
-    // --- Product Controllers ---
-    nameCtrl = TextEditingController(text: widget.product.nome);
-    descCtrl = TextEditingController(text: widget.product.descricao);
-    validityCtrl = TextEditingController(text: widget.product.diasValidade.toString());
-
+    final p = _productWithBatch!;
+    nameCtrl = TextEditingController(text: p.nome);
+    descCtrl = TextEditingController(text: p.descricao);
+    validityCtrl = TextEditingController(text: p.diasValidade.toString());
     priceCtrl = MoneyMaskedTextController(
-        initialValue: widget.product.valorVenda,
+        initialValue: p.valorVenda,
         decimalSeparator: ',',
         thousandSeparator: '.',
         leftSymbol: 'R\$ ');
     costCtrl = MoneyMaskedTextController(
-        initialValue: widget.product.valorCusto,
+        initialValue: p.valorCusto,
         decimalSeparator: ',',
         thousandSeparator: '.',
         leftSymbol: 'R\$ ');
-    // Controller para o desconto GERAL do produto
     discountCtrl = MoneyMaskedTextController(
-        initialValue: widget.product.desconto ?? 0,
+        initialValue: p.desconto ?? 0,
         decimalSeparator: ',',
         thousandSeparator: '.',
         leftSymbol: 'R\$ ');
-
-    // --- Batch Controllers (inicializados a partir dos campos do Product) ---
-    // Assume que 'widget.product.quantidade' existe e é a quantidade do lote
-    batchQuantityCtrl = TextEditingController(text: widget.product.quantidade?.toString() ?? '');
-
-    // Usa o campo correto do modelo Product para o preço com desconto do lote
-    double initialBatchDiscountPrice = widget.product.valorVendaDesc; // Corrigido!
+    batchQuantityCtrl =
+        TextEditingController(text: p.quantidade?.toString() ?? '');
+    double initialBatchDiscountPrice = p.valorVendaDesc;
     batchDiscountPriceCtrl = MoneyMaskedTextController(
         initialValue: initialBatchDiscountPrice,
         decimalSeparator: ",",
         thousandSeparator: ".",
         leftSymbol: "R\$ ");
-
-    // Assume que 'widget.product.dataFabricacao' existe e é um DateTime?
-    _selectedManufactureDate = widget.product.dataFabricacao;
+    _selectedManufactureDate = p.dataFabricacao;
     batchManufactureDateCtrl = TextEditingController(
       text: _selectedManufactureDate != null
           ? DateFormat('dd/MM/yyyy').format(_selectedManufactureDate!)
           : '',
     );
-
-    // --- Outras Inicializações --- 
-    selectedCharIds = widget.product.caracteristicas?.map((c) => c.id_Caracteristica).toList() ?? [];
-    category = widget.product.categoria;
-    size = availableSizes.contains(widget.product.tamanho)
-        ? widget.product.tamanho
-        : availableSizes.first;
-    imageId = widget.product.imageId;
-    imageUrl = widget.product.imagemUrl;
+    selectedCharIds =
+        p.caracteristicas?.map((c) => c.id_Caracteristica).toList() ?? [];
+    category = p.categoria;
+    size =
+        availableSizes.contains(p.tamanho) ? p.tamanho : availableSizes.first;
+    imageId = p.imageId;
+    imageUrl = p.imagemUrl;
   }
 
   Future<void> _fetchCaracteristicas() async {
@@ -170,7 +159,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
       // <<=== SUBSTITUA PELA SUA URL REAL PARA SALVAR IMAGEM
       final resp = await http.post(
-        Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/SaveProductImage'),
+        Uri.parse(
+            'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/SaveProductImage'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(payload),
       );
@@ -195,8 +185,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
         SnackBar(content: Text('Erro ao processar imagem: $e')),
       );
     } finally {
-       // Resetar loading APÓS a tentativa de salvar imagem
-       if(mounted) setState(() => _isLoading = false);
+      // Resetar loading APÓS a tentativa de salvar imagem
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -212,48 +202,51 @@ class _EditProductScreenState extends State<EditProductScreen> {
       print("Atualizando produto...");
       final productResponse = await _updateProduct(auth.accessToken!);
       if (productResponse.statusCode != 200) {
-        throw Exception('Falha ao atualizar produto: ${productResponse.body}');
+        throw Exception(
+            'Falha ao atualizar produto: \\${productResponse.body}');
       }
       print("Produto atualizado com sucesso.");
 
       // 2. Atualiza o lote SE o produto tiver um ID de lote associado
-      //    Assume que 'widget.product.lote' é o ID do lote (String?)
-      final batchId = widget.product.id_lote; // Corrigido para usar id_lote
-      // ADICIONANDO LOG PARA DEBUG:
-      print("DEBUG: Verificando ID do lote. Valor de widget.product.id_lote: 	'$batchId'");
-      if (batchId != null && batchId.isNotEmpty) {         print("Atualizando lote ID: $batchId...");
+      final batchId = _productWithBatch?.id_lote; // Use the loaded product
+      print(
+          "DEBUG: Verificando ID do lote. Valor de _productWithBatch.id_lote: '$batchId'");
+      if (batchId != null && batchId.isNotEmpty) {
+        print("Atualizando lote ID: $batchId...");
         final batchResponse = await _updateBatch(auth.accessToken!, batchId);
         if (batchResponse.statusCode != 200) {
-          errorMessage = 'Produto atualizado, mas falha ao atualizar lote: ${batchResponse.body}';
+          errorMessage =
+              'Produto atualizado, mas falha ao atualizar lote: \\${batchResponse.body}';
           throw Exception(errorMessage);
         }
-         print("Lote atualizado com sucesso.");
+        print("Lote atualizado com sucesso.");
       } else {
-        print("Produto não possui ID de lote associado. Pulando atualização do lote.");
+        print(
+            "Produto não possui ID de lote associado. Pulando atualização do lote.");
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Produto e lote atualizados com sucesso!')),
+        const SnackBar(
+            content: Text('Produto e lote atualizados com sucesso!')),
       );
       Navigator.pop(context, true); // Retorna true para indicar sucesso
-
     } catch (e) {
       debugPrint('Erro ao atualizar: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(errorMessage ?? 'Erro ao atualizar: $e')),
       );
     } finally {
-      if(mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<http.Response> _updateProduct(String token) async {
     // Garantir que o ID da imagem original seja usado se nenhum novo for selecionado
-    final String? finalImageId = imageId ?? widget.product.imageId;
+    final String? finalImageId = imageId ?? _productWithBatch?.imageId;
 
     // Corpo da requisição para /UpdateProduct (usa snake_case para as chaves)
     final body = <String, dynamic>{
-      'id_Produto': widget.product.id,
+      'id_Produto': _productWithBatch?.id,
       'nome': nameCtrl.text,
       'fk_id_Categoria': _categoryId(category),
       'dias_vcto': int.tryParse(validityCtrl.text) ?? 0,
@@ -261,9 +254,10 @@ class _EditProductScreenState extends State<EditProductScreen> {
       'valor_custo': _toNum(costCtrl.text),
       'descricao': descCtrl.text,
       'tamanho': size,
-      'disponivel': widget.product.disponivel,
+      'disponivel': _productWithBatch?.disponivel,
       'caracteristicas_IDs': selectedCharIds,
-      'id_imagem': finalImageId ?? '', // Envia string vazia se for nulo (backend exige)
+      'id_imagem':
+          finalImageId ?? '', // Envia string vazia se for nulo (backend exige)
       'desconto': _toNum(discountCtrl.text),
       'flag_oferta': false,
     };
@@ -273,11 +267,11 @@ class _EditProductScreenState extends State<EditProductScreen> {
       body.remove('desconto');
     }
 
-    print("Enviando atualização do produto: ${jsonEncode(body)}");
+    print("Enviando atualização do produto: \\${jsonEncode(body)}");
 
-    // <<=== SUBSTITUA PELA SUA URL REAL PARA ATUALIZAR PRODUTO
     return await http.put(
-      Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/UpdateProduct'),
+      Uri.parse(
+          'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/UpdateProduct'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token'
@@ -291,43 +285,53 @@ class _EditProductScreenState extends State<EditProductScreen> {
     // Formata a data selecionada para YYYY-MM-DD
     String? formattedDate;
     if (_selectedManufactureDate != null) {
-       formattedDate = DateFormat('yyyy-MM-dd').format(_selectedManufactureDate!);
+      formattedDate =
+          DateFormat('yyyy-MM-dd').format(_selectedManufactureDate!);
     }
 
     // Corpo da requisição para /UpdateBatch (usa snake_case para as chaves corretas)
     final body = <String, dynamic>{
-      'id_lote': batchId,  // corrigido para id_lote
+      'id_Lote': batchId, // corrigido para id_Lote (maiúsculo)
       'quantidade': int.tryParse(batchQuantityCtrl.text) ?? 0,
       'valor_venda_desc': _toNum(batchDiscountPriceCtrl.text),
       'dt_fabricacao': formattedDate,
     };
 
-    debugPrint("[DEBUG] Enviando atualização do lote com body: ${jsonEncode(body)}");
+    debugPrint(
+        "[DEBUG] Enviando atualização do lote com body: ${jsonEncode(body)}");
 
     // Envia requisição para atualizar lote
     final response = await http.put(
-      Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/UpdateBatch'),
+      Uri.parse(
+          'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/UpdateBatch'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token'
       },
       body: jsonEncode(body),
     );
-    debugPrint("[DEBUG] Resposta UpdateBatch: status=${response.statusCode}, body=${response.body}");
+    debugPrint(
+        "[DEBUG] Resposta UpdateBatch: status=${response.statusCode}, body=${response.body}");
     return response;
   }
 
   // Função auxiliar para converter valor monetário mascarado para double
   double _toNum(String v) =>
-      double.tryParse(v.replaceAll(RegExp(r'[^0-9,]'), '').replaceAll(',', '.')) ?? 0;
+      double.tryParse(
+          v.replaceAll(RegExp(r'[^0-9,]'), '').replaceAll(',', '.')) ??
+      0;
 
   // Função auxiliar para obter ID da categoria
   int _categoryId(String c) {
     switch (c) {
-      case 'Doce': return 188564336962606369;
-      case 'Salgado': return 303744449465944688;
-      case 'Bebida': return 321601065408987139;
-      default: return 188564336962606369; // Padrão para Doce
+      case 'Doce':
+        return 188564336962606369;
+      case 'Salgado':
+        return 303744449465944688;
+      case 'Bebida':
+        return 321601065408987139;
+      default:
+        return 188564336962606369; // Padrão para Doce
     }
   }
 
@@ -353,6 +357,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
       return FileImage(selectedImage!);
     } else if (imageUrl != null && imageUrl!.isNotEmpty) {
       return NetworkImage(imageUrl!);
+    } else if (_productWithBatch?.imagemUrl != null &&
+        (_productWithBatch?.imagemUrl?.isNotEmpty ?? false)) {
+      return NetworkImage(_productWithBatch!.imagemUrl!);
     }
     return null;
   }
@@ -401,6 +408,19 @@ class _EditProductScreenState extends State<EditProductScreen> {
       suffixIcon: null, // Reset suffix icon
     );
 
+    if (_loadingProduct || _productWithBatch == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Editar Produto e Lote',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          backgroundColor: AppTheme.primaryColor,
+          elevation: 0.5,
+        ),
+        body:
+            const Center(child: CircularProgressIndicator(color: primaryColor)),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -413,12 +433,14 @@ class _EditProductScreenState extends State<EditProductScreen> {
         backgroundColor: AppTheme.primaryColor,
         elevation: 0.5,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: const Color.fromARGB(255, 255, 255, 255)),
+          icon: Icon(Icons.arrow_back,
+              color: const Color.fromARGB(255, 255, 255, 255)),
           onPressed: () => Navigator.pop(context),
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(2),
-          child: Container(color: const Color.fromARGB(255, 255, 255, 255), height: 2),
+          child: Container(
+              color: const Color.fromARGB(255, 255, 255, 255), height: 2),
         ),
       ),
       body: Stack(
@@ -447,12 +469,15 @@ class _EditProductScreenState extends State<EditProductScreen> {
                   const SizedBox(height: 20),
 
                   // --- Seção de Detalhes do Produto ---
-                  const Text('Informações do Produto', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text('Informações do Produto',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: nameCtrl,
                     decoration: dec.copyWith(labelText: 'Nome do produto'),
-                    validator: (v) => v == null || v.isEmpty ? 'Informe o nome' : null,
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'Informe o nome' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -466,13 +491,14 @@ class _EditProductScreenState extends State<EditProductScreen> {
                       Expanded(
                         child: TextFormField(
                           controller: priceCtrl,
-                          decoration: dec.copyWith(labelText: 'Preço Venda (Produto)'),
+                          decoration:
+                              dec.copyWith(labelText: 'Preço Venda (Produto)'),
                           keyboardType: TextInputType.number,
-                          validator: (v) => _toNum(v!) <= 0 ? 'Informe preço válido' : null,
+                          validator: (v) =>
+                              _toNum(v!) <= 0 ? 'Informe preço válido' : null,
                         ),
                       ),
                       const SizedBox(width: 10),
-                     
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -480,51 +506,67 @@ class _EditProductScreenState extends State<EditProductScreen> {
                     controller: costCtrl,
                     decoration: dec.copyWith(labelText: 'Custo produção'),
                     keyboardType: TextInputType.number,
-                    validator: (v) => _toNum(v!) <= 0 ? 'Informe custo válido' : null,
+                    validator: (v) =>
+                        _toNum(v!) <= 0 ? 'Informe custo válido' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: validityCtrl,
                     decoration: dec.copyWith(labelText: 'Dias validade'),
                     keyboardType: TextInputType.number,
-                    validator: (v) => (int.tryParse(v ?? '') ?? 0) <= 0 ? 'Informe dias válidos' : null,
+                    validator: (v) => (int.tryParse(v ?? '') ?? 0) <= 0
+                        ? 'Informe dias válidos'
+                        : null,
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     value: size,
-                    items: availableSizes.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                    items: availableSizes
+                        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                        .toList(),
                     onChanged: (v) => setState(() => size = v!),
                     decoration: dec.copyWith(labelText: 'Tamanho'),
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     value: category,
-                    items: ['Doce', 'Salgado', 'Bebida'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                    items: ['Doce', 'Salgado', 'Bebida']
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                        .toList(),
                     onChanged: (v) => setState(() => category = v!),
                     decoration: dec.copyWith(labelText: 'Categoria'),
                   ),
                   const SizedBox(height: 24),
 
                   // --- Seção de Características ---
-                  Text('Características', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey[800])),
+                  Text('Características',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[800])),
                   const SizedBox(height: 8),
                   _loadingChars
-                      ? Center(child: CircularProgressIndicator(color: primaryColor))
+                      ? Center(
+                          child: CircularProgressIndicator(color: primaryColor))
                       : Wrap(
                           spacing: 8,
                           runSpacing: 8,
                           children: allChars.map((ch) {
-                            final sel = selectedCharIds.contains(ch.id_Caracteristica);
+                            final sel =
+                                selectedCharIds.contains(ch.id_Caracteristica);
                             return FilterChip(
                               label: Text(ch.descricao),
                               selected: sel,
                               onSelected: (b) => setState(() {
-                                b ? selectedCharIds.add(ch.id_Caracteristica)
-                                  : selectedCharIds.remove(ch.id_Caracteristica);
+                                b
+                                    ? selectedCharIds.add(ch.id_Caracteristica)
+                                    : selectedCharIds
+                                        .remove(ch.id_Caracteristica);
                               }),
                               selectedColor: primaryColor.withOpacity(0.2),
                               checkmarkColor: primaryColor,
-                              labelStyle: TextStyle(color: sel ? primaryColor : Colors.grey[700]),
+                              labelStyle: TextStyle(
+                                  color: sel ? primaryColor : Colors.grey[700]),
                             );
                           }).toList(),
                         ),
@@ -532,41 +574,49 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
                   // --- Seção de Informações do Lote ---
                   // Mostra seção de lote sempre que há quantidade retornada (mesmo sem id_lote)
-                  if (widget.product.quantidade != null) ...[
-                   const Text('Informações do Lote', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                   const SizedBox(height: 16),
-                   Column(
-                     children: [
+                  if (_productWithBatch?.quantidade != null) ...[
+                    const Text('Informações do Lote',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    Column(
+                      children: [
                         TextFormField(
                           controller: batchQuantityCtrl,
-                          decoration: dec.copyWith(labelText: 'Quantidade no Lote'),
+                          decoration:
+                              dec.copyWith(labelText: 'Quantidade no Lote'),
                           keyboardType: TextInputType.number,
-                          validator: (v) => (int.tryParse(v ?? '') ?? -1) < 0 ? 'Informe quantidade válida' : null,
+                          validator: (v) => (int.tryParse(v ?? '') ?? -1) < 0
+                              ? 'Informe quantidade válida'
+                              : null,
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: batchDiscountPriceCtrl,
-                          decoration: dec.copyWith(labelText: 'Preço Venda c/ Desconto (Lote)'),
+                          decoration: dec.copyWith(
+                              labelText: 'Preço Venda c/ Desconto (Lote)'),
                           keyboardType: TextInputType.number,
-                          // Validação opcional
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: batchManufactureDateCtrl,
                           decoration: dec.copyWith(
-                            labelText: 'Data de Fabricação (dd/MM/yyyy)',
-                            suffixIcon: IconButton(
-                                icon: Icon(Icons.calendar_today, color: primaryColor),
-                                onPressed: () => _selectManufactureDate(context),
-                            )
-                          ),
+                              labelText: 'Data de Fabricação (dd/MM/yyyy)',
+                              suffixIcon: IconButton(
+                                icon: Icon(Icons.calendar_today,
+                                    color: primaryColor),
+                                onPressed: () =>
+                                    _selectManufactureDate(context),
+                              )),
                           readOnly: true, // Impede digitação direta
                           onTap: () => _selectManufactureDate(context),
-                          validator: (v) => v == null || v.isEmpty ? 'Informe a data de fabricação' : null,
+                          validator: (v) => v == null || v.isEmpty
+                              ? 'Informe a data de fabricação'
+                              : null,
                         ),
-                     ],
-                   ),
-                   const SizedBox(height: 32),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
                   ],
 
                   // --- Botão Salvar ---
@@ -580,8 +630,14 @@ class _EditProductScreenState extends State<EditProductScreen> {
                       ),
                     ),
                     child: _isLoading
-                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-                        : const Text('Salvar Alterações', style: TextStyle(fontSize: 16, color: Colors.black)),
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 3))
+                        : const Text('Salvar Alterações',
+                            style:
+                                TextStyle(fontSize: 16, color: Colors.black)),
                   ),
                   const SizedBox(height: 20), // Espaço extra no final
                 ],
@@ -601,4 +657,3 @@ class _EditProductScreenState extends State<EditProductScreen> {
     );
   }
 }
-
