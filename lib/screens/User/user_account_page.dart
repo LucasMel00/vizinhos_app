@@ -7,7 +7,8 @@ import 'package:vizinhos_app/screens/user/home_page_user.dart'; // Ensure this f
 import 'package:vizinhos_app/screens/user/user_profile_page.dart';
 import 'package:vizinhos_app/screens/login/email_screen.dart';
 import 'package:vizinhos_app/screens/onboarding/onboarding_vendor_screen.dart';
-import 'package:vizinhos_app/screens/orders/orders_page.dart' hide secondaryColor;
+import 'package:vizinhos_app/screens/orders/orders_page.dart'
+    hide secondaryColor;
 import 'package:vizinhos_app/screens/search/search_page.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_account_page.dart';
 import 'package:vizinhos_app/screens/vendor/create_store_screen.dart';
@@ -92,7 +93,12 @@ class _UserAccountPageState extends State<UserAccountPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erro ao atualizar: $e')),
         );
-        // Mantemos os dados antigos se a atualização falhar
+        // Redirecionar para login
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => EmailScreen()),
+          (route) => false,
+        );
         setState(() => _isLoading = false);
       }
     }

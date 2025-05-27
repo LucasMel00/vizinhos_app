@@ -19,6 +19,7 @@ import 'package:vizinhos_app/screens/onboarding/onboarding_user_screen.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart';
 import 'package:vizinhos_app/screens/search/search_page.dart' as search;
 import 'package:vizinhos_app/services/auth_provider.dart';
+import 'package:vizinhos_app/screens/login/email_screen.dart'; // Import EmailScreen
 
 // Define colors for consistency
 const Color primaryColor = Color(0xFFFbbc2c);
@@ -132,22 +133,27 @@ class _HomePageState extends State<HomePage> {
     if (email == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Email não encontrado no dispositivo')),
+          const SnackBar(
+              content: Text(
+                  'Usuário não encontrado. Por favor, faça login novamente.')),
+        );
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => EmailScreen()),
+          (route) => false,
         );
       }
       return;
     }
 
-    final url = Uri.parse(
-      'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetUserByEmail?email=$email',
-    );
-
     try {
+      final url = Uri.parse(
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetUserByEmail?email=$email',
+      );
+
       final response = await http.get(url, headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json',
       });
-
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final cpf = data['usuario']?['cpf'];
@@ -197,14 +203,36 @@ class _HomePageState extends State<HomePage> {
             print('CPF não encontrado na resposta: $data');
           }
         }
+      } else if (response.statusCode == 401) {
+        // Token expirado ou inválido
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Sessão expirada. Faça login novamente.')),
+          );
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => EmailScreen()),
+            (route) => false,
+          );
+        }
+        return;
       } else {
-        print("Erro fetchUserInfo HTTP: ${response.statusCode}");
+        print("Erro HTTP fetchUserInfo: ${response.statusCode}");
+        return;
       }
     } catch (e) {
       print("Erro fetchUserInfo: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro de rede ao buscar usuário: $e')),
+          const SnackBar(
+              content: Text('Erro de rede. Por favor, faça login novamente.')),
+        );
+        // Redirecionar para login
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => EmailScreen()),
+          (route) => false,
         );
       }
     }
@@ -651,7 +679,8 @@ class _HomePageState extends State<HomePage> {
                           itemBuilder: (context, index) {
                             final store = _restaurants[index];
                             return AnimatedOpacity(
-                              duration: Duration(milliseconds: 300 + (index * 50)),
+                              duration:
+                                  Duration(milliseconds: 300 + (index * 50)),
                               opacity: 1.0,
                               child: _buildRestaurantCard(
                                 context: context,
