@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:provider/provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shimmer/shimmer.dart'; // Import shimmer for loading effect
+import 'package:vizinhos_app/screens/User/map_screen.dart';
 import 'package:vizinhos_app/screens/provider/cart_provider.dart'; // Import CartProvider
 import 'package:vizinhos_app/screens/cart/cart_screen.dart'; // Import CartScreen
 import 'package:vizinhos_app/screens/store/store_detail_page.dart';
@@ -290,6 +291,17 @@ class _HomePageState extends State<HomePage> {
           context,
           PageRouteBuilder(
             pageBuilder: (_, __, ___) => account.UserAccountPage(),
+            transitionDuration: const Duration(milliseconds: 300),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
+          ),
+        );
+        break;
+      case 4: // Novo caso para o mapa
+        Navigator.push(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => MapScreen(userEmail: Provider.of<AuthProvider>(context, listen: false).email ?? ''),
             transitionDuration: const Duration(milliseconds: 300),
             transitionsBuilder: (_, animation, __, child) =>
                 FadeTransition(opacity: animation, child: child),
@@ -682,6 +694,7 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   _buildNavIcon(Icons.home, 'Início', 0, context),
                   _buildNavIcon(Icons.search, 'Buscar', 1, context),
+                  _buildNavIcon(Icons.map, 'Mapa', 4, context), // Novo ícone de mapa
                   _buildNavIcon(Icons.list, 'Pedidos', 2, context),
                   _buildNavIcon(Icons.person, 'Conta', 3, context),
                 ],
