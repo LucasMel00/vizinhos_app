@@ -10,11 +10,12 @@ import 'package:vizinhos_app/screens/onboarding/onboarding_vendor_screen.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart' hide secondaryColor;
 import 'package:vizinhos_app/screens/search/search_page.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_account_page.dart';
-import 'package:vizinhos_app/screens/vendor/create_store_screen.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
-import 'package:vizinhos_app/services/secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:vizinhos_app/screens/user/help_page.dart';
+
+// Define consistent colors
+const Color secondaryColor = Color(0xFF3B4351);
 
 class UserAccountPage extends StatefulWidget {
   final Map<String, dynamic>? userInfo;
@@ -43,43 +44,37 @@ class _UserAccountPageState extends State<UserAccountPage> {
   }
 
   Future<void> _fetchUserData() async {
-    // Se já temos dados via construtor, só atualizamos em segundo plano
     if (widget.userInfo != null && !_isLoading) {
+      if (!mounted) return;
       setState(() => _isLoading = true);
     }
-
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
     if (!authProvider.isLoggedIn) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       return;
     }
-
     try {
       String? email = authProvider.email ?? await storage.read(key: 'email');
-
       if (email == null) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Email não encontrado')),
         );
         setState(() => _isLoading = false);
         return;
       }
-
       final response = await http.get(
-        Uri.parse(
-            'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetUserByEmail?email=$email'),
+        Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetUserByEmail?email=$email'),
         headers: {'Content-Type': 'application/json'},
       );
-
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final idEndereco = data['endereco']?['id_Endereco'];
-
         if (idEndereco != null) {
           await authProvider.setIdEndereco(idEndereco.toString());
         }
-
+        if (!mounted) return;
         setState(() {
           _userInfo = data;
           _isLoading = false;
@@ -88,6 +83,7 @@ class _UserAccountPageState extends State<UserAccountPage> {
         throw Exception('Status code: ${response.statusCode}');
       }
     } catch (e) {
+<<<<<<< Updated upstream
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erro ao atualizar: $e')),
@@ -95,12 +91,25 @@ class _UserAccountPageState extends State<UserAccountPage> {
         // Mantemos os dados antigos se a atualização falhar
         setState(() => _isLoading = false);
       }
+=======
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao atualizar: $e')),
+      );
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => EmailScreen()),
+        (route) => false,
+      );
+      setState(() => _isLoading = false);
+>>>>>>> Stashed changes
     }
   }
 
   // Função para deslogar o usuário
   Future<void> _logout(BuildContext context) async {
     await Provider.of<AuthProvider>(context, listen: false).logout();
+    if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => EmailScreen()),
@@ -128,25 +137,19 @@ class _UserAccountPageState extends State<UserAccountPage> {
       trailing: trailing,
       onTap: onTap,
     );
-  }
-
-  void _navigateToSellerPage() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
-    // Mostra loading enquanto carrega
+  }  void _navigateToSellerPage() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
     });
-
     try {
-      // Força uma atualização dos dados antes de navegar
       await _fetchUserData();
-
+      if (!mounted) return;
       if (_userInfo != null && _userInfo!['endereco'] != null) {
         final prefs = await SharedPreferences.getInstance();
         final dontShow = prefs.getBool('dontShowVendorOnboarding') ?? false;
-
         if (dontShow) {
+          if (!mounted) return;
           Navigator.push(
               context,
               PageRouteBuilder(
@@ -158,11 +161,11 @@ class _UserAccountPageState extends State<UserAccountPage> {
                     FadeTransition(opacity: animation, child: child),
               ));
         } else {
+          if (!mounted) return;
           final result = await Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => VendorOnboardingScreen(
                 onContinue: () {
-                  // Em vez de pop, navega diretamente para VendorAccountPage
                   Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(
                       builder: (context) =>
@@ -175,6 +178,7 @@ class _UserAccountPageState extends State<UserAccountPage> {
             ),
           );
           if (result == true) {
+            if (!mounted) return;
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -189,14 +193,21 @@ class _UserAccountPageState extends State<UserAccountPage> {
         throw Exception('Dados da loja não disponíveis');
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao acessar loja: $e')),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
-
   // Método para lidar com a seleção de itens na barra de navegação inferior
   void _onNavItemTapped(int index) {
+    if (!mounted) return;
     setState(() {
       _selectedIndex = index;
     });
@@ -204,50 +215,58 @@ class _UserAccountPageState extends State<UserAccountPage> {
     // Navegar para a página correspondente
     switch (index) {
       case 0:
-        Navigator.pushReplacement(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (_, __, ___) => HomePage(),
-            transitionDuration: const Duration(milliseconds: 300),
-            transitionsBuilder: (_, animation, __, child) =>
-                FadeTransition(opacity: animation, child: child),
-          ),
-        );
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (_, __, ___) => HomePage(),
+              transitionDuration: const Duration(milliseconds: 300),
+              transitionsBuilder: (_, animation, __, child) =>
+                  FadeTransition(opacity: animation, child: child),
+            ),
+          );
+        }
         break;
       case 1:
-        Navigator.pushReplacement(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (_, __, ___) => SearchPage(),
-            transitionDuration: const Duration(milliseconds: 300),
-            transitionsBuilder: (_, animation, __, child) =>
-                FadeTransition(opacity: animation, child: child),
-          ),
-        );
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (_, __, ___) => SearchPage(),
+              transitionDuration: const Duration(milliseconds: 300),
+              transitionsBuilder: (_, animation, __, child) =>
+                  FadeTransition(opacity: animation, child: child),
+            ),
+          );
+        }
         break;
       case 2: // Orders
-        final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        final cpf = authProvider.cpf ?? '';
-        Navigator.pushReplacement(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (_, __, ___) => OrdersPage(cpf: cpf),
-            transitionDuration: const Duration(milliseconds: 300),
-            transitionsBuilder: (_, animation, __, child) =>
-                FadeTransition(opacity: animation, child: child),
-          ),
-        );
+        if (mounted) {
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          final cpf = authProvider.cpf ?? '';
+          Navigator.pushReplacement(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (_, __, ___) => OrdersPage(cpf: cpf),
+              transitionDuration: const Duration(milliseconds: 300),
+              transitionsBuilder: (_, animation, __, child) =>
+                  FadeTransition(opacity: animation, child: child),
+            ),
+          );
+        }
         break;
       case 3:
-        Navigator.pushReplacement(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (_, __, ___) => UserAccountPage(),
-            transitionDuration: const Duration(milliseconds: 300),
-            transitionsBuilder: (_, animation, __, child) =>
-                FadeTransition(opacity: animation, child: child),
-          ),
-        );
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (_, __, ___) => UserAccountPage(),
+              transitionDuration: const Duration(milliseconds: 300),
+              transitionsBuilder: (_, animation, __, child) =>
+                  FadeTransition(opacity: animation, child: child),
+            ),
+          );
+        }
         break;
     }
   }
@@ -336,17 +355,18 @@ class _UserAccountPageState extends State<UserAccountPage> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
               child: Row(
-                children: [
-                  GestureDetector(
+                children: [                  GestureDetector(
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => UserProfilePage(
-                            userInfo: _userInfo ?? {},
+                      if (mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => UserProfilePage(
+                              userInfo: _userInfo ?? {},
+                            ),
                           ),
-                        ),
-                      );
+                        );
+                      }
                     },
                     child: CircleAvatar(
                       radius: 35,
@@ -427,22 +447,25 @@ class _UserAccountPageState extends State<UserAccountPage> {
               icon: Icons.favorite_border,
               title: 'Seus Favoritos',
               onTap: () {},
-            ),
-            _buildListTile(
+            ),            _buildListTile(
               icon: Icons.help_outline,
               title: 'Ajuda',
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const HelpPage()),
-                );
+                if (mounted) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const HelpPage()),
+                  );
+                }
               },
             ),
             _buildListTile(
               icon: Icons.notifications_none,
               title: 'Notificação',
               onTap: () {
-                Navigator.pushNamed(context, '/notifications');
+                if (mounted) {
+                  Navigator.pushNamed(context, '/notifications');
+                }
               },
             ),
             _buildListTile(

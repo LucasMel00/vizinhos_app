@@ -154,17 +154,25 @@ class _UserProfilePageState extends State<UserProfilePage> {
   }
 
   void _navigateToVendorEdit() {
+    // Ensure storeData has required fields
+    final normalizedStoreData = {
+      'loja': userData?['loja'] ?? {},
+      'endereco': userData?['endereco'] ?? {},
+    };
+
+    // Add debug logs to verify data being passed
+    print('Debug: Dados passados para VendorEditPage: $normalizedStoreData');
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => VendorEditPage(
           userInfo: userData!['usuario'],
-          storeData: {
-            'endereco': userData!['endereco'],
-          },
+          storeData: normalizedStoreData,
           onSave: (updatedStore) {
             setState(() {
-              userData!['endereco'] = updatedStore;
+              userData!['loja'] = updatedStore['loja'];
+              userData!['endereco'] = updatedStore['endereco'];
             });
           },
         ),

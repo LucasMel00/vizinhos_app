@@ -35,16 +35,26 @@ class _VendorEditPageState extends State<VendorEditPage> {
   @override
   void initState() {
     super.initState();
+    print('Debug: Entrando no initState');
     // Clona o map para não mexer no original direto
     storeData = Map<String, dynamic>.from(widget.storeData);
 
-    // Garante que 'loja' existe
+    // Garante que 'loja' existe e preenche campos faltantes a partir de 'endereco'
     if (storeData['loja'] == null) {
       storeData['loja'] = <String, dynamic>{};
     }
 
-    // Logs para depuração da estrutura
-    print('Estrutura completa do storeData: $storeData');
+    if (storeData['endereco'] != null) {
+      storeData['loja']['id_Endereco'] ??= storeData['endereco']['id_Endereco'];
+      storeData['loja']['nome_Loja'] ??= storeData['endereco']['nome_Loja'];
+      storeData['loja']['descricao_Loja'] ??= storeData['endereco']['descricao_Loja'];
+      storeData['loja']['tipo_Entrega'] ??= storeData['endereco']['tipo_Entrega'];
+      storeData['loja']['id_Imagem'] ??= storeData['endereco']['id_Imagem'];
+      storeData['loja']['access_token'] ??= storeData['endereco']['access_token'];
+    }
+
+    // Logs para depuração
+    print('Estrutura completa do storeData após initState: $storeData');
 
     // Atualiza os controllers com valores vindos de storeData
     nameController.text = storeData['loja']['nome_Loja'] ?? '';
@@ -52,18 +62,11 @@ class _VendorEditPageState extends State<VendorEditPage> {
     selectedDeliveryType =
         storeData['loja']['tipo_Entrega'] as String? ?? 'Delivery';
 
-    // Verificar onde o token está na estrutura
-    if (storeData.containsKey('access_token')) {
-      print('Token encontrado na raiz: \\${storeData['access_token']}');
-      accessTokenController.text = storeData['access_token'];
-    } else if (storeData['loja'] != null &&
-        storeData['loja'].containsKey('access_token')) {
-      print('Token encontrado em loja: \\${storeData['loja']['access_token']}');
+    // Inicializa o token
+    if (storeData['loja']?['access_token'] != null) {
       accessTokenController.text = storeData['loja']['access_token'];
     } else {
-      print('Token não encontrado na estrutura esperada');
-      // Buscar o token diretamente da API
-      _fetchAccessToken(storeData['loja']['id_Endereco'].toString());
+      print('Debug: Token não encontrado na estrutura esperada');
     }
   }
 
@@ -90,6 +93,31 @@ class _VendorEditPageState extends State<VendorEditPage> {
       }
     } catch (e) {
       print('Erro ao buscar token: $e');
+    }
+  }
+
+  Future<void> _fetchEnderecoData(String idEndereco) async {
+    try {
+      final url = Uri.parse(
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetAddressById?id_Endereco=$idEndereco',
+      );
+      final resp = await http.get(url);
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        print('Resposta da API para endereço: $data');
+        if (data['endereco'] != null) {
+          setState(() {
+            storeData['endereco'] = data['endereco'];
+          });
+          print('Debug: Dados do endereço atualizados: ${storeData['endereco']}');
+        } else {
+          print('Debug: Dados do endereço não encontrados na resposta da API.');
+        }
+      } else {
+        print('Debug: Falha ao buscar dados do endereço. Status: ${resp.statusCode}');
+      }
+    } catch (e) {
+      print('Erro ao buscar dados do endereço: $e');
     }
   }
 
@@ -143,12 +171,29 @@ class _VendorEditPageState extends State<VendorEditPage> {
     setState(() => isLoading = true);
 
     try {
-      // Usa o valor do token que foi buscado da API ou encontrado na estrutura
-      final accessToken = accessTokenController.text;
+      if (storeData['endereco'] == null || storeData['endereco'].isEmpty) {
+        print('Debug: storeData["endereco"] está nulo ou vazio. Não é possível salvar.');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erro: Endereço não encontrado ou incompleto.')),
+        );
+        setState(() => isLoading = false);
+        return;
+      }
+
+      final requiredFields = ['id_Endereco', 'cep', 'logradouro', 'numero'];
+      for (var field in requiredFields) {
+        if (storeData['endereco'][field] == null || storeData['endereco'][field].toString().isEmpty) {
+          print('Debug: Campo obrigatório "$field" está ausente ou vazio em storeData["endereco"].');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erro: Campo "$field" está ausente ou vazio.')),
+          );
+          setState(() => isLoading = false);
+          return;
+        }
+      }
 
       final updatedBody = {
-        'id_Endereco':
-            int.parse(storeData['endereco']['id_Endereco'].toString()),
+        'id_Endereco': int.parse(storeData['endereco']['id_Endereco'].toString()),
         'cep': storeData['endereco']['cep'] ?? '',
         'logradouro': storeData['endereco']['logradouro'] ?? '',
         'numero': storeData['endereco']['numero'] ?? '',
@@ -157,12 +202,11 @@ class _VendorEditPageState extends State<VendorEditPage> {
         'descricao_Loja': descriptionController.text,
         'tipo_Entrega': selectedDeliveryType,
         'id_Imagem': storeData['endereco']['id_Imagem'] ?? '',
-        'access_token':
-            accessToken, // Usa o valor do controller que foi preenchido corretamente
+        'access_token': accessTokenController.text,
         'Usuario_Tipo': 'seller',
       };
 
-      print('Enviando dados para atualização: $updatedBody');
+      print('Debug: Dados preparados para envio: $updatedBody');
 
       final resp = await http.put(
         Uri.parse(
@@ -172,8 +216,19 @@ class _VendorEditPageState extends State<VendorEditPage> {
         body: jsonEncode(updatedBody),
       );
 
+      print('Debug: Resposta da API: ${resp.statusCode} - ${resp.body}');
+
       if (resp.statusCode == 200) {
         widget.onSave(updatedBody);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+        content: Text(
+          'Dados da loja atualizados com sucesso!',
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.green,
+          ),
+        );
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
             transitionDuration: const Duration(milliseconds: 300),
@@ -187,6 +242,7 @@ class _VendorEditPageState extends State<VendorEditPage> {
         throw Exception('Status ${resp.statusCode}: ${resp.body}');
       }
     } catch (e) {
+      print('Debug: Erro ao salvar: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao salvar: $e')),
       );

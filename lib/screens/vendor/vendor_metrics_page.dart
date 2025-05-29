@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:vizinhos_app/services/app_theme.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:vizinhos_app/screens/vendor/vendor_orders_page.dart';
 
 class VendorMetricsPage extends StatefulWidget {
   final String idLoja;
@@ -116,7 +117,7 @@ class _VendorMetricsPageState extends State<VendorMetricsPage> {
           _isLoading = false;
         });
       } else {
-        throw Exception('Erro ao buscar pedidos: [22m${response.statusCode}');
+        throw Exception('Erro ao buscar pedidos: ${response.statusCode}');
       }
     } catch (e) {
       setState(() => _isLoading = false);
@@ -447,6 +448,36 @@ class _VendorMetricsPageState extends State<VendorMetricsPage> {
                         itemCount: _recentOrders.length,
                         itemBuilder: (context, idx) =>
                             _buildOrderTile(_recentOrders[idx]),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => OrdersVendorPage(
+                                deliveryType: 'Delivery', // Adjust as needed
+                              ),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Ver Mais Pedidos',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ),
                   ],

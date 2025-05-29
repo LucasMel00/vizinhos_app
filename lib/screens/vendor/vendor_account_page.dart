@@ -103,12 +103,32 @@ class _VendorAccountPageState extends State<VendorAccountPage>
   }
 
   void _navigateToEditPage() {
+    // Ensure storeData has required fields
+    final normalizedStoreData = {
+      'loja': storeData?['loja'] ?? {},
+      'endereco': storeData?['endereco'] ?? {
+        'id_Endereco': _currentUserInfo['endereco']?['id_Endereco'],
+        'nome_Loja': _currentUserInfo['endereco']?['nome_Loja'],
+        'descricao_Loja': _currentUserInfo['endereco']?['descricao_Loja'],
+        'tipo_Entrega': _currentUserInfo['endereco']?['tipo_Entrega'],
+        'id_Imagem': _currentUserInfo['endereco']?['id_Imagem'],
+        'access_token': _currentUserInfo['endereco']?['access_token'],
+        'cep': _currentUserInfo['endereco']?['cep'] ?? '',
+        'logradouro': _currentUserInfo['endereco']?['logradouro'] ?? '',
+        'numero': _currentUserInfo['endereco']?['numero'] ?? '',
+        'complemento': _currentUserInfo['endereco']?['complemento'] ?? '',
+      },
+    };
+
+    // Add debug logs to verify data being passed
+    print('Debug: Dados passados para VendorEditPage: $normalizedStoreData');
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => VendorEditPage(
           userInfo: _currentUserInfo,
-          storeData: storeData ?? {},
+          storeData: normalizedStoreData,
           onSave: (updatedData) {
             setState(() {
               storeData = updatedData;
@@ -474,7 +494,7 @@ class _VendorAccountPageState extends State<VendorAccountPage>
                                 SizedBox(
                                   width: buttonWidth,
                                   child: AppTheme.buildActionButton(
-                                    label: 'Desempenho',
+                                    label: 'Métricas',
                                     icon: Icons.bar_chart,
                                     onPressed: () {
                                       final idLoja = storeData?['loja']
