@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vizinhos_app/screens/model/order.dart';
+import 'package:vizinhos_app/screens/user/favorites_page.dart';
 import 'package:vizinhos_app/screens/user/home_page_user.dart'; // Ensure this file exists and contains the HomePageUser class
 import 'package:vizinhos_app/screens/user/user_profile_page.dart';
 import 'package:vizinhos_app/screens/login/email_screen.dart';
@@ -670,8 +671,17 @@ class _UserAccountPageState extends State<UserAccountPage> {
             // Outras opções do menu
             _buildListTile(
               icon: Icons.favorite_border,
-              title: 'Seus Favoritos',
-              onTap: () {},
+              title: 'Vizinhos Favoritos',
+              onTap: () {
+                if (mounted) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const FavoritesPage(),
+                    ),
+                  );
+                }
+              },
             ),            _buildListTile(
               icon: Icons.help_outline,
               title: 'Ajuda',

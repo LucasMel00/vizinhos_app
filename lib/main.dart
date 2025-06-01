@@ -10,6 +10,7 @@ import 'package:vizinhos_app/screens/splash/splash_screen.dart';
 import 'package:vizinhos_app/screens/cart/cart_screen.dart';
 import 'package:vizinhos_app/screens/provider/cart_provider.dart';
 import 'package:vizinhos_app/screens/provider/orders_provider.dart';
+import 'package:vizinhos_app/screens/provider/favorites_provider.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 
 // Plugin para notificações locais
@@ -42,12 +43,12 @@ void main() async {
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   runApp(
-    MultiProvider(
-      providers: [
+    MultiProvider(      providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => OrdersProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => FavoritesProvider()),
       ],
       child: const MyApp(),
     ),

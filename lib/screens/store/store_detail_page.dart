@@ -11,6 +11,7 @@ import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:provider/provider.dart';
 import 'package:vizinhos_app/screens/provider/cart_provider.dart';
+import 'package:vizinhos_app/screens/provider/favorites_provider.dart';
 
 // Classe para resumo de avaliações por usuário
 class UserSummary {
@@ -336,6 +337,7 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                           ),
                         ],
                       ),
+                                  
                       SizedBox(height: 12),
 
                       // Descrição da loja
@@ -748,6 +750,8 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                       // Aumentar espaçamento entre botão voltar e título
                       leadingWidth: 56, // Aumentado para dar mais espaço
                       actions: [
+                        // Botão de favorito na AppBar
+                        
                         // Botão do carrinho na AppBar
                         Consumer<CartProvider>(
                           builder: (ctx, cart, child) {
@@ -923,22 +927,41 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                                     color: primaryTextColor,
                                   ),
                                 ),
-                                // Ícone de informações clicável
-                                InkWell(
-                                  onTap: () => _showStoreInfoDialog(restaurant),
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: Container(
-                                    padding: EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: primaryColor.withOpacity(0.1),
-                                      shape: BoxShape.circle,
+                                Row(
+                                  children: [
+                                    // Ícone de informações clicável
+                                    InkWell(
+                                      onTap: () => _showStoreInfoDialog(restaurant),
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: Container(
+                                        padding: EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: primaryColor.withOpacity(0.1),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          Icons.info_outline,
+                                          size: 18,
+                                          color: primaryColor,
+                                        ),
+                                      ),
                                     ),
-                                    child: Icon(
-                                      Icons.info_outline,
-                                      size: 18,
-                                      color: primaryColor,
+                                    const SizedBox(width: 12),
+                                    // Ícone de favorito
+                                    Consumer<FavoritesProvider>(
+                                      builder: (ctx, favs, child) {
+                                        final isFav = favs.isFavorite(restaurant.idEndereco);
+                                        return GestureDetector(
+                                          onTap: () => favs.toggleFavorite(restaurant),
+                                          child: Icon(
+                                            isFav ? Icons.favorite : Icons.favorite_border,
+                                            size: 20,
+                                            color: isFav ? Colors.red : primaryColor,
+                                          ),
+                                        );
+                                      },
                                     ),
-                                  ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -1500,7 +1523,7 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                       itemBuilder: (context, index) =>
                           _buildProductCardSkeleton(),
                     ),
-                  ]),
+                  ])
             ),
           ],
         ),
@@ -1508,6 +1531,7 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
     );
   }
 
+          
   // Estado de erro
   Widget _buildErrorState(Object? error) {
     return Scaffold(

@@ -53,6 +53,23 @@ class Restaurant {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'id_Endereco': idEndereco,
+      'numero': numero,
+      'logradouro': logradouro,
+      'complemento': complemento,
+      'tipo_Entrega': tipoEntrega,
+      'descricao_Loja': descricao,
+      'nome_Loja': name,
+      'cep': cep,
+      'id_Imagem': imageString,
+      'imagem_url': imagemUrl,
+      'produtos': produtos.map((product) => product.toJson()).toList(),
+      'telefone': telefone,
+    };
+  }
+
   Uint8List? get imageBytes {
     if (imageString == null || imageString!.isEmpty) return null;
     try {

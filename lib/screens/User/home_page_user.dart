@@ -9,9 +9,11 @@ import 'package:vizinhos_app/screens/User/map_screen.dart';
 import 'package:vizinhos_app/screens/provider/cart_provider.dart'; // Import CartProvider
 import 'package:vizinhos_app/screens/cart/cart_screen.dart'; // Import CartScreen
 import 'package:vizinhos_app/screens/store/store_detail_page.dart';
+import 'package:vizinhos_app/screens/user/favorites_page.dart';
 import 'package:vizinhos_app/services/fcm_service.dart'; // Import FCMService
 import 'package:vizinhos_app/screens/provider/orders_provider.dart'; // Import OrdersProvider
 import 'package:vizinhos_app/screens/provider/notification_provider.dart'; // Importar NotificationProvider
+import 'package:vizinhos_app/screens/provider/favorites_provider.dart';
 import 'package:vizinhos_app/notifications_screen.dart'; // Importar NotificationsScreen
 import 'package:vizinhos_app/screens/user/user_account_page.dart' as account;
 import 'package:vizinhos_app/screens/user/user_profile_page.dart';
@@ -390,14 +392,36 @@ class _HomePageState extends State<HomePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      restaurant.name,
-                      style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: primaryTextColor),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    // Linha com nome da loja e coração se favoritada
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            restaurant.name,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: primaryTextColor,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Consumer<FavoritesProvider>(
+                          builder: (_, favs, __) {
+                            return favs.isFavorite(restaurant.idEndereco)
+                                ? const Padding(
+                                    padding: EdgeInsets.only(left: 4.0),
+                                    child: Icon(
+                                      Icons.favorite,
+                                      size: 16,
+                                      color: Colors.red,
+                                    ),
+                                  )
+                                : const SizedBox.shrink();
+                          },
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -431,7 +455,7 @@ class _HomePageState extends State<HomePage> {
                             size: 14, color: secondaryTextColor),
                         SizedBox(width: 4),
                         Text(
-                          'Entrega: ${restaurant.tipoEntrega}',
+                          ' ${restaurant.tipoEntrega}',
                           style: const TextStyle(
                               fontSize: 11, color: secondaryTextColor),
                         ),
@@ -540,6 +564,28 @@ class _HomePageState extends State<HomePage> {
                   forceElevated: innerBoxIsScrolled,
                   backgroundColor: primaryColor,
                   actions: [
+                   
+                    // Fav Icon Button
+                    Consumer<FavoritesProvider>(
+                      builder: (ctx, favoritesProvider, child) => IconButton(
+                        icon: Icon(Icons.favorite_outline, color: Colors.white),
+                        tooltip: 'Favoritos',
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            PageRouteBuilder(
+                              pageBuilder: (_, __, ___) =>
+                                  FavoritesPage(),
+                              transitionDuration:
+                                  const Duration(milliseconds: 140),
+                              transitionsBuilder:
+                                  (_, animation, __, child) =>
+                                      FadeTransition(
+                                          opacity: animation, child: child),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                     // Notification Icon Button
                     Consumer<NotificationProvider>(
                       builder: (ctx, notificationProvider, child) => Stack(
