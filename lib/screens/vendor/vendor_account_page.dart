@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:vizinhos_app/screens/model/product.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_edit_page.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_orders_page.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_products_page.dart';
@@ -9,7 +8,7 @@ import 'package:vizinhos_app/screens/vendor/vendor_metrics_page.dart';
 import 'package:vizinhos_app/services/app_theme.dart';
 import 'package:vizinhos_app/screens/onboarding/mercado_pago_key_screen.dart';
 import 'package:vizinhos_app/services/secure_storage.dart';
-import 'vendor_reviews_sheet.dart';
+import 'package:vizinhos_app/screens/vendor/vendor_reviews_sheet.dart';
 
 class VendorAccountPage extends StatefulWidget {
   final Map<String, dynamic> userInfo;
@@ -547,7 +546,8 @@ class _VendorAccountPageState extends State<VendorAccountPage>
                                   onPressed: () {
                                     final idLoja = storeData?['loja']
                                             ?['id_Endereco']
-                                        ?.toString();
+                                        ?.toString() ?? storeData?['endereco']?['id_Endereco']?.toString();
+                                    print('Debug: idLoja value -> $idLoja');
                                     if (idLoja != null && idLoja.isNotEmpty) {
                                       showModalBottomSheet(
                                         context: context,
@@ -557,7 +557,7 @@ class _VendorAccountPageState extends State<VendorAccountPage>
                                               top: Radius.circular(24)),
                                         ),
                                         builder: (context) =>
-                                            VendorReviewsSheet(idLoja: idLoja),
+                                            VendorReviewsDetailedSheet(idLoja: idLoja),
                                       );
                                     } else {
                                       ScaffoldMessenger.of(context)

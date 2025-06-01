@@ -83,7 +83,6 @@ class _UserAccountPageState extends State<UserAccountPage> {
         throw Exception('Status code: ${response.statusCode}');
       }
     } catch (e) {
-<<<<<<< Updated upstream
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erro ao atualizar: $e')),
@@ -91,18 +90,6 @@ class _UserAccountPageState extends State<UserAccountPage> {
         // Mantemos os dados antigos se a atualização falhar
         setState(() => _isLoading = false);
       }
-=======
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao atualizar: $e')),
-      );
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => EmailScreen()),
-        (route) => false,
-      );
-      setState(() => _isLoading = false);
->>>>>>> Stashed changes
     }
   }
 

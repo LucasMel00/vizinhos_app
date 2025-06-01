@@ -20,6 +20,8 @@ class _VendorMetricsPageState extends State<VendorMetricsPage> {
   int _pedidosCancelados = 0;
   double _totalVendas = 0;
   double _ticketMedio = 0;
+  bool _isExpandedVendas = false;
+  bool _isExpandedPedidos = false;
   // Pré-processados para gráficos
   List<FlSpot> _vendasSpots = [];
   List<BarChartGroupData> _pedidosBarGroups = [];
@@ -186,13 +188,20 @@ class _VendorMetricsPageState extends State<VendorMetricsPage> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Evolução de Vendas (R\$)',
-                              style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.primaryColor)),
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _isExpandedVendas = !_isExpandedVendas;
+                              });
+                            },
+                            child: const Text('Evolução de Vendas (R\$)',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.primaryColor)),
+                          ),
                           SizedBox(
-                            height: 220,
+                            height: _isExpandedVendas ? 400 : 220,
                             child: Padding(
                               padding: const EdgeInsets.only(
                                   top: 16, bottom: 20, left: 8, right: 16),
@@ -303,13 +312,20 @@ class _VendorMetricsPageState extends State<VendorMetricsPage> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Evolução de Pedidos',
-                              style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.primaryColor)),
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _isExpandedPedidos = !_isExpandedPedidos;
+                              });
+                            },
+                            child: const Text('Evolução de Pedidos',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.primaryColor)),
+                          ),
                           SizedBox(
-                            height: 220,
+                            height: _isExpandedPedidos ? 400 : 220,
                             child: Padding(
                               padding: const EdgeInsets.only(
                                   top: 16, bottom: 20, left: 8, right: 16),
@@ -319,76 +335,58 @@ class _VendorMetricsPageState extends State<VendorMetricsPage> {
                                     show: true,
                                     drawVerticalLine: true,
                                     drawHorizontalLine: true,
-                                    horizontalInterval:
-                                        null, // Deixar automático
-                                    verticalInterval: null, // Deixar automático
                                   ),
                                   borderData: FlBorderData(show: true),
-                                  minY:
-                                      0, // Garantir que o gráfico comece do zero
-                                  maxY: null, // Deixar automático
+                                  minY: 0,
                                   titlesData: FlTitlesData(
                                     leftTitles: AxisTitles(
                                       sideTitles: SideTitles(
                                         showTitles: true,
                                         reservedSize: 40,
-                                        interval:
-                                            null, // Deixar o gráfico calcular automaticamente
                                         getTitlesWidget: (value, meta) {
-                                          // Mostrar apenas números inteiros para pedidos
                                           return Text(
                                             value.toInt().toString(),
-                                            style:
-                                                const TextStyle(fontSize: 10),
+                                            style: const TextStyle(fontSize: 10),
                                           );
                                         },
                                       ),
-                                    ),
-                                    topTitles: const AxisTitles(
-                                      sideTitles: SideTitles(showTitles: false),
-                                    ),
-                                    rightTitles: const AxisTitles(
-                                      sideTitles: SideTitles(showTitles: false),
                                     ),
                                     bottomTitles: AxisTitles(
                                       sideTitles: SideTitles(
                                         showTitles: true,
                                         getTitlesWidget: (value, meta) {
                                           final idx = value.toInt();
-                                          if (idx < 0 ||
-                                              idx >= _diasPedidos.length)
+                                          if (idx < 0 || idx >= _diasPedidos.length)
                                             return const SizedBox.shrink();
 
-                                          // Mostrar apenas algumas datas para evitar sobreposição
-                                          if (_diasPedidos.length > 7 &&
-                                              idx % 2 != 0) {
-                                            return const SizedBox.shrink();
-                                          }
-                                          if (_diasPedidos.length > 14 &&
-                                              idx % 3 != 0) {
-                                            return const SizedBox.shrink();
-                                          }
-
-                                          // Formatar data mais compacta (dd/mm)
                                           final data = _diasPedidos[idx];
                                           final partes = data.split('-');
+                                          final diaSemana = DateTime.parse(data).toLocal().weekday;
+                                          const diasSemana = [
+                                            'Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'
+                                          ];
+
                                           final dataFormatada =
                                               partes.length >= 3
                                                   ? '${partes[2]}/${partes[1]}'
                                                   : data;
 
-                                          return Transform.rotate(
-                                            angle: -0.5, // Rotacionar 45 graus
-                                            child: Text(
-                                              dataFormatada,
-                                              style:
-                                                  const TextStyle(fontSize: 9),
-                                            ),
+                                          return Column(
+                                            children: [
+                                              Text(
+                                                diasSemana[diaSemana - 1],
+                                                style: const TextStyle(fontSize: 9),
+                                              ),
+                                              Text(
+                                                dataFormatada,
+                                                style: const TextStyle(fontSize: 9),
+                                              ),
+                                            ],
                                           );
                                         },
                                         reservedSize: 40,
                                       ),
-                                      axisNameWidget: const Text('Período'),
+                                      axisNameWidget: const Text('Dias e Datas'),
                                       axisNameSize: 24,
                                     ),
                                   ),

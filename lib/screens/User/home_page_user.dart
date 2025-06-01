@@ -694,7 +694,6 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   _buildNavIcon(Icons.home, 'Início', 0, context),
                   _buildNavIcon(Icons.search, 'Buscar', 1, context),
-                  _buildNavIcon(Icons.map, 'Mapa', 4, context), // Novo ícone de mapa
                   _buildNavIcon(Icons.list, 'Pedidos', 2, context),
                   _buildNavIcon(Icons.person, 'Conta', 3, context),
                 ],

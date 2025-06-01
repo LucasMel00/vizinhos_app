@@ -5,9 +5,9 @@ import 'package:im_stepper/stepper.dart'; // Importando o pacote im_stepper
 import 'package:vizinhos_app/screens/user/home_page_user.dart';
 import 'package:vizinhos_app/screens/search/search_page.dart';
 import 'package:vizinhos_app/screens/user/user_account_page.dart';
+import 'package:vizinhos_app/screens/orders/order_review_page.dart';
 import '../model/order_models.dart';
-import '../provider/order_service.dart';
-import 'order_review_page.dart';
+import '../provider/order_service.dart' as order_service;
 
 // Cores do tema com melhor contraste e acessibilidade
 final primaryColor = const Color(0xFFFbbc2c);
@@ -45,7 +45,7 @@ class OrdersPage extends StatefulWidget {
 }
 
 class _OrdersPageState extends State<OrdersPage> {
-  final OrdersService _ordersService = OrdersService();
+  final order_service.OrdersService _ordersService = order_service.OrdersService();
   List<OrderModel> _allOrders = [];
   List<OrderModel> _filteredOrders = [];
   bool _isLoading = false;
@@ -757,7 +757,7 @@ class _OrderCard extends StatelessWidget {
                         final result = await Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => OrderReviewPage(
+                            builder: (context) => OrderReviewCategoriesPage(
                               orderId: order.idPedido,
                               idEndereco: int.tryParse(order.produtos.first.loja.idLoja) ?? 0,
                             ),

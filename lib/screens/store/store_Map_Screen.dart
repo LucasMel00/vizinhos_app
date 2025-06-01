@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:vizinhos_app/screens/model/restaurant.dart';
 import 'package:vizinhos_app/screens/store/store_detail_page.dart';
+import 'package:geocoding/geocoding.dart';
 
 class RestaurantMapScreen extends StatefulWidget {
   final double userLatitude;
