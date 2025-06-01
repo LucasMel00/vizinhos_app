@@ -495,7 +495,7 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
 
   // Função auxiliar para arredondar médias para valores específicos
   double _roundToSpecificValues(double media) {
-    if (media >= 4.875) return 5.0;  // >= 4.875 → 5.0
+    if (media >= 4.875) return 4.75;  // >= 4.875 → 5.0
     if (media >= 4.625) return 4.75; // >= 4.625 → 4.75
     if (media >= 4.25)  return 4.5;  // >= 4.25 → 4.5
     return 4.0;                      // < 4.25 → 4.0
@@ -690,7 +690,7 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                                     ),
                                     SizedBox(width: 4),
                                     Text(
-                                      'Última avaliação: ${userSummary.ultimaData}',
+                                      'Data da avaliação: ${userSummary.ultimaData}',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Colors.grey[600],

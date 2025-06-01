@@ -5,7 +5,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:flutter_masked_text2/flutter_masked_text2.dart';
-import 'package:vizinhos_app/screens/vendor/vendor_products_page.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 import 'package:intl/intl.dart';
 
@@ -356,19 +355,12 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
         }
 
         // 2. Criar o lote associado ao produto
-        await _createBatch(createdProductId!);
-
-        ScaffoldMessenger.of(context).showSnackBar(
+        await _createBatch(createdProductId!);        ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Produto e lote criados com sucesso!')),
         );
 
-        // Navegação usando MaterialPageRoute
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => VendorProductsPage(),
-          ),
-        );
+        // Retorna para a página anterior indicando sucesso para atualizar a lista
+        Navigator.pop(context, true);
       } else {
         throw Exception('Erro ao criar produto: ${produtoResponse.body}');
       }
@@ -386,16 +378,11 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
   Future<void> _createBatch(String produtoId) async {
     try {
       final loteUri = Uri.parse(
-          'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/CreateBatch');
-
-      // Validação e parsing da quantidade
+          'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/CreateBatch');      // Validação e parsing da quantidade
       final quantidade = int.tryParse(quantityController.text);
       if (quantidade == null || quantidade <= 0) {
         throw Exception('Quantidade inválida');
       }
-
-      // Calcula o valor de venda com desconto e garante formato string com ponto
-      final valorVendaDesc = _calcularValorVendaDesconto().toStringAsFixed(2);
 
       // Monta o body do lote
       final loteBody = {
