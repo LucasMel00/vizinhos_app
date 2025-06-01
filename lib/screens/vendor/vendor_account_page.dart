@@ -28,6 +28,7 @@ class _VendorAccountPageState extends State<VendorAccountPage>
 
   bool _infoExpanded = true;
   bool _mercadoPagoKeyMissing = false;
+  String _deliveryType = 'Não especificado';
 
   final SecureStorage _secureStorage = SecureStorage();
 
@@ -36,6 +37,10 @@ class _VendorAccountPageState extends State<VendorAccountPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _currentUserInfo = widget.userInfo;
+    // Trigger delivery type fetch
+    final idEndereco = widget.userInfo['endereco']?['id_Endereco'];
+    final storeId = int.tryParse(idEndereco?.toString() ?? '') ?? 0;
+    if (storeId > 0) _getDeliveryType(storeId).then((val) => setState(() => _deliveryType = val));
     _loadStoreData();
   }
 
@@ -176,6 +181,24 @@ class _VendorAccountPageState extends State<VendorAccountPage>
     );
   }
 
+  // Async fetch of store delivery type via API
+  Future<String> _getDeliveryType(int storeId) async {
+    final url = 'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetStoreInfo?id_loja=$storeId';
+    try {
+      final response = await http.get(Uri.parse(url), headers: {'Content-Type': 'application/json'});
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final type = data['tipo_Entrega'];
+        if (type is String && type.isNotEmpty) return type;
+      } else {
+        debugPrint('Erro ao buscar delivery type: status ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Erro ao obter tipo de entrega: $e');
+    }
+    return 'Não especificado';
+  }
+
   @override
   Widget build(BuildContext context) {
     // ALERTA: Exigir cadastro do token Mercado Pago antes de tudo
@@ -214,7 +237,7 @@ class _VendorAccountPageState extends State<VendorAccountPage>
         widget.userInfo['usuario']?['telefone'] ?? 'Telefone não disponível';
     final storeAddress = '${loja['logradouro'] ?? ''}, ${loja['numero'] ?? ''}';
     final storeComplement = loja['complemento'] ?? '';
-    final deliveryType = loja['tipo_Entrega'] ?? 'Não especificado';
+    final deliveryType = _deliveryType;
     final storeCep = loja['cep'] ?? '';
 
     // Imagem da loja (compatível com ambos formatos)

@@ -292,13 +292,53 @@ class _OrdersVendorPageState extends State<OrdersVendorPage>
 
   // Adicionando variável para controlar o tipo de ordenação
   SortType _currentSortType = SortType.newest;
+  String _storeDeliveryType = '';
 
   String? get deliveryType => widget.deliveryType;
+
+  // Método para obter o tipo de entrega da loja
+  Future<String> _getDeliveryType(int storeId) async {
+    final url = 'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetStoreInfo?id_loja=$storeId';
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final storeData = json.decode(response.body);
+        final deliveryType = storeData['tipo_Entrega'];
+        if (deliveryType is String && deliveryType.isNotEmpty) {
+          return deliveryType;
+        }
+      } else {
+        debugPrint('Erro ao buscar delivery type: status ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Erro ao obter tipo de entrega: $e');
+    }
+    return 'Retirada';
+  }
+
+  // Buscar o tipo de entrega da loja
+  Future<void> _fetchStoreDeliveryType() async {
+    final storage = SecureStorage();
+    final storeId = await storage.getEnderecoId();
+    if (storeId != null && storeId.isNotEmpty) {
+      final type = await _getDeliveryType(int.tryParse(storeId) ?? 0);
+      if (mounted) {
+        setState(() {
+          _storeDeliveryType = type;
+        });
+      }
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _fetchStoreDeliveryType();
     _loadOrders();
   }
 
@@ -1063,6 +1103,31 @@ class _OrderCardState extends State<OrderCard> {
   OrderStatus? _selectedNextStatus;
   bool _isUpdating = false;
   bool _isCanceling = false;
+  String _storeDeliveryType = '';
+
+  // Método para obter o tipo de entrega da loja
+  Future<String> _getDeliveryType(int storeId) async {
+    final url = 'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetStoreInfo?id_loja=$storeId';
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final storeData = json.decode(response.body);
+        final deliveryType = storeData['tipo_Entrega'];
+        if (deliveryType is String && deliveryType.isNotEmpty) {
+          return deliveryType;
+        }
+      } else {
+        debugPrint('Erro ao buscar delivery type: status ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Erro ao obter tipo de entrega: $e');
+    }
+    return 'Retirada';
+  }
 
   // Função para buscar dados do cliente
   Future<Map<String, dynamic>?> _fetchClientInfo() async {
@@ -1228,11 +1293,25 @@ class _OrderCardState extends State<OrderCard> {
       },
     );
   }
-
   @override
   void initState() {
     super.initState();
+    _fetchStoreDeliveryType();
     _initializeNextStatus();
+  }
+
+  // Buscar o tipo de entrega da loja
+  Future<void> _fetchStoreDeliveryType() async {
+    final storage = SecureStorage();
+    final storeId = await storage.getEnderecoId();
+    if (storeId != null && storeId.isNotEmpty) {
+      final type = await _getDeliveryType(int.tryParse(storeId) ?? 0);
+      if (mounted) {
+        setState(() {
+          _storeDeliveryType = type;
+        });
+      }
+    }
   }
 
   // Inicializa o próximo status baseado no tipo de entrega e status atual
@@ -1240,10 +1319,10 @@ class _OrderCardState extends State<OrderCard> {
     final order = widget.order;
 
     if (order.status == OrderStatus.preparing) {
-      // Seleciona automaticamente o próximo status baseado no tipo de entrega
-      if (order.deliveryType == 'delivery') {
+      // Seleciona automaticamente o próximo status baseado no tipo de entrega da loja
+      if (_storeDeliveryType.toLowerCase().contains('delivery')) {
         _selectedNextStatus = OrderStatus.inDelivery;
-      } else if (order.deliveryType == 'retirada') {
+      } else {
         _selectedNextStatus = OrderStatus.readyForPickup;
       }
     }
@@ -1503,10 +1582,9 @@ class _OrderCardState extends State<OrderCard> {
           child: Padding(
             padding: EdgeInsets.all(widget.isWide ? 32 : 16),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+              crossAxisAlignment: CrossAxisAlignment.start,              children: [
                 // Status stepper usando im_stepper
-                ImStepperWidget(order: order),
+                ImStepperWidget(order: order, storeDeliveryType: _storeDeliveryType),
                 const SizedBox(height: 16),
 
                 // Cabeçalho do pedido com informações principais
@@ -1550,11 +1628,10 @@ class _OrderCardState extends State<OrderCard> {
                       decoration: BoxDecoration(
                         color: Colors.grey[100],
                         borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
+                      ),                      child: Row(
                         children: [
                           Icon(
-                            order.deliveryType == 'delivery'
+                            _storeDeliveryType.toLowerCase().contains('delivery')
                                 ? Icons.delivery_dining
                                 : Icons.store,
                             size: 16,
@@ -1562,7 +1639,7 @@ class _OrderCardState extends State<OrderCard> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            order.deliveryType == 'delivery'
+                            _storeDeliveryType.toLowerCase().contains('delivery')
                                 ? 'Entrega'
                                 : 'Retirada',
                             style: TextStyle(
@@ -1713,7 +1790,7 @@ class _OrderCardState extends State<OrderCard> {
                           ),
                         ],
                       ),
-                    )),
+                   )),
 
                 const Divider(height: 24),
 
@@ -2082,8 +2159,9 @@ class _OrderCardState extends State<OrderCard> {
 // Widget para exibir o stepper de status do pedido
 class ImStepperWidget extends StatelessWidget {
   final Order order;
+  final String storeDeliveryType;
 
-  const ImStepperWidget({required this.order});
+  const ImStepperWidget({required this.order, this.storeDeliveryType = ''});
 
   @override
   Widget build(BuildContext context) {
@@ -2153,14 +2231,12 @@ class ImStepperWidget extends StatelessWidget {
             ],
           ),
         );
-    }
-
-    // Definir os ícones para cada etapa
+    }    // Definir os ícones para cada etapa
     List<IconData> icons = [
       Icons.shopping_cart, // Pedido realizado
       Icons.payments_outlined, // Pagamento confirmado
       Icons.restaurant, // Em preparo
-      order.deliveryType == 'delivery'
+      storeDeliveryType.toLowerCase().contains('delivery')
           ? Icons.delivery_dining // Em rota (delivery)
           : Icons.store, // Pronto para retirada
       Icons.check_circle, // Concluído
