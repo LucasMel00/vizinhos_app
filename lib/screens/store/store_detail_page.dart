@@ -12,6 +12,19 @@ import 'package:shimmer/shimmer.dart';
 import 'package:provider/provider.dart';
 import 'package:vizinhos_app/screens/provider/cart_provider.dart';
 
+// Classe para resumo de avaliações por usuário
+class UserSummary {
+  final String usuario;
+  final double mediaNota;
+  final String ultimaData;
+
+  UserSummary({
+    required this.usuario,
+    required this.mediaNota,
+    required this.ultimaData,
+  });
+}
+
 // Paleta de cores consistente e acessível
 const Color primaryColor = Color(0xFFFbbc2c);
 const Color secondaryColor = Color(0xFF3B4351);
@@ -462,7 +475,6 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
       return 5.0;
     }
   }
-
   // Função para buscar avaliações da loja pela API
   Future<List<Map<String, dynamic>>> _fetchStoreReviews(String idLoja) async {
     try {
@@ -479,9 +491,82 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
       return [];
     } catch (_) {
       return [];
-    }
+    }  }
+
+  // Função auxiliar para arredondar médias para valores específicos
+  double _roundToSpecificValues(double media) {
+    if (media >= 4.875) return 5.0;  // >= 4.875 → 5.0
+    if (media >= 4.625) return 4.75; // >= 4.625 → 4.75
+    if (media >= 4.25)  return 4.5;  // >= 4.25 → 4.5
+    return 4.0;                      // < 4.25 → 4.0
   }
 
+  // Processa avaliações para calcular média por usuário
+  List<UserSummary> _processReviews(List<Map<String, dynamic>> reviews) {
+    Map<String, List<Map<String, dynamic>>> userReviews = {};
+    
+    // Agrupa avaliações por usuário
+    for (var review in reviews) {
+      final usuario = review['usuario'] ?? 'Usuário';
+      if (!userReviews.containsKey(usuario)) {
+        userReviews[usuario] = [];
+      }
+      userReviews[usuario]!.add(review);
+    }
+    
+    // Calcula média e última data para cada usuário
+    List<UserSummary> userSummaries = [];
+    userReviews.forEach((usuario, reviews) {
+      double mediaTotal = 0;
+      String ultimaData = '';
+      DateTime? ultimaDataObj;
+      
+      for (var review in reviews) {
+        final nota = review['nota'] ?? 5;
+        mediaTotal += nota;
+        
+        // Tenta pegar data_hora_criacao primeiro, depois data como fallback
+        final dataStr = review['data_hora_criacao'] ?? review['data'] ?? '';
+        if (dataStr.isNotEmpty) {
+          try {
+            final dataObj = DateTime.parse(dataStr);
+            if (ultimaDataObj == null || dataObj.isAfter(ultimaDataObj)) {
+              ultimaDataObj = dataObj;
+              ultimaData = DateFormat('dd/MM/yyyy').format(dataObj);
+            }
+          } catch (e) {
+            // Se não conseguir fazer parse da data, usa a string original formatada
+            if (ultimaData.isEmpty) {
+              // Tenta extrair apenas a data da string no formato ISO
+              if (dataStr.contains('T')) {
+                final datePart = dataStr.split('T')[0];
+                try {
+                  final dateObj = DateTime.parse(datePart);
+                  ultimaData = DateFormat('dd/MM/yyyy').format(dateObj);
+                } catch (e) {
+                  ultimaData = datePart;
+                }
+              } else {
+                ultimaData = dataStr;
+              }
+            }
+          }
+        }      }
+      
+      final media = mediaTotal / reviews.length;
+      final mediaArredondada = _roundToSpecificValues(media);
+      userSummaries.add(UserSummary(
+        usuario: usuario,
+        mediaNota: mediaArredondada,
+        ultimaData: ultimaData.isNotEmpty ? ultimaData : 'N/A',
+      ));
+    });
+    
+    // Ordena por média (maior para menor)
+    userSummaries.sort((a, b) => b.mediaNota.compareTo(a.mediaNota));
+    
+    return userSummaries;
+  }
   // Modal para exibir avaliações da loja
   void _showStoreReviewsModal(String idLoja) async {
     showModalBottomSheet(
@@ -501,6 +586,8 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
               );
             }
             final reviews = snapshot.data ?? [];
+            final userSummaries = _processReviews(reviews);
+            
             return Padding(
               padding: EdgeInsets.only(
                 left: 20,
@@ -530,7 +617,7 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                     ],
                   ),
                   Divider(),
-                  if (reviews.isEmpty)
+                  if (userSummaries.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 32.0),
                       child: Center(
@@ -546,39 +633,71 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                     Flexible(
                       child: ListView.separated(
                         shrinkWrap: true,
-                        itemCount: reviews.length,
+                        itemCount: userSummaries.length,
                         separatorBuilder: (_, __) => Divider(),
                         itemBuilder: (context, idx) {
-                          final review = reviews[idx];
-                          final nota = review['nota'] ?? 5;
-                          final comentario = review['comentario'] ?? '';
-                          final usuario = review['usuario'] ?? 'Usuário';
-                          final data = review['data'] ?? '';
+                          final userSummary = userSummaries[idx];
                           return ListTile(
-                            leading: Icon(Icons.star, color: Colors.amber),
-                            title: Row(
-                              children: [
-                                Text(
-                                  usuario,
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Nota: $nota',
-                                  style: TextStyle(color: Colors.amber[900]),
-                                ),
-                              ],
+                            leading: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Colors.amber.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.person,
+                                color: Colors.amber[700],
+                                size: 20,
+                              ),
+                            ),
+                            title: Text(
+                              userSummary.usuario,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
                             ),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                if (comentario.isNotEmpty) Text(comentario),
-                                if (data.isNotEmpty)
-                                  Text(
-                                    data,
-                                    style: TextStyle(
-                                        fontSize: 12, color: Colors.grey[600]),
-                                  ),
+                                SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.star,
+                                      color: Colors.amber,
+                                      size: 16,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Média: ${userSummary.mediaNota.toStringAsFixed(1)}',
+                                      style: TextStyle(
+                                        color: Colors.amber[900],
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.calendar_today,
+                                      color: Colors.grey[600],
+                                      size: 14,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Última avaliação: ${userSummary.ultimaData}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ],
                             ),
                           );
@@ -607,11 +726,9 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
             return _buildErrorState(snapshot.error);
           } else if (snapshot.hasData) {
             final restaurant = snapshot.data!;
-            final storeImageUrl = restaurant.imagemUrl;
-
-            // Filtrar produtos disponíveis
+            final storeImageUrl = restaurant.imagemUrl;            // Filtrar produtos disponíveis
             final availableProducts =
-                restaurant.produtos.where((p) => p.disponivel ?? true).toList();
+                restaurant.produtos.where((p) => p.disponivel == true).toList();
 
             // Aplicar filtros adicionais
             final filteredProducts =
@@ -1483,10 +1600,8 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
       ),
     );
   }
-
   // Card de produto com botão de adicionar ao carrinho
   Widget _buildProductCard(BuildContext context, Product product) {
-    final cartProvider = Provider.of<CartProvider>(context);
     final productImageUrl = product.imagemUrl;
     final String formattedPrice = _formatCurrency(product.valorVenda);
 

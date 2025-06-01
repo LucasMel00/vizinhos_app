@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vizinhos_app/screens/model/order.dart';
 import 'package:vizinhos_app/screens/user/home_page_user.dart'; // Ensure this file exists and contains the HomePageUser class
 import 'package:vizinhos_app/screens/user/user_profile_page.dart';
 import 'package:vizinhos_app/screens/login/email_screen.dart';
@@ -10,6 +11,7 @@ import 'package:vizinhos_app/screens/onboarding/onboarding_vendor_screen.dart';
 import 'package:vizinhos_app/screens/orders/orders_page.dart' hide secondaryColor;
 import 'package:vizinhos_app/screens/search/search_page.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_account_page.dart';
+import 'package:vizinhos_app/screens/vendor/vendor_subscription_screen_new.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:vizinhos_app/screens/user/help_page.dart';
@@ -26,11 +28,10 @@ class UserAccountPage extends StatefulWidget {
 }
 
 class _UserAccountPageState extends State<UserAccountPage> {
-  int _selectedIndex = 3;
-  final storage = const FlutterSecureStorage();
+  int _selectedIndex = 3;  final storage = const FlutterSecureStorage();
   bool _isLoading = true; // Agora só usamos esta flag
   Map<String, dynamic>? _userInfo;
-
+  Map<String, dynamic>? _subscriptionInfo;
   @override
   void initState() {
     super.initState();
@@ -40,6 +41,12 @@ class _UserAccountPageState extends State<UserAccountPage> {
     if (widget.userInfo != null) {
       _userInfo = widget.userInfo;
       _isLoading = false;
+      
+      // Se o usuário for vendedor, busca as informações da assinatura
+      final isSeller = widget.userInfo!['usuario']?['Usuario_Tipo'] == 'seller';
+      if (isSeller) {
+        _fetchSubscriptionInfo();
+      }
     }
   }
 
@@ -73,12 +80,17 @@ class _UserAccountPageState extends State<UserAccountPage> {
         final idEndereco = data['endereco']?['id_Endereco'];
         if (idEndereco != null) {
           await authProvider.setIdEndereco(idEndereco.toString());
-        }
-        if (!mounted) return;
+        }        if (!mounted) return;
         setState(() {
           _userInfo = data;
           _isLoading = false;
         });
+
+        // Se o usuário for vendedor, busca também as informações da assinatura
+        final isSeller = data['usuario']?['Usuario_Tipo'] == 'seller';
+        if (isSeller) {
+          await _fetchSubscriptionInfo();
+        }
       } else {
         throw Exception('Status code: ${response.statusCode}');
       }
@@ -90,6 +102,43 @@ class _UserAccountPageState extends State<UserAccountPage> {
         // Mantemos os dados antigos se a atualização falhar
         setState(() => _isLoading = false);
       }
+    }  }
+  Future<void> _fetchSubscriptionInfo() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final cpf = authProvider.cpf;
+    
+    if (cpf == null || cpf.isEmpty) {
+      print("CPF não encontrado para buscar informações da assinatura");
+      return;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/TimeVendorSubscriptionStatus?cpf=$cpf'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (mounted) {
+          setState(() {
+            _subscriptionInfo = data;
+          });
+        }
+        print("Informações da assinatura carregadas: $data");
+      } else if (response.statusCode == 400) {
+        // Vendedor sem assinatura ativa ou expirada
+        print("Vendedor sem assinatura ativa: ${response.statusCode}");
+        if (mounted) {
+          setState(() {
+            _subscriptionInfo = null;
+          });
+        }
+      } else {
+        print("Erro ao buscar assinatura: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Erro ao buscar informações da assinatura: $e");
     }
   }
 
@@ -103,10 +152,10 @@ class _UserAccountPageState extends State<UserAccountPage> {
       (route) => false,
     );
   }
-
   // Função para atualizar os dados do usuário (refresh)
   Future<void> _handleRefresh() async {
     await _fetchUserData();
+    // As informações da assinatura já são buscadas dentro do _fetchUserData se necessário
   }
 
   // Widget auxiliar para construir um ListTile (opção)
@@ -290,15 +339,207 @@ class _UserAccountPageState extends State<UserAccountPage> {
             )
           ],
         ),
+      ),    );
+  }
+
+  Widget _buildPremiumSubscriptionCard() {
+    if (_subscriptionInfo == null) return const SizedBox.shrink();
+
+    final diasRestantes = _subscriptionInfo!['dias_restantes'] ?? 0;
+    final tempoFormatado = _subscriptionInfo!['tempo_restante_formatado'] ?? '';
+    final dataExpiracao = _subscriptionInfo!['data_expiracao'] ?? '';
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFbbc2c), Color(0xFFf39c12)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFbbc2c).withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.workspace_premium,
+                color: Colors.white,
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Assinatura Premium',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            tempoFormatado,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Expira em: ${_formatDate(dataExpiracao)}',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.9),
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            height: 8,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: diasRestantes > 0 ? (diasRestantes / 365).clamp(0.0, 1.0) : 0.0,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+  String _formatDate(String dateString) {
+    try {
+      final date = DateTime.parse(dateString.replaceAll(' ', 'T'));
+      return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+    } catch (e) {
+      return dateString;
+    }
+  }
 
+  Widget _buildExpiredSubscriptionCard() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFe74c3c), Color(0xFFc0392b)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFe74c3c).withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.warning_amber_outlined,
+                color: Colors.white,
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Assinatura Expirada',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Sua assinatura de vendedor expirou',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Renove agora para continuar vendendo',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.9),
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                final email = authProvider.email;
+                if (email != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => VendorSubscriptionScreen(email: email),
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.refresh, color: Color(0xFFe74c3c)),
+              label: const Text(
+                'Renovar Assinatura',
+                style: TextStyle(
+                  color: Color(0xFFe74c3c),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final bool isSeller = authProvider.isSeller ||
         (_userInfo?['usuario']?['Usuario_Tipo'] == 'seller');
+
+    // Verifica se a assinatura está ativa (não nula E dias_restantes > 0)
+    final bool hasActiveSubscription = _subscriptionInfo != null && 
+        (_subscriptionInfo!['dias_restantes'] ?? 0) > 0;
 
     // Se ainda está carregando, mostre um indicador de progresso
     if (_isLoading) {
@@ -413,12 +654,9 @@ class _UserAccountPageState extends State<UserAccountPage> {
                     ),
                   ),
                 ],
-              ),
-            ),
-            const Divider(),
-
-            // Painel do vendedor (exibido se o usuário for vendedor)
-            if (isSeller)
+              ),            ),
+            const Divider(),            // Painel do vendedor (exibido só se o usuário for vendedor E tiver assinatura ativa)
+            if (isSeller && hasActiveSubscription)
               _buildListTile(
                 icon: Icons.store_mall_directory,
                 title: 'Sua Loja',
@@ -446,28 +684,41 @@ class _UserAccountPageState extends State<UserAccountPage> {
                 }
               },
             ),
-            _buildListTile(
-              icon: Icons.notifications_none,
-              title: 'Notificação',
-              onTap: () {
-                if (mounted) {
-                  Navigator.pushNamed(context, '/notifications');
-                }
-              },
-            ),
+            
             _buildListTile(
               icon: Icons.star_border,
-              title: 'Avalie seu Vizinho',
-              onTap: () {},
+              title: 'Avalie seus Vizinhos',
+              onTap: () {
+              if (mounted) {
+                final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                final cpf = authProvider.cpf ?? '';
+                Navigator.push(
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (_, __, ___) => OrdersPage(cpf: cpf),
+                  transitionDuration: const Duration(milliseconds: 300),
+                  transitionsBuilder: (_, animation, __, child) =>
+                    FadeTransition(opacity: animation, child: child),
+                ),
+                );
+              }
+              },
             ),
-            ListTile(
+                       ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
               title:
                   const Text('Deslogar', style: TextStyle(color: Colors.red)),
               onTap: () async {
                 await _logout(context);
               },
-            ),
+            ),            // Card de assinatura premium no rodapé (só para vendedores)
+            if (isSeller) ...[
+              const SizedBox(height: 20),
+              if (hasActiveSubscription) 
+                _buildPremiumSubscriptionCard()
+              else 
+                _buildExpiredSubscriptionCard(),
+            ],
           ],
         ),
       ),

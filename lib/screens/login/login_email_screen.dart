@@ -10,6 +10,8 @@ import 'package:vizinhos_app/screens/login/code_password_page.dart'
     hide ForgotPasswordPage;
 import 'package:vizinhos_app/screens/login/reset_code_page.dart';
 import 'package:vizinhos_app/screens/login/reset_password_page.dart';
+import 'package:vizinhos_app/screens/vendor/vendor_subscription_screen.dart';
+import 'package:vizinhos_app/screens/vendor/vendor_subscription_screen_new.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 
 class LoginEmailScreen extends StatefulWidget {
@@ -23,24 +25,108 @@ class LoginEmailScreen extends StatefulWidget {
 
 class _LoginEmailScreenState extends State<LoginEmailScreen> {
   final TextEditingController _passwordController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
-  bool _isLoading = false;
+  final _formKey = GlobalKey<FormState>();  bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
-  final storage = FlutterSecureStorage();
+  bool _needsSubscriptionPayment = false;
+  final storage = FlutterSecureStorage();  Future<Map<String, dynamic>> _checkVendorSubscriptionStatus() async {
+    final url = Uri.parse(
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/RefreshVendorSubscriptionStatus?email=${Uri.encodeComponent(widget.email)}');
+
+    try {
+      print("Verificando status da assinatura do vendedor para: ${widget.email}");
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      print("Status da verificação de assinatura: ${response.statusCode}");
+      print("Resposta da verificação: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        final status = responseData['status_plano'];
+        
+        print("Status do plano do vendedor: $status");
+        
+        // Verifica se o status é "Pago"
+        return {
+          'canLogin': status == 'Pago',
+          'isVendor': true,
+          'needsPayment': status != 'Pago'
+        };
+      } else if (response.statusCode == 400) {
+        final responseData = jsonDecode(response.body);
+        final message = responseData['message'] ?? '';
+        
+        print("Erro 400 na verificação de assinatura: $message");
+        
+        // Se o usuário não é um vendedor, permite continuar (é um cliente comum)
+        if (message.contains('não é um vendedor') || 
+            message.contains('Vendedor não encontrado')) {
+          print("Usuário é cliente comum, permitindo login");
+          return {
+            'canLogin': true,
+            'isVendor': false,
+            'needsPayment': false
+          };
+        }
+        
+        // Para outros erros 400, bloqueia o login
+        return {
+          'canLogin': false,
+          'isVendor': true,
+          'needsPayment': true
+        };
+      } else {
+        print("Erro HTTP ao verificar status da assinatura: ${response.statusCode}");
+        return {
+          'canLogin': false,
+          'isVendor': true,
+          'needsPayment': true
+        };
+      }
+    } catch (e) {
+      print("Erro na verificação do status da assinatura: $e");
+      // Em caso de erro de rede, permite o login como fallback
+      // mas apenas para evitar bloquear usuários em caso de problemas temporários
+      return {
+        'canLogin': true,
+        'isVendor': false,
+        'needsPayment': false
+      };
+    }
+  }
 
   Future<void> _loginUser(BuildContext context) async {
     if (!_formKey.currentState!.validate()) return;
 
-    final url = Uri.parse(
-        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/LoginUser');
-
     setState(() {
       _isLoading = true;
       _errorMessage = null;
-    });
+    });    print("Iniciando login para o usuário: ${widget.email}");
 
-    print("Iniciando login para o usuário: ${widget.email}");
+    // Primeiro, verifica o status da assinatura do vendedor
+    final subscriptionResult = await _checkVendorSubscriptionStatus();
+    
+    if (!subscriptionResult['canLogin']) {
+      setState(() {
+        _isLoading = false;
+        _needsSubscriptionPayment = subscriptionResult['needsPayment'];
+        _errorMessage = 'Sua assinatura de vendedor não está ativa ou há pendências de pagamento. Complete o pagamento para continuar.';
+      });
+      print("Login bloqueado: assinatura do vendedor não está ativa");
+      return;
+    }
+
+    final url = Uri.parse(
+        'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/LoginUser');
+
+    print("Status da assinatura verificado com sucesso, prosseguindo com login");
 
     try {
       final response = await http
@@ -108,7 +194,13 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
     } finally {
       setState(() => _isLoading = false);
       print("Processo de login finalizado");
-    }
+    }  }  void _navigateToSubscriptionPayment() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => VendorSubscriptionScreen(email: widget.email),
+      ),
+    );
   }
 
   // Método para recuperar tokens armazenados (para debug)
@@ -244,9 +336,7 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
         return null;
       },
     );
-  }
-
-  Widget _buildError() {
+  }  Widget _buildError() {
     return Container(
       padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -267,12 +357,17 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
       ),
     );
   }
-
   Widget _buildLoginButton() {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: _isLoading ? null : () => _loginUser(context),
+        onPressed: _isLoading ? null : () {
+          if (_needsSubscriptionPayment) {
+            _navigateToSubscriptionPayment();
+          } else {
+            _loginUser(context);
+          }
+        },
         style: ElevatedButton.styleFrom(
           backgroundColor: Color(0xFFFbbc2c),
           foregroundColor: Colors.white,
@@ -292,7 +387,18 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
                   color: Colors.white,
                 ),
               )
-            : Text('Entrar', style: TextStyle(fontSize: 16)),
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (_needsSubscriptionPayment) 
+                    Icon(Icons.payment, color: Colors.white, size: 20),
+                  if (_needsSubscriptionPayment) SizedBox(width: 8),
+                  Text(
+                    _needsSubscriptionPayment ? 'Ir ao Pagamento' : 'Entrar',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ],
+              ),
       ),
     );
   }

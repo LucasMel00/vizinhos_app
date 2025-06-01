@@ -5,7 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:vizinhos_app/screens/login/login_email_screen.dart';
 import 'package:vizinhos_app/screens/terms_screen.dart';
-import 'package:image_picker/image_picker.dart'; // Para seleção de imagens
+import 'package:vizinhos_app/screens/vendor/vendor_subscription_screen.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:vizinhos_app/screens/vendor/vendor_subscription_screen_new.dart'; // Para seleção de imagens
 
 class RegistrationScreen extends StatefulWidget {
   final String email;
@@ -354,9 +356,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
       // DEBUG: Imprime o status e corpo da resposta SEMPRE
       print('Status Code: ${response.statusCode}');
-      print('Response Body: ${response.body}');
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      print('Response Body: ${response.body}');      if (response.statusCode == 200 || response.statusCode == 201) {
         // Aceitar 201 (Created) também
         // Sucesso
         if (mounted) {
@@ -367,17 +367,31 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               backgroundColor: Colors.green[700],
             ),
           );
-          // Navega para o Login após um pequeno delay para o usuário ver o snackbar
+          
+          // Navega para diferentes telas dependendo do tipo de usuário
           Future.delayed(const Duration(seconds: 2), () {
             if (mounted) {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(
-                    builder: (context) =>
-                        LoginEmailScreen(email: widget.email)),
-                (Route<dynamic> route) =>
-                    false, // Remove todas as rotas anteriores
-              );
+              if (isSeller) {
+                // Se for vendedor, vai para a tela de assinatura
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) =>
+                          VendorSubscriptionScreen(email: widget.email)),
+                  (Route<dynamic> route) =>
+                      false, // Remove todas as rotas anteriores
+                );
+              } else {
+                // Se for cliente, vai direto para o login
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) =>
+                          LoginEmailScreen(email: widget.email)),
+                  (Route<dynamic> route) =>
+                      false, // Remove todas as rotas anteriores
+                );
+              }
             }
           });
         }
@@ -495,7 +509,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Color(0xFFFbbc2c)!, width: 2),
+          borderSide: BorderSide(color: Color(0xFFFbbc2c), width: 2),
         ),
         errorBorder: OutlineInputBorder(
           // Estilo para erro de validação
@@ -789,7 +803,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 color: isSeller ? Colors.green[50] : Colors.grey[50],
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isSeller ? Color(0xFFFbbc2c)! : Colors.grey[300]!,
+                  color: isSeller ? Color(0xFFFbbc2c) : Colors.grey[300]!,
                   width: isSeller ? 1.5 : 1.0,
                 ),
               ),
@@ -966,26 +980,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
   }
 
-  // Validação básica ao tentar avançar de página (opcional, mas melhora UX)
-  bool _validateCurrentPage() {
-    // Adicione validações por página se desejar feedback imediato ao clicar em "CONTINUAR"
-    // Exemplo para a primeira página:
-    if (_currentPage == 0) {
-      if (fullNameController.text.trim().isEmpty ||
-          cpfController.text.replaceAll(RegExp(r'[^0-9]'), '').length != 11) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text("Preencha Nome e CPF corretamente para continuar."),
-              backgroundColor: Colors.orange),
-        );
-        return false;
-      }
-    }
-    // Adicione validações para as outras páginas (_currentPage == 1, etc.) aqui
-    // if (_currentPage == 1) { ... }
-
-    return true; // Permite avançar se a validação da página atual passar
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1093,7 +1087,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         padding: const EdgeInsets.symmetric(
                             vertical: 14), // Padding interno
                         foregroundColor: Color(0xFFFbbc2c),
-                        side: BorderSide(color: Color(0xFFFbbc2c)!),
+                        side: BorderSide(color: Color(0xFFFbbc2c)),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
