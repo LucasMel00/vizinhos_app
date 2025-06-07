@@ -1,4 +1,4 @@
-# 📱 Vizinhos : Conecte-se à sua Comunidade Local
+# 📱 Vizinhos : A comida do vizinho é sempre melhor que a sua!
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue.svg)](https://flutter.dev) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) <!-- Adicionar badges relevantes, como build status -->
 
