@@ -119,7 +119,7 @@ Este projeto está licenciado sob a Licença MIT. Veja o arquivo [LICENSE](LICEN
 
 ## Contato
 
-Lucas Melo - [Seu Email ou Link de Contato]
+Lucas Melo - melo.goncalves@aluno.ifsp.edu.br
 
 Link do Projeto: [https://github.com/LucasMel00/vizinhos_app](https://github.com/LucasMel00/vizinhos_app)
 
