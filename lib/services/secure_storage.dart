@@ -4,7 +4,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class SecureStorage {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  // Keys for storing data
   static const String _accessTokenKey = 'access_token';
   static const String _idTokenKey = 'id_token';
   static const String _refreshTokenKey = 'refresh_token';
@@ -13,12 +12,9 @@ class SecureStorage {
   static const String _idEnderecoKey = 'id_Endereco';
   static const String _fcmTokenKey = 'fcm_token';
   static const String _cpf = 'cpf';
-  
-  // Mercado Pago keys
   static const String _mercadoPagoTokenKey = 'mercado_pago_token';
   static const String _mercadoPagoSkippedKey = 'mercado_pago_skipped';
 
-  // Token methods
   Future<void> setAccessToken(String token) async {
     await _storage.write(key: _accessTokenKey, value: token);
   }
@@ -77,7 +73,6 @@ class SecureStorage {
     await _storage.delete(key: _cpf);
   }
 
-  // Store info methods
   Future<void> setStoreInfo(Map<String, dynamic> storeInfo) async {
     await _storage.write(key: _storeInfoKey, value: json.encode(storeInfo));
   }
@@ -106,10 +101,8 @@ class SecureStorage {
     await _storage.delete(key: _idEnderecoKey);
   }
 
-  // Mercado Pago methods
   Future<void> setMercadoPagoToken(String token) async {
     await _storage.write(key: _mercadoPagoTokenKey, value: token);
-    // Quando um token é salvo, automaticamente marcamos como não pulado
     await setMercadoPagoSkipped(false);
   }
 
@@ -131,7 +124,6 @@ class SecureStorage {
     await _storage.delete(key: _mercadoPagoSkippedKey);
   }
 
-  // Utilitário geral
   Future<Map<String, String>> readAllValues() async {
     return await _storage.readAll();
   }

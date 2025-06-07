@@ -10,7 +10,7 @@ class UserService {
   Future<Map<String, dynamic>> getUserInfo(String email) async {
     try {
       final response = await http.get(
-        Uri.parse('$apiUrl/GetUserByEmail?email=$email'), // Endpoint da API
+        Uri.parse('$apiUrl/GetUserByEmail?email=$email'),
         headers: {},
       );
 

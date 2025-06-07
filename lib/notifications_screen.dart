@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart'; // Para formatação de data
+import 'package:intl/intl.dart';
 import 'package:vizinhos_app/screens/provider/notification_provider.dart';
 
 class NotificationsScreen extends StatelessWidget {
@@ -152,8 +152,6 @@ class NotificationsScreen extends StatelessWidget {
                         if (!notification.isRead) {
                           notificationProvider.markAsRead(notification.id);
                         }
-                        // Poderia navegar para um detalhe da notificação se houvesse
-                        // ou mostrar um dialogo com mais informações.
                         showDialog(
                             context: context,
                             builder: (ctx) => AlertDialog(

@@ -43,7 +43,6 @@ class ProductModel {
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
-    // Tratamento seguro para conversão de tipos
     int parseQuantidade(dynamic value) {
       if (value == null) return 0;
       if (value is int) return value;
@@ -83,7 +82,7 @@ class OrderModel {
   final String? qrCode;
   final String? qrCodeBase64;
   final List<ProductModel> produtos;
-  final bool avaliacaoFeita; // true se já foi avaliado
+  final bool avaliacaoFeita;
 
   OrderModel({
     required this.idPedido,
@@ -99,7 +98,6 @@ class OrderModel {
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
-    // Tratamento seguro para conversão de tipos
     double parseValorTotal(dynamic value) {
       if (value == null) return 0.0;
       if (value is double) return value;

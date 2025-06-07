@@ -5,8 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:vizinhos_app/screens/model/cart_item.dart';
 import 'package:vizinhos_app/screens/payment/payment_sucess_screen.dart';
 import 'package:vizinhos_app/screens/provider/cart_provider.dart';
-// Adicione o import do AuthProvider quando estiver disponível
-// import 'package:vizinhos_app/screens/provider/auth_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 
@@ -29,7 +27,6 @@ class CartScreen extends StatelessWidget {
     return format.format(value);
   }
 
-  // Adicione este método à classe CartScreen para debug
   void _debugPrintCartContents(List<CartItem> items) {
     debugPrint('=== DEBUG: Conteúdo do Carrinho ===');
     for (var item in items) {

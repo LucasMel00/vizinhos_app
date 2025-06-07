@@ -5,12 +5,10 @@ import 'package:provider/provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_edit_page.dart';
 
-// Telas
 import 'user_address_editor_page.dart';
 import 'user_profile_editor_page.dart';
-import 'user_account_page.dart'; // Ajuste conforme sua estrutura
+import 'user_account_page.dart';
 
-// Serviços
 import '../../services/auth_provider.dart';
 
 class UserProfilePage extends StatefulWidget {
@@ -104,7 +102,6 @@ class _UserProfilePageState extends State<UserProfilePage> {
                 _navigateToAddressEdit();
               },
             ),
-            // Adiciona opção de editar loja apenas para vendedores
             if (userData?['usuario']?['Usuario_Tipo'] == 'seller' ||
                 userData?['usuario']?['Usuario_Tipo'] == 'seller_customer')
               ListTile(
@@ -154,14 +151,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
   }
 
   void _navigateToVendorEdit() {
-    // Ensure storeData has required fields
     final normalizedStoreData = {
       'loja': userData?['loja'] ?? {},
       'endereco': userData?['endereco'] ?? {},
     };
-
-    // Add debug logs to verify data being passed
-    print('Debug: Dados passados para VendorEditPage: $normalizedStoreData');
 
     Navigator.push(
       context,

@@ -1,11 +1,11 @@
 class PaymentResult {
-  final String status; // ex: "pending"
-  final String qrCode; // payload para copiar
-  final String qrCodeBase64; // imagem codificada
-  final String paymentId; // ID do pagamento
-  final String orderId; // ID do pedido
-  final double transactionAmount; // Valor da transação
-  final String collectorId; // ID do recebedor
+  final String status;
+  final String qrCode;
+  final String qrCodeBase64;
+  final String paymentId;
+  final String orderId;
+  final double transactionAmount;
+  final String collectorId;
 
   PaymentResult({
     required this.status,
@@ -18,9 +18,7 @@ class PaymentResult {
   });
 
   factory PaymentResult.fromJson(Map<String, dynamic> json) {
-    // Extrai dados do pagamento da resposta da API
     final paymentData = json['pagamento'] ?? {};
-    
     return PaymentResult(
       status: json['status_pedido'] ?? 'pending',
       qrCode: paymentData['qr_code'] ?? '',

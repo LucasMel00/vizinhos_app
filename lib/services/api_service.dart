@@ -1,11 +1,10 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:vizinhos_app/services/auth_provider.dart'; // Importa o AuthProvider
+import 'package:vizinhos_app/services/auth_provider.dart';
 
 class ApiService {
-  final AuthProvider _authProvider = AuthProvider(); // Instancia o AuthProvider
+  final AuthProvider _authProvider = AuthProvider();
 
-  // Método para obter os dados da loja
   Future<Map<String, dynamic>?> fetchStoreById(String idEndereco) async {
     final url = Uri.parse(
         'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetAddressById?id_Endereco=$idEndereco');
@@ -19,7 +18,7 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body); // Retorna os dados da loja
+        return jsonDecode(response.body);
       } else {
         throw Exception('Falha ao carregar dados da loja');
       }

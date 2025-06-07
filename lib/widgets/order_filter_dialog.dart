@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-// Importar apenas o que precisamos
 enum OrderStatus {
   pending,
   awaitingPayment,
@@ -18,7 +17,6 @@ enum DeliveryType {
   pickup
 }
 
-// Classe simples para armazenar as opções de filtro
 class OrderFilters {
   DateTime? startDate;
   DateTime? endDate;
@@ -49,7 +47,6 @@ class OrderFilters {
     return count;
   }
   
-  // Reset all filters
   void reset() {
     startDate = null;
     endDate = null;
@@ -57,7 +54,6 @@ class OrderFilters {
     deliveryTypes.clear();
   }
   
-  // Create a copy of the current filters
   OrderFilters copy() {
     return OrderFilters(
       startDate: startDate,
@@ -68,7 +64,6 @@ class OrderFilters {
   }
 }
 
-// Widget de diálogo para o filtro de pedidos
 class OrderFilterDialog extends StatefulWidget {
   final OrderFilters filters;
   final Color primaryColor;
@@ -94,13 +89,11 @@ class _OrderFilterDialogState extends State<OrderFilterDialog> {
     _tempFilters = widget.filters.copy();
   }
   
-  // Retorna uma string formatada para exibição da data
   String _formatDate(DateTime? date) {
     if (date == null) return "Selecionar";
     return DateFormat('dd/MM/yyyy').format(date);
   }
 
-  // Retorna o nome amigável do status
   String _getStatusName(OrderStatus status) {
     switch (status) {
       case OrderStatus.pending: return 'Pendente';
@@ -123,7 +116,6 @@ class _OrderFilterDialogState extends State<OrderFilterDialog> {
           const SizedBox(width: 8),
           const Text('Filtrar Pedidos'),
           const Spacer(),
-          // Botão para limpar filtros
           TextButton(
             onPressed: () {
               setState(() {
@@ -139,7 +131,6 @@ class _OrderFilterDialogState extends State<OrderFilterDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Filtro por período
             const Text(
               'Período',
               style: TextStyle(
@@ -149,7 +140,6 @@ class _OrderFilterDialogState extends State<OrderFilterDialog> {
             ),
             const SizedBox(height: 8),
             
-            // Data inicial
             Row(
               children: [
                 const Text('De: '),
@@ -192,7 +182,6 @@ class _OrderFilterDialogState extends State<OrderFilterDialog> {
               ],
             ),
             
-            // Data final
             Row(
               children: [
                 const Text('Até: '),
@@ -238,7 +227,6 @@ class _OrderFilterDialogState extends State<OrderFilterDialog> {
             const SizedBox(height: 16),
             const Divider(),
             
-            // Filtro por status
             const Text(
               'Status do Pedido',
               style: TextStyle(
@@ -248,7 +236,6 @@ class _OrderFilterDialogState extends State<OrderFilterDialog> {
             ),
             const SizedBox(height: 8),
             
-            // Lista de chips para status
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -275,7 +262,6 @@ class _OrderFilterDialogState extends State<OrderFilterDialog> {
             const SizedBox(height: 16),
             const Divider(),
             
-            // Filtro por tipo de entrega
             const Text(
               'Tipo de Entrega',
               style: TextStyle(
@@ -285,11 +271,9 @@ class _OrderFilterDialogState extends State<OrderFilterDialog> {
             ),
             const SizedBox(height: 8),
             
-            // Lista de chips para tipo de entrega
             Row(
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                // Chip para entrega
                 FilterChip(
                   selected: _tempFilters.deliveryTypes.contains(DeliveryType.delivery),
                   label: Row(
@@ -315,7 +299,6 @@ class _OrderFilterDialogState extends State<OrderFilterDialog> {
                 
                 const SizedBox(width: 8),
                 
-                // Chip para retirada
                 FilterChip(
                   selected: _tempFilters.deliveryTypes.contains(DeliveryType.pickup),
                   label: Row(

@@ -2,7 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-// --- Order e OrderItem (do order.dart) ---
 class Order {
   final String id;
   final DateTime date;
@@ -126,7 +125,6 @@ class OrderItem {
       ).format(total);
 }
 
-// --- StoreModel, ProductModel, OrderModel, OrdersResponse (do order_models.dart) ---
 class StoreModel {
   final String idLoja;
   final String nomeLoja;

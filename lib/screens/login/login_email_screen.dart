@@ -10,7 +10,6 @@ import 'package:vizinhos_app/screens/login/code_password_page.dart'
     hide ForgotPasswordPage;
 import 'package:vizinhos_app/screens/login/reset_code_page.dart';
 import 'package:vizinhos_app/screens/login/reset_password_page.dart';
-import 'package:vizinhos_app/screens/vendor/vendor_subscription_screen.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_subscription_screen_new.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 
@@ -25,11 +24,14 @@ class LoginEmailScreen extends StatefulWidget {
 
 class _LoginEmailScreenState extends State<LoginEmailScreen> {
   final TextEditingController _passwordController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();  bool _isLoading = false;
+  final _formKey = GlobalKey<FormState>();
+  bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
   bool _needsSubscriptionPayment = false;
-  final storage = FlutterSecureStorage();  Future<Map<String, dynamic>> _checkVendorSubscriptionStatus() async {
+  final storage = FlutterSecureStorage();
+
+  Future<Map<String, dynamic>> _checkVendorSubscriptionStatus() async {
     final url = Uri.parse(
         'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/RefreshVendorSubscriptionStatus?email=${Uri.encodeComponent(widget.email)}');
 
@@ -53,7 +55,6 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
         
         print("Status do plano do vendedor: $status");
         
-        // Verifica se o status é "Pago"
         return {
           'canLogin': status == 'Pago',
           'isVendor': true,
@@ -65,7 +66,6 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
         
         print("Erro 400 na verificação de assinatura: $message");
         
-        // Se o usuário não é um vendedor, permite continuar (é um cliente comum)
         if (message.contains('não é um vendedor') || 
             message.contains('Vendedor não encontrado')) {
           print("Usuário é cliente comum, permitindo login");
@@ -76,7 +76,6 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
           };
         }
         
-        // Para outros erros 400, bloqueia o login
         return {
           'canLogin': false,
           'isVendor': true,
@@ -92,8 +91,6 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
       }
     } catch (e) {
       print("Erro na verificação do status da assinatura: $e");
-      // Em caso de erro de rede, permite o login como fallback
-      // mas apenas para evitar bloquear usuários em caso de problemas temporários
       return {
         'canLogin': true,
         'isVendor': false,
@@ -108,9 +105,10 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
-    });    print("Iniciando login para o usuário: ${widget.email}");
+    });
 
-    // Primeiro, verifica o status da assinatura do vendedor
+    print("Iniciando login para o usuário: ${widget.email}");
+
     final subscriptionResult = await _checkVendorSubscriptionStatus();
     
     if (!subscriptionResult['canLogin']) {
@@ -149,7 +147,6 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
       print("Resposta decodificada: $responseData");
 
       if (response.statusCode == 200) {
-        // Armazena os tokens com as chaves corretas (use EXATAMENTE a mesma capitalização da API)
         await storage.write(
             key: 'accessToken', value: responseData['AccessToken']);
         await storage.write(key: 'idToken', value: responseData['idToken']);
@@ -159,7 +156,6 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
             key: 'expiresIn', value: responseData['expiresIn'].toString());
         await storage.write(key: 'email', value: widget.email);
 
-        // Atualiza também o estado no AuthProvider
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         await authProvider.login(
           accessToken: responseData['AccessToken'],
@@ -194,7 +190,10 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
     } finally {
       setState(() => _isLoading = false);
       print("Processo de login finalizado");
-    }  }  void _navigateToSubscriptionPayment() {
+    }
+  }
+
+  void _navigateToSubscriptionPayment() {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -203,7 +202,6 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
     );
   }
 
-  // Método para recuperar tokens armazenados (para debug)
   Future<Map<String, String>> getStoredTokens() async {
     final accessToken = await storage.read(key: 'accessToken');
     final idToken = await storage.read(key: 'idToken');
@@ -336,7 +334,9 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
         return null;
       },
     );
-  }  Widget _buildError() {
+  }
+
+  Widget _buildError() {
     return Container(
       padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -357,6 +357,7 @@ class _LoginEmailScreenState extends State<LoginEmailScreen> {
       ),
     );
   }
+
   Widget _buildLoginButton() {
     return SizedBox(
       width: double.infinity,

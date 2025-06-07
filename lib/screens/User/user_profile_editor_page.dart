@@ -38,11 +38,10 @@ class _UserProfileEditorPageState extends State<UserProfileEditorPage> {
     setState(() => _isLoading = true);
 
     try {
-      // Prepare the payload
       final updatedData = {
         "nome": _nameController.text,
         "telefone": _phoneController.text,
-        "cpf": widget.userData?['usuario']?['cpf'], // Keep the CPF as it is
+        "cpf": widget.userData?['usuario']?['cpf'],
         "Usuario_Tipo": widget.userData?['usuario']?['Usuario_Tipo'],
         "fk_id_Endereco": int.parse(widget.userData?['endereco']?['id_Endereco']?.toString() ?? '0'),
       };
@@ -65,8 +64,8 @@ class _UserProfileEditorPageState extends State<UserProfileEditorPage> {
       final responseBody = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        widget.onSave(updatedData); // Notify the parent widget
-        Navigator.pop(context); // Go back to the previous page
+        widget.onSave(updatedData);
+        Navigator.pop(context);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erro: ${responseBody['message']}')),

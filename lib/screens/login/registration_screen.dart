@@ -5,7 +5,6 @@ import 'package:http/http.dart' as http;
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:vizinhos_app/screens/login/login_email_screen.dart';
 import 'package:vizinhos_app/screens/terms_screen.dart';
-import 'package:vizinhos_app/screens/vendor/vendor_subscription_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:vizinhos_app/screens/vendor/vendor_subscription_screen_new.dart'; // Para seleção de imagens
 
@@ -19,9 +18,7 @@ class RegistrationScreen extends StatefulWidget {
       _RegistrationScreenState(); // Use State<RegistrationScreen>
 }
 
-class _RegistrationScreenState extends State<RegistrationScreen> {
-  // Controladores dos campos básicos
-  final TextEditingController fullNameController = TextEditingController();
+class _RegistrationScreenState extends State<RegistrationScreen> {  final TextEditingController fullNameController = TextEditingController();
   final TextEditingController cpfController = TextEditingController();
   final TextEditingController phoneNumberController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
@@ -31,17 +28,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final TextEditingController addressComplementController =
       TextEditingController();
 
-  // Controladores para dados do vendedor
   final TextEditingController sellerNameController = TextEditingController();
   final TextEditingController sellerDescriptionController =
       TextEditingController();
-  // Este controlador armazenará o valor da imagem em base64.
   final TextEditingController sellerImageController = TextEditingController();
   final TextEditingController sellerDeliveryTypeController =
-      TextEditingController();
-
-  // Máscaras para CPF, CEP e Telefone
-  final cpfMaskFormatter = MaskTextInputFormatter(
+      TextEditingController();  final cpfMaskFormatter = MaskTextInputFormatter(
     mask: '###.###.###-##',
     filter: {"#": RegExp(r'[0-9]')},
   );
@@ -52,31 +44,22 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final phoneMaskFormatter = MaskTextInputFormatter(
     mask: '+55 (##) #####-####',
     filter: {"#": RegExp(r'[0-9]')},
-    // initialText: '+55 ', // Consider removing if causing issues or making optional
   );
 
-  // Estado e navegação entre páginas
   int _currentPage = 0;
   late final PageController _pageController;
   bool isLoading = false;
   bool isSeller = false;
   bool acceptedTerms = false;
-  // Usaremos um GlobalKey para o Scaffold para garantir acesso ao context correto para Snackbars
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  // Ou use um BuildContext armazenado como você fez, mas GlobalKey é mais robusto.
-  // late BuildContext _scaffoldContext; // Você estava usando isso, o que é ok se usado corretamente via Builder
-
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
-    // Pré-preenche o telefone se necessário
-    // phoneNumberController.text = '+55 '; // Se usar initialText no formatter, não precisa disso
   }
 
   @override
   void dispose() {
-    // Dispose de TODOS os controllers
     _pageController.dispose();
     fullNameController.dispose();
     cpfController.dispose();
@@ -90,10 +73,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     sellerDescriptionController.dispose();
     sellerImageController.dispose();
     sellerDeliveryTypeController.dispose();
-    super.dispose();
-  }
+    super.dispose();  }
 
-// Versão corrigida da função _pickImage()
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
@@ -101,33 +82,25 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     if (pickedFile != null) {
       setState(() {
         isLoading = true;
-      });
-
-      try {
-        // Obter a extensão do arquivo
+      });      try {
         final String extension = pickedFile.path.split('.').last.toLowerCase();
         if (!['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(extension)) {
           throw Exception(
               'Formato de imagem não suportado. Use JPG, PNG, GIF ou WebP.');
         }
 
-        // Normalizar extensão (jpg/jpeg)
         final String normalizedExtension =
             extension == 'jpeg' ? 'jpg' : extension;
 
-        // Ler os bytes da imagem
         final bytes = await pickedFile.readAsBytes();
 
-        // Converter para base64
         final String base64Image = base64Encode(bytes);
 
-        // Preparar o payload para a API
         final Map<String, dynamic> payload = {
           'image': base64Image,
           'file_extension': normalizedExtension
         };
 
-        // Enviar para a API SaveStoreImage
         final response = await http.post(
           Uri.parse(
               'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/SaveStoreImage'),
@@ -135,7 +108,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           body: jsonEncode(payload),
         );
 
-        // Depuração: imprimir a resposta completa
         print('Resposta da API SaveStoreImage: ${response.body}');
 
         // Verificar resposta

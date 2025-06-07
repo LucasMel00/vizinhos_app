@@ -1,10 +1,9 @@
 import 'dart:convert';
-import 'dart:typed_data'; // Needed for Uint8List
+import 'dart:typed_data';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-// Make sure this import path is correct for your project structure
 import 'package:vizinhos_app/screens/login/login_email_screen.dart';
 
 class VendorSubscriptionScreen extends StatefulWidget {
@@ -21,11 +20,10 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
   String? selectedPlan;
   bool isLoading = false;
   Map<String, dynamic>? paymentData;
-  Uint8List? _qrCodeBytes; // Store decoded QR code bytes here
+  Uint8List? _qrCodeBytes;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
-  // Plan data - verify pricing/discount logic if needed
   final Map<String, Map<String, dynamic>> plans = {
     'one_month': {
       'title': 'Plano Mensal',
@@ -46,7 +44,7 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
     'three_month': {
       'title': 'Plano Trimestral',
       'price': 120.00,
-      'originalPrice': 150.00, // Assuming 3 * 50
+      'originalPrice': 150.00,
       'discount': 30,
       'duration': '3 meses',
       'description': 'Mais popular',
@@ -59,7 +57,7 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
     },
     'six_month': {
       'title': 'Plano Semestral',
-      'price': 220.00, // Based on original code's 360 - 140
+      'price': 220.00,
       'originalPrice': 360.00,
       'discount': 140,
       'duration': '6 meses',
@@ -77,7 +75,6 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
   @override
   void initState() {
     super.initState();
-    // print('[VendorSubscriptionScreen] Email recebido: ${widget.email}'); // Commented out for cleaner logs
 
     _pulseController = AnimationController(
       duration: const Duration(seconds: 2),
@@ -85,7 +82,7 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
     );
     _pulseAnimation = Tween<double>(
       begin: 1.0,
-      end: 1.05, // Slightly reduced pulse intensity
+      end: 1.05,
     ).animate(CurvedAnimation(
       parent: _pulseController,
       curve: Curves.easeInOut,
@@ -107,20 +104,15 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
 
     setState(() {
       isLoading = true;
-      _qrCodeBytes = null; // Reset QR code bytes on new attempt
-      paymentData = null; // Reset payment data
+      _qrCodeBytes = null;
+      paymentData = null;
     });
 
     try {
-      // print('[VendorSubscriptionScreen] Email usado na API: ${widget.email}'); // Commented out
-      // print('[VendorSubscriptionScreen] Plano selecionado: $selectedPlan'); // Commented out
-
       final Map<String, dynamic> requestBody = {
         'email': widget.email,
         'vendor_plan': selectedPlan!,
       };
-
-      // print('[VendorSubscriptionScreen] Request body: $requestBody'); // Commented out
 
       final response = await http.post(
         Uri.parse('https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/VendorSubscription'),
@@ -128,27 +120,20 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
         body: jsonEncode(requestBody),
       );
 
-      // print('Status Code: ${response.statusCode}'); // Commented out
-      // print('Response Body: ${response.body}'); // Commented out
-
       if (response.statusCode == 201) {
         final responseData = jsonDecode(response.body);
-        Uint8List? decodedBytes; // Temporary variable for decoding
+        Uint8List? decodedBytes;
 
-        // Decode Base64 here, only once
         if (responseData.containsKey('qr_code_base64')) {
           final qrBase64 = responseData['qr_code_base64'] as String?;
           if (qrBase64 != null && qrBase64.isNotEmpty) {
              try {
-               // Remove potential data URI prefix if present
                final String pureBase64 = qrBase64.startsWith('data:image')
                    ? qrBase64.substring(qrBase64.indexOf(',') + 1)
                    : qrBase64;
                decodedBytes = base64Decode(pureBase64);
-               // print('[VendorSubscriptionScreen] Base64 decode successful, bytes: ${decodedBytes.length}'); // Commented out
              } catch (e) {
                print('[VendorSubscriptionScreen] Base64 decode failed: $e');
-               // Keep decodedBytes as null
              }
           } else {
              print('[VendorSubscriptionScreen] Received empty or null qr_code_base64 string.');
@@ -159,10 +144,9 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
 
         setState(() {
           paymentData = responseData;
-          _qrCodeBytes = decodedBytes; // Store the decoded bytes (or null if failed/missing)
+          _qrCodeBytes = decodedBytes;
         });
 
-        // Show modal regardless, but show a warning if QR bytes are bad
         _showPaymentScreen();
         if (_qrCodeBytes == null) {
            _showSnackBar('Assinatura criada, mas houve um problema ao gerar o QR Code. Use o código PIX.', Colors.orangeAccent);
@@ -176,7 +160,6 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
             errorMessage = decoded['message'] ?? errorMessage;
           }
         } catch (e) {
-          // print('Erro na decodificação da resposta JSON: $e'); // Commented out
         }
         _showSnackBar(errorMessage, Colors.redAccent);
       }
@@ -184,7 +167,6 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
       print('[VendorSubscriptionScreen] Connection Error: $e');
       _showSnackBar('Erro de conexão. Verifique sua internet.', Colors.redAccent);
     } finally {
-      // Ensure isLoading is set to false even if modal is shown quickly
       if (mounted) {
          setState(() {
            isLoading = false;
@@ -195,7 +177,6 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
 
   void _showPaymentScreen() {
     if (paymentData == null && !isLoading) {
-       // Avoid showing modal if data is null AND we are not in a loading state (e.g., after an error)
        print("[VendorSubscriptionScreen] Payment data is null, not showing modal.");
        return;
     }
@@ -203,35 +184,31 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      isDismissible: false, // Keep it non-dismissible until user action
+      isDismissible: false,
       enableDrag: false,
       backgroundColor: Colors.transparent,
       builder: (context) => _buildPaymentModal(),
     );
   }
 
-  // Helper to navigate to login, ensuring context is valid
   void _navigateToLogin() {
     if (mounted) {
-       // Pop the modal first if it's potentially still open
-       // Check if modal is open before popping
        if (Navigator.of(context).canPop()) {
           Navigator.of(context).pop();
        }
 
        Navigator.pushAndRemoveUntil(
          context,
-         MaterialPageRoute(builder: (context) => LoginEmailScreen(email: widget.email)), // Pass the required email argument
-         (Route<dynamic> route) => false, // Remove all previous routes
+         MaterialPageRoute(builder: (context) => LoginEmailScreen(email: widget.email)),
+         (Route<dynamic> route) => false,
        );
     }
   }
 
   Widget _buildPaymentModal() {
-    // Handle cases where paymentData might become null unexpectedly or during loading
     if (paymentData == null) {
       return Container(
-          height: MediaQuery.of(context).size.height * 0.5, // Smaller height for error/loading
+          height: MediaQuery.of(context).size.height * 0.5,
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.only(
@@ -239,7 +216,7 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
               topRight: Radius.circular(24),
             ),
           ),
-          child: const Center(child: CircularProgressIndicator(color: Color(0xFFFbbc2c))) // Show loading or error
+          child: const Center(child: CircularProgressIndicator(color: Color(0xFFFbbc2c)))
       );
     }
 
@@ -259,7 +236,6 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
         child: Column(
           children: [
-            // Header with Close Button
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -273,7 +249,6 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
                 ),
                 IconButton(
                   onPressed: () {
-                    // Navigator.pop(context); // Pop is handled in _navigateToLogin now
                     _navigateToLogin();
                   },
                   icon: const Icon(Icons.close, color: Colors.grey),
@@ -283,7 +258,6 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
             ),
             const SizedBox(height: 20),
 
-            // Valor do pagamento
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
@@ -314,7 +288,6 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
             ),
             const SizedBox(height: 24),
 
-            // Scrollable content area
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -330,12 +303,10 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
                     ),
                     const SizedBox(height: 16),
 
-                    // QR Code Image (using stored bytes)
-                    _buildQRCodeImage(), // Uses _qrCodeBytes
+                    _buildQRCodeImage(),
 
                     const SizedBox(height: 24),
 
-                    // Código PIX copiável
                     if (qrCodePix != null && qrCodePix.isNotEmpty)
                       Container(
                         width: double.infinity,
@@ -403,13 +374,11 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
               ),
             ),
 
-            // Bottom Button
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // Navigator.pop(context); // Pop is handled in _navigateToLogin now
                   _navigateToLogin();
                 },
                 style: ElevatedButton.styleFrom(
@@ -437,14 +406,10 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
   }
 
   Widget _buildQRCodeImage() {
-    // print('[VendorSubscriptionScreen] _buildQRCodeImage called'); // Commented out
-
     if (_qrCodeBytes == null) {
-      // print('[VendorSubscriptionScreen] QR Code bytes are null, showing placeholder.'); // Commented out
       return _buildErrorPlaceholder('QR Code indisponível');
     }
 
-    // print('[VendorSubscriptionScreen] Rendering QR Code from stored bytes: ${_qrCodeBytes!.length}'); // Commented out
     return Container(
       width: 240,
       height: 240,
@@ -463,11 +428,10 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
         border: Border.all(color: Colors.grey[200]!, width: 1),
       ),
       child: Image.memory(
-        _qrCodeBytes!, // Use stored bytes directly
+        _qrCodeBytes!,
         fit: BoxFit.contain,
-        gaplessPlayback: true, // Helps prevent flicker on rebuilds
+        gaplessPlayback: true,
         frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-          // print('[VendorSubscriptionScreen] Image frame: $frame, sync: $wasSynchronouslyLoaded'); // Commented out
           if (wasSynchronouslyLoaded) {
             return child;
           }
@@ -480,11 +444,6 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
         },
         errorBuilder: (context, error, stackTrace) {
           print('[VendorSubscriptionScreen] Error rendering stored QR bytes: $error');
-          // Consider logging stackTrace to a proper logging service if needed
-          // Potentially reset bytes if error indicates permanent failure
-          // WidgetsBinding.instance.addPostFrameCallback((_) {
-          //   if (mounted) setState(() => _qrCodeBytes = null);
-          // });
           return _buildErrorPlaceholder('Erro ao exibir QR Code');
         },
       ),
@@ -546,7 +505,6 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 1,
-        // Automatically implies back button if pushed onto navigation stack
       ),
       body: Stack(
         children: [
@@ -568,7 +526,6 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
-                  // Build plan cards dynamically
                   ...plans.entries.map((entry) {
                     return _buildPlanCard(entry.key, entry.value);
                   }).toList(),
@@ -594,7 +551,6 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
               ),
             ),
           ),
-          // Loading Overlay
           if (isLoading)
             Container(
               color: Colors.black.withOpacity(0.5),
@@ -690,7 +646,6 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
                        borderRadius: BorderRadius.circular(4)
                      ),
                      child: Text(
-                       // Calculate discount percentage or value dynamically if needed
                        'Economize R\$ ${(originalPrice - price).toStringAsFixed(2)}',
                        style: const TextStyle(
                          fontSize: 10,
@@ -768,7 +723,7 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
 
     return GestureDetector(
       onTap: () {
-        if (!isLoading) { // Prevent changing plan while loading
+        if (!isLoading) {
            setState(() {
              selectedPlan = planKey;
            });
@@ -780,15 +735,15 @@ class _VendorSubscriptionScreenState extends State<VendorSubscriptionScreen>
 
   void _showSnackBar(String message, Color backgroundColor) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).removeCurrentSnackBar(); // Remove previous snackbar if any
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         backgroundColor: backgroundColor,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.fromLTRB(15, 5, 15, 10), // Adjust margin
-        duration: const Duration(seconds: 4), // Show for longer
+        margin: const EdgeInsets.fromLTRB(15, 5, 15, 10),
+        duration: const Duration(seconds: 4),
       ),
     );
   }

@@ -76,7 +76,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Seus Vizinhos Favoritao'),
+        title: const Text('Seus Vizinhos Favoritos'),
         backgroundColor: primaryColor,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),

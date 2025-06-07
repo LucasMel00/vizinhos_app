@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:vizinhos_app/screens/model/lote.dart';
 
-// Classe Characteristic
 class Characteristic {
   final String id_Caracteristica;
   final String descricao;
@@ -28,7 +27,6 @@ class Characteristic {
   }
 }
 
-// Classe Product
 class Product {
   final String id;
   final String nome;
@@ -46,12 +44,11 @@ class Product {
   final String? imagemUrl;
   final String? imageId;
   final double? desconto;
-  final dynamic lote; // Pode ser objeto Lote ou apenas o id_lote (String)
+  final dynamic lote;
   final DateTime? dataFabricacao;
   final int? quantidade;
-  final bool flagOferta; // Adicionado campo para flag de oferta
+  final bool flagOferta;
 
-  // Getter para manter compatibilidade com código antigo
   String? get id_lote {
     if (lote == null) return null;
     if (lote is String && lote != 'null') return lote;
@@ -69,7 +66,6 @@ class Product {
     return null;
   }
 
-  // Função auxiliar para obter a quantidade a partir do lote, se presente
   static int? _getQuantidadeFromLote(dynamic lote) {
     if (lote is Map<String, dynamic> && lote['quantidade'] != null) {
       return _parseInt(lote['quantidade']);
@@ -97,12 +93,10 @@ class Product {
     this.lote,
     this.dataFabricacao,
     this.quantidade,
-    this.flagOferta = false, // Valor padrão false
+    this.flagOferta = false,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
-    // DEBUG: Mostra o JSON bruto recebido para análise do campo lote
-    print('[DEBUG] JSON recebido em Product.fromJson: ' + jsonEncode(json));
     List<Characteristic> parseCharacteristics(dynamic characteristicsJson) {
       if (characteristicsJson == null) return [];
       if (characteristicsJson is List) {
@@ -127,16 +121,13 @@ class Product {
       return [];
     }
 
-    // Lote pode ser um objeto, id_lote, ou vir separado
     dynamic loteObj;
-    // Se vier um objeto 'lote', usa normalmente
     if (json['lote'] != null) {
       if (json['lote'] is Map<String, dynamic>) {
         loteObj = Lote.fromJson(json['lote']);
       } else {
         loteObj = json['lote'];
       }
-      // Se vier apenas o id_lote, salva como string
     } else if (json['id_lote'] != null &&
         json['id_lote'].toString() != 'null') {
       loteObj = json['id_lote'].toString();
@@ -168,7 +159,7 @@ class Product {
       quantidade: json['quantidade'] != null
           ? _parseInt(json['quantidade'])
           : _getQuantidadeFromLote(json['lote']),
-      flagOferta: json['flag_oferta'] ?? false, // Mapeamento da flag de oferta
+      flagOferta: json['flag_oferta'] ?? false,
     );
   }
 
@@ -205,18 +196,15 @@ class Product {
       'caracteristicas_IDs': caracteristicasIDs,
       if (imageId != null) 'id_imagem': imageId,
       if (desconto != null) 'desconto': desconto,
-      // Envia id_lote se for string, ou lote se for objeto
       if (lote != null) (lote is String ? 'id_lote' : 'lote'): lote,
       if (dataFabricacao != null)
         'dt_fabricacao': dataFabricacao!.toIso8601String().split('T')[0],
       'quantidade': quantidade ?? _getQuantidadeFromLote(lote),
-      'flag_oferta': flagOferta, // Incluir flag de oferta no JSON
+      'flag_oferta': flagOferta,
     };
   }
 
-  // Utilitário: busca produto e lote e retorna Product com lote preenchido
   static Future<Product> fetchProductWithBatch(String productId) async {
-    // 1. Buscar produto
     final productResp = await http.get(Uri.parse(
         'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetProductById?id_Produto=$productId'));
     if (productResp.statusCode != 200) {
@@ -225,12 +213,10 @@ class Product {
     final productJson = jsonDecode(productResp.body);
     final product = Product.fromJson(productJson);
 
-    // Se já veio id_lote no JSON, não precisa buscar o lote separadamente
     if (product.id_lote != null && product.id_lote!.isNotEmpty) {
       return product;
     }
 
-    // 2. Buscar lote apenas se não veio no produto
     final batchResp = await http.get(Uri.parse(
         'https://gav0yq3rk7.execute-api.us-east-2.amazonaws.com/GetBatchByProductId?fk_id_Produto=$productId'));
     if (batchResp.statusCode == 200) {
@@ -263,7 +249,6 @@ class Product {
         );
       }
     }
-    // Se não houver lote, retorna o product original
     return product;
   }
 }

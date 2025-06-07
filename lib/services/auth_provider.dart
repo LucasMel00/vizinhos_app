@@ -14,11 +14,10 @@ class AuthProvider with ChangeNotifier {
   Map<String, dynamic> _userInfo = {};
   Map<String, dynamic>? _storeInfo;
   String? _email;
-  String? _idEndereco; // Nova propriedade
+  String? _idEndereco;
   String? _fcmToken;
   String? _cpf;
 
-  // Constantes para evitar erros de digitação nas chaves
   static const String KEY_ACCESS_TOKEN = 'accessToken';
   static const String KEY_ID_TOKEN = 'idToken';
   static const String KEY_REFRESH_TOKEN = 'refreshToken';
@@ -31,7 +30,6 @@ class AuthProvider with ChangeNotifier {
 
   final _storage = FlutterSecureStorage();
 
-  // Getters
   String? get accessToken => _accessToken;
   String? get idToken => _idToken;
   String? get refreshToken => _refreshToken;
@@ -59,41 +57,33 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Adiciona um setter para atualizar o idEndereco
-
-  // Recupera o idEndereco do storage
   Future<void> loadIdEndereco() async {
     _idEndereco = await _storage.read(key: 'idEndereco');
     notifyListeners();
   }
 
-  // Atualiza o idEndereco e armazena no storage
   Future<void> setIdEndereco(String idEndereco) async {
     _idEndereco = idEndereco;
     await _storage.write(key: 'idEndereco', value: idEndereco);
     notifyListeners();
   }
 
-  // Recupera o cpf do storage
   Future<void> loadCpf() async {
     _cpf = await _storage.read(key: KEY_CPF);
     notifyListeners();
   }
 
-  // Atualiza o cpf e armazena no storage
   Future<void> setCpf(String cpf) async {
     _cpf = cpf;
     await _storage.write(key: KEY_CPF, value: cpf);
     notifyListeners();
   }
 
-  // Recupera o fcmToken do storage
   Future<void> loadFcmToken() async {
     _fcmToken = await _storage.read(key: KEY_FCM_TOKEN);
     notifyListeners();
   }
 
-  // Atualiza o fcmToken e armazena no storage
   Future<void> setFcmToken(String fcmToken) async {
     _fcmToken = fcmToken;
     await _storage.write(key: KEY_FCM_TOKEN, value: fcmToken);
@@ -141,14 +131,12 @@ class AuthProvider with ChangeNotifier {
   }) async {
     print('AuthProvider: iniciando login');
     try {
-      // Atualiza variáveis em memória
       _accessToken = accessToken;
       _idToken = idToken;
       _refreshToken = refreshToken;
       _expiresIn = expiresIn;
       _email = email;
 
-      // Persiste no storage seguro
       await _storage.write(key: KEY_ACCESS_TOKEN, value: accessToken);
       await _storage.write(key: KEY_ID_TOKEN, value: idToken);
       await _storage.write(key: KEY_REFRESH_TOKEN, value: refreshToken);
@@ -171,10 +159,8 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> logout() async {
-    // Limpar storage seguro
     await _storage.deleteAll();
 
-    // Limpar variáveis em memória
     _accessToken = null;
     _idToken = null;
     _refreshToken = null;

@@ -4,8 +4,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
-import 'package:vizinhos_app/screens/provider/notification_provider.dart'; // Importar NotificationProvider
-import 'package:vizinhos_app/notifications_screen.dart'; // Importar NotificationsScreen
+import 'package:vizinhos_app/screens/provider/notification_provider.dart';
+import 'package:vizinhos_app/notifications_screen.dart';
 import 'package:vizinhos_app/screens/splash/splash_screen.dart';
 import 'package:vizinhos_app/screens/cart/cart_screen.dart';
 import 'package:vizinhos_app/screens/provider/cart_provider.dart';
@@ -13,19 +13,13 @@ import 'package:vizinhos_app/screens/provider/orders_provider.dart';
 import 'package:vizinhos_app/screens/provider/favorites_provider.dart';
 import 'package:vizinhos_app/services/auth_provider.dart';
 
-// Plugin para notificações locais
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
-// Handler para notificações em segundo plano
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   print('🔔 Notificação recebida em segundo plano: ${message.messageId}');
-  // NOTA: Adicionar notificações ao SharedPreferences aqui para serem carregadas pelo Provider depois
-  // Esta parte requer uma implementação cuidadosa para comunicação entre isolates ou acesso direto ao SharedPreferences.
-  // Por simplicidade e foco no pedido principal, esta parte não será completamente implementada aqui.
-  // O ideal seria ter uma forma de o NotificationProvider ser notificado ou recarregar.
 }
 
 void main() async {
@@ -43,7 +37,8 @@ void main() async {
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   runApp(
-    MultiProvider(      providers: [
+    MultiProvider(
+      providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => OrdersProvider()),

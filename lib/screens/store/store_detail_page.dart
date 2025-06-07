@@ -13,18 +13,7 @@ import 'package:provider/provider.dart';
 import 'package:vizinhos_app/screens/provider/cart_provider.dart';
 import 'package:vizinhos_app/screens/provider/favorites_provider.dart';
 
-// Classe para resumo de avaliações por usuário
-class UserSummary {
-  final String usuario;
-  final double mediaNota;
-  final String ultimaData;
-
-  UserSummary({
-    required this.usuario,
-    required this.mediaNota,
-    required this.ultimaData,
-  });
-}
+// Individual review class is no longer needed since we display all reviews directly
 
 // Paleta de cores consistente e acessível
 const Color primaryColor = Color(0xFFFbbc2c);
@@ -311,10 +300,9 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                                                   .withOpacity(0.15),
                                               offset: Offset(0, 1),
                                             ),
-                                          ]),
-                                      SizedBox(width: 4),
+                                          ]),                                      SizedBox(width: 4),
                                       Text(
-                                        rating.toStringAsFixed(2),
+                                        rating.toStringAsFixed(1),
                                         style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.bold,
@@ -460,7 +448,6 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
         final media =
             data['media_avaliacoes'] ?? data['loja']?['media_avaliacoes'];
         final avaliacoes = data['avaliacoes'] ?? data['loja']?['avaliacoes'];
-        // Se não houver avaliações ou média for 0/null, retorna 5.0
         if (media == null ||
             media == 0 ||
             (avaliacoes is List && avaliacoes.isEmpty)) {
@@ -492,83 +479,8 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
       }
       return [];
     } catch (_) {
-      return [];
-    }  }
+      return [];    }  }
 
-  // Função auxiliar para arredondar médias para valores específicos
-  double _roundToSpecificValues(double media) {
-    if (media >= 4.875) return 4.75;  // >= 4.875 → 5.0
-    if (media >= 4.625) return 4.75; // >= 4.625 → 4.75
-    if (media >= 4.25)  return 4.5;  // >= 4.25 → 4.5
-    return 4.0;                      // < 4.25 → 4.0
-  }
-
-  // Processa avaliações para calcular média por usuário
-  List<UserSummary> _processReviews(List<Map<String, dynamic>> reviews) {
-    Map<String, List<Map<String, dynamic>>> userReviews = {};
-    
-    // Agrupa avaliações por usuário
-    for (var review in reviews) {
-      final usuario = review['usuario'] ?? 'Usuário';
-      if (!userReviews.containsKey(usuario)) {
-        userReviews[usuario] = [];
-      }
-      userReviews[usuario]!.add(review);
-    }
-    
-    // Calcula média e última data para cada usuário
-    List<UserSummary> userSummaries = [];
-    userReviews.forEach((usuario, reviews) {
-      double mediaTotal = 0;
-      String ultimaData = '';
-      DateTime? ultimaDataObj;
-      
-      for (var review in reviews) {
-        final nota = review['nota'] ?? 5;
-        mediaTotal += nota;
-        
-        // Tenta pegar data_hora_criacao primeiro, depois data como fallback
-        final dataStr = review['data_hora_criacao'] ?? review['data'] ?? '';
-        if (dataStr.isNotEmpty) {
-          try {
-            final dataObj = DateTime.parse(dataStr);
-            if (ultimaDataObj == null || dataObj.isAfter(ultimaDataObj)) {
-              ultimaDataObj = dataObj;
-              ultimaData = DateFormat('dd/MM/yyyy').format(dataObj);
-            }
-          } catch (e) {
-            // Se não conseguir fazer parse da data, usa a string original formatada
-            if (ultimaData.isEmpty) {
-              // Tenta extrair apenas a data da string no formato ISO
-              if (dataStr.contains('T')) {
-                final datePart = dataStr.split('T')[0];
-                try {
-                  final dateObj = DateTime.parse(datePart);
-                  ultimaData = DateFormat('dd/MM/yyyy').format(dateObj);
-                } catch (e) {
-                  ultimaData = datePart;
-                }
-              } else {
-                ultimaData = dataStr;
-              }
-            }
-          }
-        }      }
-      
-      final media = mediaTotal / reviews.length;
-      final mediaArredondada = _roundToSpecificValues(media);
-      userSummaries.add(UserSummary(
-        usuario: usuario,
-        mediaNota: mediaArredondada,
-        ultimaData: ultimaData.isNotEmpty ? ultimaData : 'N/A',
-      ));
-    });
-    
-    // Ordena por média (maior para menor)
-    userSummaries.sort((a, b) => b.mediaNota.compareTo(a.mediaNota));
-    
-    return userSummaries;
-  }
   // Modal para exibir avaliações da loja
   void _showStoreReviewsModal(String idLoja) async {
     showModalBottomSheet(
@@ -588,7 +500,19 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
               );
             }
             final reviews = snapshot.data ?? [];
-            final userSummaries = _processReviews(reviews);
+            
+            // Ordenar avaliações por data (mais recente primeiro)
+            reviews.sort((a, b) {
+              final dateA = a['data_hora_criacao'] ?? a['data'] ?? '';
+              final dateB = b['data_hora_criacao'] ?? b['data'] ?? '';
+              try {
+                final parsedA = DateTime.parse(dateA);
+                final parsedB = DateTime.parse(dateB);
+                return parsedB.compareTo(parsedA); // Ordem decrescente (mais recente primeiro)
+              } catch (e) {
+                return 0; // Se não conseguir fazer parse, mantém ordem atual
+              }
+            });
             
             return Padding(
               padding: EdgeInsets.only(
@@ -618,8 +542,19 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                       ),
                     ],
                   ),
+                  if (reviews.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Text(
+                        '${reviews.length} avaliação${reviews.length == 1 ? '' : 'ões'}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ),
                   Divider(),
-                  if (userSummaries.isEmpty)
+                  if (reviews.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 32.0),
                       child: Center(
@@ -635,67 +570,136 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                     Flexible(
                       child: ListView.separated(
                         shrinkWrap: true,
-                        itemCount: userSummaries.length,
-                        separatorBuilder: (_, __) => Divider(),
-                        itemBuilder: (context, idx) {
-                          final userSummary = userSummaries[idx];
-                          return ListTile(
-                            leading: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: Colors.amber.withOpacity(0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.person,
-                                color: Colors.amber[700],
-                                size: 20,
+                        itemCount: reviews.length,
+                        separatorBuilder: (_, __) => Divider(height: 24),                        itemBuilder: (context, idx) {
+                          final review = reviews[idx];
+                          final usuario = review['usuario'] ?? 'Usuário Anônimo';
+                          final avaliacaoRaw = review['avaliacao'] ?? 5;
+                          double nota;
+                          if (avaliacaoRaw is num) {
+                            nota = avaliacaoRaw.toDouble();
+                          } else {
+                            nota = double.tryParse(avaliacaoRaw.toString()) ?? 5.0;
+                          }
+                          final dataStr = review['data_hora_criacao'] ?? review['data'] ?? '';
+                          
+                          String dataFormatada = 'Data não informada';
+                          if (dataStr.isNotEmpty) {
+                            try {
+                              final dataObj = DateTime.parse(dataStr);
+                              dataFormatada = DateFormat('dd/MM/yyyy HH:mm').format(dataObj);
+                            } catch (e) {
+                              // Se não conseguir fazer parse da data, tenta extrair apenas a data
+                              if (dataStr.contains('T')) {
+                                final datePart = dataStr.split('T')[0];
+                                try {
+                                  final dateObj = DateTime.parse(datePart);
+                                  dataFormatada = DateFormat('dd/MM/yyyy').format(dateObj);
+                                } catch (e) {
+                                  dataFormatada = datePart;
+                                }
+                              } else {
+                                dataFormatada = dataStr;
+                              }
+                            }
+                          }
+                          
+                          return Container(
+                            padding: EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.grey[200]!,
+                                width: 1,
                               ),
                             ),
-                            title: Text(
-                              userSummary.usuario,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            subtitle: Column(
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                SizedBox(height: 4),
                                 Row(
                                   children: [
-                                    Icon(
-                                      Icons.star,
-                                      color: Colors.amber,
-                                      size: 16,
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: Colors.amber.withOpacity(0.1),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.person,
+                                        color: Colors.amber[700],
+                                        size: 20,
+                                      ),
                                     ),
-                                    SizedBox(width: 4),
-                                    Text(
-                                      'Média: ${userSummary.mediaNota.toStringAsFixed(1)}',
-                                      style: TextStyle(
-                                        color: Colors.amber[900],
-                                        fontWeight: FontWeight.w500,
-                                        fontSize: 14,
+                                    SizedBox(width: 12),                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            usuario,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          SizedBox(height: 4),                                          Row(
+                                            children: [
+                                              ...List.generate(5, (starIndex) {
+                                                double starValue = starIndex + 1.0;
+                                                if (nota >= starValue) {
+                                                  // Estrela cheia
+                                                  return Icon(
+                                                    Icons.star,
+                                                    color: Colors.amber,
+                                                    size: 18,
+                                                  );
+                                                } else if (nota >= starValue - 0.5) {
+                                                  // Meia estrela
+                                                  return Icon(
+                                                    Icons.star_half,
+                                                    color: Colors.amber,
+                                                    size: 18,
+                                                  );
+                                                } else {
+                                                  // Estrela vazia
+                                                  return Icon(
+                                                    Icons.star_border,
+                                                    color: Colors.amber,
+                                                    size: 18,
+                                                  );
+                                                }
+                                              }),
+                                              SizedBox(width: 8),
+                                              Text(
+                                                '${nota.toStringAsFixed(1)}/5',
+                                                style: TextStyle(
+                                                  color: Colors.amber[900],
+                                                  fontWeight: FontWeight.w500,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
                                 ),
-                                SizedBox(height: 2),
+                                SizedBox(height: 8),
                                 Row(
                                   children: [
                                     Icon(
                                       Icons.calendar_today,
-                                      color: Colors.grey[600],
+                                      color: Colors.grey[500],
                                       size: 14,
                                     ),
                                     SizedBox(width: 4),
                                     Text(
-                                      'Data da avaliação: ${userSummary.ultimaData}',
+                                      dataFormatada,
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: Colors.grey[600],
+                                        color: Colors.grey[500],
                                       ),
                                     ),
                                   ],

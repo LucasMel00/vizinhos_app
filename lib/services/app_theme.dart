@@ -1,29 +1,22 @@
 import 'package:flutter/material.dart';
 
-/// Tema centralizado do aplicativo Vizinhos
-/// Contém todas as definições de cores, estilos de texto e temas de componentes
 class AppTheme {
-  // Cores primárias
   static const Color primaryColor = Color(0xFFFbbc2c);
   static const Color primaryLightColor = Color(0xFFFDD78C);
   static const Color primaryDarkcColor = Color(0xFFE5A718);
 
-  // Cores secundárias
   static const Color accentColor = Color(0xFF5F4A14);
 
-  // Cores neutras
   static const Color backgroundColor = Color(0xFFF5F5F5);
   static const Color cardColor = Colors.white;
   static const Color dividerColor = Color(0xFFE0E0E0);
   static const Color textPrimaryColor = Color(0xFF212121);
   static const Color textSecondaryColor = Color(0xFF757575);
 
-  // Cores de estado
   static const Color successColor = Color(0xFF4CAF50);
   static const Color errorColor = Color(0xFFE53935);
   static const Color infoColor = Color.fromARGB(255, 230, 202, 20);
 
-  // Estilos de texto
   static const TextStyle headingStyle = TextStyle(
     fontSize: 24,
     fontWeight: FontWeight.bold,
@@ -66,21 +59,18 @@ class AppTheme {
     color: textSecondaryColor,
   );
 
-  // Novo estilo para preços
   static const TextStyle priceStyle = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.normal,
     color: textPrimaryColor,
   );
 
-  // Estilos para texto sobre fundos coloridos
   static const TextStyle onPrimaryTextStyle = TextStyle(
     color: Colors.white,
     fontWeight: FontWeight.bold,
     fontSize: 18,
   );
 
-  // Temas de componentes
   static final CardThemeData cardTheme = CardThemeData(
     elevation: 3,
     shape: RoundedRectangleBorder(
@@ -142,7 +132,6 @@ class AppTheme {
     iconTheme: const IconThemeData(color: Colors.white),
   );
 
-  // Tema completo do aplicativo
   static ThemeData get theme => ThemeData(
         primaryColor: primaryColor,
         scaffoldBackgroundColor: backgroundColor,
@@ -174,9 +163,6 @@ class AppTheme {
         ),
       );
 
-  // Widgets reutilizáveis
-
-  /// Cria um card de informação com ícone, título e valor
   static Widget buildInfoCard({
     required IconData icon,
     required String title,
@@ -222,14 +208,12 @@ class AppTheme {
     );
   }
 
-  /// Cria um botão de ação com ícone e texto
   static Widget buildActionButton({
     required String label,
     required IconData icon,
     required VoidCallback onPressed,
     Color? color,
   }) {
-    // Estilo de label padrão
     const TextStyle effectiveLabelStyle = TextStyle(
       color: Colors.white,
       fontSize: 14,
@@ -252,7 +236,6 @@ class AppTheme {
     );
   }
 
-  /// Cria um cabeçalho de seção com ícone e título
   static Widget buildSectionHeader(String title, IconData icon,
       {Color? color}) {
     return Row(
@@ -271,7 +254,6 @@ class AppTheme {
     );
   }
 
-  /// Cria uma barra de navegação inferior personalizada
   static Widget buildBottomNavBar({
     required int selectedIndex,
     required Function(int) onItemTapped,
@@ -322,7 +304,6 @@ class AppTheme {
     );
   }
 
-  /// Cria um badge para status ou notificações
   static Widget buildBadge({
     required String text,
     Color? backgroundColor,
